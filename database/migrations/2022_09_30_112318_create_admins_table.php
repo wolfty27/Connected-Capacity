@@ -13,12 +13,14 @@ class CreateAdminsTable extends Migration
      */
     public function up()
     {
-        Schema::create('admins', function (Blueprint $table) {
-            $table->id();
-            $table->bigInteger('user_id');
-            $table->string('date_of_birth')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('admins')) {
+            Schema::create('admins', function (Blueprint $table) {
+                $table->id();
+                $table->bigInteger('user_id');
+                $table->string('date_of_birth')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

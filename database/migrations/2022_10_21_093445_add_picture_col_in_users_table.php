@@ -14,7 +14,9 @@ class AddPictureColInUsersTable extends Migration
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('picture')->nullable();
+            if (!Schema::hasColumn('users', 'picture')) {
+                $table->string('picture')->nullable();
+            }
         });
     }
 

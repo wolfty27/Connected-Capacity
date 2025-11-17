@@ -14,7 +14,9 @@ class AddWebsiteInHospitals extends Migration
     public function up()
     {
         Schema::table('hospitals', function (Blueprint $table) {
-            $table->string('website')->nullable();
+            if (!Schema::hasColumn('hospitals', 'website')) {
+                $table->string('website')->nullable();
+            }
         });
     }
 

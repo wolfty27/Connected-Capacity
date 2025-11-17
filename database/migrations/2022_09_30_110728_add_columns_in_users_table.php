@@ -14,14 +14,30 @@ class AddColumnsInUsersTable extends Migration
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->nullable();
-            $table->string('phone_number')->nullable();
-            $table->string('country')->nullable();
-            $table->string('image')->nullable();
-            $table->string('address')->nullable();
-            $table->string('city')->nullable();
-            $table->string('state')->nullable();
-            $table->string('timezone')->nullable();
+            if (!Schema::hasColumn('users', 'role')) {
+                $table->string('role')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'phone_number')) {
+                $table->string('phone_number')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'country')) {
+                $table->string('country')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'image')) {
+                $table->string('image')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'address')) {
+                $table->string('address')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'city')) {
+                $table->string('city')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'state')) {
+                $table->string('state')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'timezone')) {
+                $table->string('timezone')->nullable();
+            }
         });
     }
 
