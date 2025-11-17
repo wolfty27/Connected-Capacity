@@ -34,7 +34,9 @@ class User extends Authenticatable
         'latitude',
         'longitude',
         'calendly_status',
-        'calendly_username'
+        'calendly_username',
+        'organization_id',
+        'organization_role'
     ];
 
     /**
@@ -59,5 +61,30 @@ class User extends Authenticatable
     public function hospitals()
     {
         return $this->hasOne(Hospital::class,'user_id');
+    }
+
+    public function organization()
+    {
+        return $this->belongsTo(ServiceProviderOrganization::class, 'organization_id');
+    }
+
+    public function memberships()
+    {
+        return $this->hasMany(OrganizationMembership::class);
+    }
+
+    public function coordinatedPatients()
+    {
+        return $this->hasMany(Patient::class, 'primary_coordinator_id');
+    }
+
+    public function assignedServiceAssignments()
+    {
+        return $this->hasMany(ServiceAssignment::class, 'assigned_user_id');
+    }
+
+    public function handledRpmAlerts()
+    {
+        return $this->hasMany(RpmAlert::class, 'handled_by');
     }
 }

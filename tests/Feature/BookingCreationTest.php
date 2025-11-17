@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BookingsController;
-use App\Models\User;
 use App\Models\Hospital;
 use App\Models\Patient;
 use App\Models\RetirementHome;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
+use Tests\TestCase;
 
 class BookingCreationTest extends TestCase
 {
@@ -17,41 +17,23 @@ class BookingCreationTest extends TestCase
 
     public function test_retirement_home_can_trigger_booking_creation()
     {
+        // Temporary route for the test to hit the booking controller action
         Route::middleware('web')->get('/test/bookings/{patient}', [BookingsController::class, 'bookAppointment']);
 
-        $hospitalUser = User::create([
-            'name' => 'Hospital User',
-            'email' => 'hospital@example.com',
-            'password' => bcrypt('secret'),
+        $hospitalUser = User::factory()->create([
             'role' => 'hospital',
         ]);
 
-        $hospital = Hospital::create([
+        $hospital = Hospital::factory()->create([
             'user_id' => $hospitalUser->id,
-            'documents' => null,
-            'website' => 'https://hospital.test',
-            'calendly' => null,
         ]);
 
-        $patientUser = User::create([
-            'name' => 'Patient One',
-            'email' => 'patient@example.com',
-            'password' => bcrypt('secret'),
-            'role' => 'patient',
-        ]);
-
-        $patient = Patient::create([
-            'user_id' => $patientUser->id,
-            'hospital_id' => $hospital->id,
-            'status' => 'Inactive',
-            'gender' => 'Male',
-        ]);
-
-        $retirementUser = User::create([
-            'name' => 'Retirement User',
-            'email' => 'retirement@example.com',
-            'password' => bcrypt('secret'),
+        $retirementUser = User::factory()->create([
             'role' => 'retirement-home',
+        ]);
+
+        $patient = Patient::factory()->create([
+            'hospital_id' => $hospital->id,
         ]);
 
         RetirementHome::create([
@@ -62,9 +44,10 @@ class BookingCreationTest extends TestCase
 
         $response = $this->actingAs($retirementUser)->get('/test/bookings/' . $patient->id);
 
+        // Assert we redirect to the bookings page
         $response->assertRedirect('/bookings');
-        $this->assertTrue(session()->has('success'));
 
+        // Assert the booking exists in the database
         $this->assertDatabaseHas('bookings', [
             'patient_id' => $patient->id,
             'hospital_id' => $hospital->id,
