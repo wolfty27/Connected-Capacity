@@ -6,21 +6,28 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User;
-
+use App\Models\Patient;
 
 class Hospital extends Model
 {
-    // protected $table = 'hospitals';
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['user_id', 'documents', 'website', 'calendly'];
+    protected $table = 'hospitals';
 
-    // public function myuser()
-    // {
-    //     return $this->belongsTo(User::class);
-    // }
+    protected $fillable = [
+        'user_id',
+        'documents',
+        'website',
+        'calendly',
+    ];
+
     public function user()
     {
-        return "test";
+        return $this->belongsTo(User::class);
+    }
+
+    public function patients()
+    {
+        return $this->hasMany(Patient::class);
     }
 }
