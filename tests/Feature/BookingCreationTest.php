@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\BookingsController;
+use App\Http\Controllers\Legacy\BookingsController;
 use App\Models\Hospital;
 use App\Models\Patient;
 use App\Models\RetirementHome;

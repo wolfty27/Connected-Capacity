@@ -39,7 +39,9 @@
         <!--- Sidemenu -->
         <ul class="side-nav">
 
-            <li class="side-nav-title side-nav-item">Navigation</li>
+            @php($featureToggle = app(\App\Services\FeatureToggle::class))
+
+            <li class="side-nav-title side-nav-item">Legacy Placement</li>
 
             <li class="side-nav-item">
                 <a href="/" aria-expanded="false"
@@ -144,9 +146,20 @@
 
 
         </ul>
+
+        @if ($featureToggle->enabled('cc2.enabled'))
+            <ul class="side-nav mt-3">
+                <li class="side-nav-title side-nav-item">CC2 Coordination</li>
+                <li class="side-nav-item">
+                    <a href="{{ route('cc2.dashboard') }}" class="side-nav-link">
+                        <i class="mdi mdi-hexagon-multiple-outline"></i>
+                        <span>CC2 Workspace</span>
+                    </a>
+                </li>
+            </ul>
+        @endif
         <!--- End Sidemenu -->
         <div class="clearfix"></div><br><br><br>
         <div class="d-flex p-2 justify-content-around "><p>Made With <i class="mdi mdi-cards-heart text-danger"></i> By <a class="nav-links" href="https://www.anideos.com/" target="_blank">Anideos</a></p></div>
     </div>
 </div>
-

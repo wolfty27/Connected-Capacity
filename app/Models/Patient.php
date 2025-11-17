@@ -75,6 +75,11 @@ class Patient extends Model
         return $this->hasMany(RpmAlert::class);
     }
 
+    public function referrals()
+    {
+        return $this->hasMany(Referral::class);
+    }
+
     public function primaryCoordinator()
     {
         return $this->belongsTo(User::class, 'primary_coordinator_id');

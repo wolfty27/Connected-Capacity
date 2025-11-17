@@ -1,7 +1,7 @@
-# Connected Capacity 2.0 Implementation Plan
+# Connected Capacity 2.1 Implementation Plan
 
 ## Current State Overview
-- **Architecture**: Laravel 8 monolith focused on hospital ↔ retirement home placements. Controllers are fat, views are Blade/Datatables, routes are all web-based with a single `AuthenticatedRoutes` middleware guarding most paths (`routes/web.php`).
+- **Architecture**: Recently upgraded to Laravel 10 but still shaped like the original Laravel 8 monolith focused on hospital ↔ retirement home placements. Controllers are fat, views are Blade/Datatables, routes are all web-based with a single `AuthenticatedRoutes` middleware guarding most paths (`routes/web.php`).
 - **Domain**: Models cover admins, hospitals/new hospitals, retirement homes, patients, bookings, tiers, assessment forms, galleries, in-person assessments, and Calendly tokens. There are no service orchestration entities.
 - **Data**: Migrations define placement tables only and include notable issues such as `patients.status` declared as boolean while controllers persist string workflow states. Soft deletes exist on most domain tables but there are no foreign keys or indexes beyond the defaults.
 - **Integrations & Jobs**: Calendly OAuth is implemented through synchronous cURL calls. Sanctum exists but only for the unused `/api/user` endpoint. No queues, jobs, or audits are present.
@@ -9,9 +9,9 @@
 - **Testing**: Only the default Laravel Example tests are present. There is effectively no automated coverage for placements or upcoming CC 2.0 concerns.
 
 ## Target State Summary
-- **Mission Shift**: Become a multi-organization, high-intensity home/community care orchestration engine that coordinates referrals, triage, service assignments, RPM monitoring, and Ontario Health (OH) reporting, rather than bed placements.
+- **Mission Shift**: Become a multi-organization, high-intensity home/community care orchestration engine that coordinates referrals, discharge reviews/transition needs, service assignments, RPM monitoring, and Ontario Health (OH) reporting, rather than bed placements.
 - **Core Concepts**: Introduce ServiceProviderOrganization, ServiceType, CareBundle, CarePlan, TriageResult, ServiceAssignment, InterdisciplinaryNote, RpmDevice, RpmAlert, OhMetric, feature flags, audit logging, and organization membership.
-- **Workflows**: Implement intake APIs/manual entry, structured triage, care planning, assignment/dispatch dashboards, RPM alert handling, interdisciplinary documentation, and OH metrics aggregation/export.
+- **Workflows**: Implement intake APIs/manual entry, discharge/transition review, care planning, assignment/dispatch dashboards, RPM alert handling, interdisciplinary documentation, and OH metrics aggregation/export.
 - **Security & Compliance**: Enforce per-organization access, role-based policies tied to `organization_role`, audit logging, and feature flags to introduce CC 2.0 alongside legacy flows.
 - **Coexistence**: Keep placement functionality intact but isolate it behind `/legacy` route prefixes and Legacy namespaces once CC 2.0 flows exist, enabling gradual migration.
 
@@ -112,102 +112,135 @@
 
 ## Detailed Phase Plan
 
-### Phase 0 – Baseline & Hygiene
-- **Goals**: Ensure repo health, remove glaring bugs (e.g., duplicate Hospital models), set up docs, feature-toggle scaffolding, and audit foundations before CC 2.0 additions.
-- **Tasks**:
-  - Consolidate `Hospital` vs `NewHospital` models and fix broken relations.
-  - Normalize existing migrations (e.g., change `patients.status` to string) without altering behavior.
-  - Introduce infrastructure-only migrations for `feature_flags` and `audit_logs`.
-  - Configure queue, scheduler, logging defaults, and document setup (`docs/` directory).
-- **Affected Files**: `app/Models/*`, `database/migrations/*`, `config/queue.php`, `config/logging.php`, `.env.example`, new `docs/` artifacts.
-- **Risks**: Touching shared tables could regress placement flows. Need backups/migration scripts.
-- **Minimum Tests**: Feature smoke tests for login, patient listing, booking creation; unit tests for updated models; integration test ensuring `Hospital::user()` works.
+### Terminology Alignment (Transition Review vs. TriageResult)
+- Product copy, prompts, and training material must say “Transition Review” and “Transition Needs Profile (TNP)” to align with Spec 2.1 and Ontario Health language.
+- Internally we continue to use `TriageResult`, `TriageService`, and existing migrations/tests so we do not destabilize the schema mid-refactor; UI helpers translate the public name to the internal model.
+- All new code, docs, and seeds must mention both names until we explicitly plan a rename phase.
 
-### Phase 1 – Core DB & Models for V2
-- **Goals**: Add all CC 2.0 domain tables/models/seeders without impacting runtime.
-- **Tasks**:
-  - Create migrations/models/factories for every table listed in the Domain Model section.
-  - Seed canonical `service_types`, baseline `care_bundles`, and demo `service_provider_organizations`.
-  - Extend `users` and `patients` with new columns plus backfill scripts.
-  - Wire Sanctum abilities for organization scoping (no routes yet).
-- **Affected Files**: `database/migrations/*`, `app/Models/*`, `database/seeders/*`, `app/Policies/*` (stubs), `config/auth.php`.
-- **Risks**: Schema drift affecting deployments; migration order dependencies.
-- **Minimum Tests**: Unit tests per new model (relationships, casts), migration tests, seeder smoke test verifying canonical data.
+### Phase 0 – Legacy Shell & CC2 Skeleton
+- **Goals**: Isolate retirement-home placement flows under `/legacy`, introduce empty `/cc2` module namespaces, and ensure feature flags can hide/show modules without code changes.
+- **Deliverables**:
+  - Route split into `routes/legacy.php` and `routes/cc2.php` plus updated `RouteServiceProvider`.
+  - Controllers moved into `App\Http\Controllers\Legacy\*` while new CC2 namespaces (`App\Http\Controllers\CC2\*`) are stubbed with placeholder controllers/views to verify wiring.
+  - Navigation partials updated to group “Legacy Placement” vs “CC2 Coordination” entries, each guarded by feature flags (`legacy.enabled`, `cc2.enabled`).
+  - Documentation describing the dual-route structure and coding standards for new modules.
+- **Affected Files**: `routes/web.php` (temporary loader), new `routes/legacy.php`, `routes/cc2.php`, `app/Http/Controllers/*`, `resources/views/layouts/*`, `app/Providers/RouteServiceProvider.php`, `docs/README`.
+- **Risks**: Accidentally breaking bookmarked URLs or auth middleware order; mitigated via 1:1 route mapping tests and feature flag defaults that keep legacy enabled.
+- **Tests Required**: Smoke tests validating login, patient listing, booking creation via `/legacy`; feature tests checking `/cc2` endpoints remain hidden unless flags are on.
 
-### Phase 2 – Intake & Triage Flows
-- **Goals**: Deliver referral intake UI/API and triage tooling guarded by organization roles.
-- **Tasks**:
-  - Implement `ReferralController`, `TriageController`, `ReferralService`, `TriageService`.
-  - Build Blade views/components for intake dashboard and triage form with feature-flag gating.
-  - Add `/intake` and `/triage` web routes plus `/api/referrals` endpoints.
-  - Define policies/middleware (`TriageAccess`, `OrganizationScope`) leveraging `organization_role`.
-  - Update navigation and dashboards to surface CC 2.0 entry points for enabled users.
-- **Affected Files**: `routes/web.php`, `routes/api.php`, `app/Http/Controllers/*`, `app/Services/*`, `app/Policies/*`, `resources/views/intake/*`, `resources/views/triage/*`.
-- **Risks**: Authorization mistakes exposing patient data; UI/legacy collisions.
-- **Minimum Tests**: Feature tests covering referral creation (UI/API), triage update flows, policy enforcement; form request validation tests.
+### Phase 1 – Multi-Organization Foundation & Provider Onboarding
+- **Goals**: Make SPO/SSPO organizations first-class citizens, allow Platform/SPO admins to onboard providers, and scope users by organization roles while keeping placements operational.
+- **Deliverables**:
+  - `ServiceProviderOrganization`, `OrganizationMembership`, and capability models seeded with SPO/SSPO exemplars (SE Health, Grace, Reconnect, Alexis).
+  - Admin UI under `App\Http\Controllers\CC2\Organizations` for listing/editing providers, linking SSPOs, and capturing service coverage/capabilities.
+  - Middleware stack (`EnsureOrganizationContext`, `EnsureOrganizationRole`) plus request tests verifying SPO-only visibility.
+  - Updated onboarding scripts to assign existing CC staff to Platform Admin and SPO Admin roles.
+- **Affected Files**: `app/Models/*`, `database/migrations/2025_11_17_*`, `database/seeders/*`, `app/Http/Controllers/CC2/Organizations/*`, `app/Policies/*`, `resources/views/cc2/organizations/*`, `app/Http/Middleware/*`.
+- **Risks**: Locking users out if they lack organization membership; mitigated via safe default membership migration and feature flags.
+- **Tests Required**: Policy tests for admin/org roles, feature tests for provider creation/update, unit tests for capability filtering scopes.
 
-### Phase 3 – Care Plans & Service Assignments
-- **Goals**: Model care planning, bundle management, service assignment dashboards, and interdisciplinary notes.
-- **Tasks**:
-  - Build `CareBundleController`, `CarePlanController`, `ServiceAssignmentController`, `InterdisciplinaryNoteController` plus respective services.
-  - Implement coordinator and field-staff dashboards (filters, status transitions, note capture).
-  - Add notification events/jobs for new assignments and status changes.
-  - Extend dashboard to include CC 2.0 widgets.
-- **Affected Files**: `app/Http/Controllers/CC2/*`, `app/Services/*`, `resources/views/care-plans/*`, `resources/views/assignments/*`, notification classes, events/jobs.
-- **Risks**: Data consistency between assignments and care plans; overloading UI with complex forms.
-- **Minimum Tests**: Feature tests for plan creation/edit/versioning, assignment lifecycle (planned→completed/missed), note creation authorization; job/notification unit tests.
+### Phase 2 – Referral Intake & Transition Review (TNP)
+- **Goals**: Enable SPO Discharge/Transition Coordinators to create referrals, capture Transition Needs Profiles (via `TriageResult`), and maintain referral clocks/attachments per Spec 2.1.
+- **Deliverables**:
+  - Production readiness for existing `ReferralService`, `TriageService`, requests, and policies inside `App\Http\Controllers\CC2\Intake`.
+  - `/cc2/intake` dashboards for manual referral entry, SLA timers (15-minute acceptance, 24-hour first service), and attachment uploads.
+  - `/cc2/patients/{patient}/transition-review` flow surfacing TNP flags (dementia, MH, RPM) while persisting to `TriageResult`.
+  - Event/audit log hooks capturing referral submissions and Transition Review updates.
+- **Affected Files**: `routes/cc2.php`, `app/Http/Controllers/CC2/Intake/*`, `resources/views/cc2/intake/*`, `resources/views/cc2/transition-review/*`, `app/Services/CC2/ReferralService.php`, `app/Services/CC2/TriageService.php`, `app/Policies/ReferralPolicy.php`, `app/Policies/TriageResultPolicy.php`, tests under `tests/Feature/CC2`.
+- **Risks**: Data leakage between SPOs if scoping fails; inaccurate timers causing SLA compliance issues; mitigated via scoped queries and unit-tested clock helpers.
+- **Tests Required**: Feature/API tests for referral creation and TNP update, policy coverage for Discharge/Transition Coordinator roles, regression suite ensuring legacy `/legacy` flows unaffected.
 
-### Phase 4 – RPM & External Integrations
-- **Goals**: Introduce RPM alert management UI, ingestion API, and referral/RPM APIs secured via Sanctum tokens.
-- **Tasks**:
-  - Implement `RpmAlertController` (web) and `RpmEventsController` (API) backed by `RpmService`.
-  - Create queue jobs for alert triage, escalations, and backpressure handling.
-  - Add `/api/rpm-events`, `/api/referrals/hpg` endpoints with PAT auth, rate limiting, and webhook signature validation.
-  - Provide UI for RPM queue, alert detail, and service-assignment escalations.
-- **Affected Files**: `routes/api.php`, `routes/web.php`, `app/Http/Controllers/Rpm/*`, `app/Services/RpmService.php`, `app/Jobs/*`, `config/sanctum.php`, `config/queue.php`, `resources/views/rpm/*`.
-- **Risks**: API abuse, queue overload, data duplication between alerts and assignments.
-- **Minimum Tests**: API feature tests validating auth and payload handling, service tests asserting alert-to-assignment logic, browser tests for RPM UI.
+### Phase 3 – Care Bundles & Care Plans
+- **Goals**: Provide SPO coordinators with CareBundle templates, editable CarePlans, and default SSPO routing per Transition Review outputs.
+- **Deliverables**:
+  - `CareBundleController` + services to create bundles, define bundle lines (ServiceType, intensity, SPO vs. SSPO ownership), and clone templates.
+  - `CarePlanController` for drafting/approving plans, linking to bundles, capturing goals/interventions/risks, and scheduling review reminders.
+  - Blade components (or Inertia) for bundle composition, template selection (“High Intensity Dementia”, etc.), and CarePlan approval logs.
+  - Policies ensuring only SPO admins/coordinators edit bundles while SSPOs view read-only scopes.
+- **Affected Files**: `app/Http/Controllers/CC2/CarePlanning/*`, `app/Services/CC2/CareBundleService.php`, `app/Services/CC2/CarePlanService.php`, `resources/views/cc2/care-bundles/*`, `resources/views/cc2/care-plans/*`, `database/seeders/CareBundleTemplateSeeder.php`, `app/Policies/CareBundlePolicy.php`.
+- **Risks**: Mismatched template data leading to incorrect billable bundles; mitigated via fixture tests and template validation.
+- **Tests Required**: Unit tests for bundle template expansion, feature tests for CarePlan draft→approval, authorization tests ensuring SSPOs remain read-only.
 
-### Phase 5 – Metrics & OH Reporting
-- **Goals**: Compute OH metrics, persist snapshots, and surface dashboards/exports.
-- **Tasks**:
-  - Implement `MetricsService`, `ComputeOhMetricsJob`, and schedule via `app/Console/Kernel.php`.
-  - Build `ReportController` views leveraging existing ApexCharts for OH dashboards.
-  - Add export endpoints (CSV/JSON) with role-based access.
-  - Optimize DB (indexes, query scopes) for metrics queries.
-- **Affected Files**: `app/Services/MetricsService.php`, `app/Jobs/ComputeOhMetricsJob.php`, `app/Console/Kernel.php`, `resources/views/reports/*`, `routes/web.php`.
-- **Risks**: Long-running queries impacting production; incorrect metrics harming compliance.
-- **Minimum Tests**: Service/unit tests for each metric computation, job tests verifying scheduling, feature tests for report access permissions.
+### Phase 4 – Service Assignments & Scheduling
+- **Goals**: Translate bundles/plans into executable ServiceAssignments, expose SPO/SSPO scheduling dashboards, and honor 24/7 coverage requirements.
+- **Deliverables**:
+  - `AssignmentController` and `SchedulingController` managing assignment creation, calendar views (patient-centric, staff-centric), and SSPO acceptance flows.
+  - Recurrence builder and conflict detection utilities, plus manual override tools for urgent visits.
+  - Notification jobs/events alerting SSPO coordinators and SPO Service Coordinators of pending/missed acceptance.
+  - SLA timers measuring hours-to-first-service per patient.
+- **Affected Files**: `app/Http/Controllers/CC2/Assignments/*`, `app/Services/CC2/AssignmentService.php`, `resources/views/cc2/assignments/*`, `resources/views/cc2/scheduling/*`, `app/Jobs/AssignmentNotificationJob.php`, `database/migrations` (if new scheduling tables needed).
+- **Risks**: Scheduling conflicts or inaccurate SLA calculations; mitigated with DB constraints and unit-tested overlap detection.
+- **Tests Required**: Feature tests for assignment CRUD and SSPO acceptance, calendar unit tests for conflict detection, queue tests ensuring notifications dispatch.
 
-### Phase 6 – Legacy Placement Isolation & Cleanup
-- **Goals**: Carve out existing placement flows into a legacy area, reduce navigation prominence, and prep for eventual retirement.
-- **Tasks**:
-  - Move placement controllers/routes/views under `App\Http\Controllers\Legacy` and `/legacy/*` route prefixes.
-  - Add navigation grouping “Legacy Placement” accessible via feature flag.
-  - Update documentation and onboarding around dual workflows.
-  - Plan archival/export scripts for placement data (optional stretch).
-- **Affected Files**: `routes/web.php`, `app/Http/Controllers/Legacy/*`, `resources/views/legacy/*`, navigation components, docs.
-- **Risks**: Breaking existing users if routes change unexpectedly; forgetting dependent links (emails, bookmarks).
-- **Minimum Tests**: Regression tests for critical placement flows (patient create, booking, assessment) under new namespace/prefix.
+### Phase 5 – Execution Documentation & RPM Flows
+- **Goals**: Equip SPO/SSPO field staff with worklists, documentation workflows, and RPM alert handling tied to assignments and CarePlans.
+- **Deliverables**:
+  - `MyAssignmentsController` for field staff to clock in/out, mark completion, and submit Interdisciplinary Notes.
+  - `RpmAlertController` (web) + webhook/API ingestion endpoints for RPM vendors, feeding `RpmService`.
+  - Escalation tooling to convert critical RPM alerts into ServiceAssignments and capture outcomes in Interdisciplinary Notes and audit logs.
+  - Visibility controls ensuring SSPO teams only see their patients/assignments while SPO retains oversight.
+- **Affected Files**: `app/Http/Controllers/CC2/Execution/*`, `app/Http/Controllers/CC2/Rpm/*`, `app/Services/CC2/NoteService.php`, `app/Services/CC2/RpmService.php`, `routes/cc2.php`, `routes/api.php`, `resources/views/cc2/my-assignments/*`, `resources/views/cc2/rpm/*`, queue/job classes, webhook validation helpers.
+- **Risks**: PHI leakage through notes or webhooks, queue overload, staff confusion with dual worklists; mitigated via strict policies, signed webhooks, and progressive rollout.
+- **Tests Required**: Feature tests for documentation permissions, API tests for RPM ingestion/validation, unit tests covering alert→assignment escalation logic.
 
-## Architecture & Boundaries
-- **Controller Layout**: Introduce namespaces (`App\Http\Controllers\CC2`) for new modules: Intake/Triage, Care Plans, Assignments, RPM, Reports. Keep placement controllers under `App\Http\Controllers\Legacy`.
-- **Services**: Dedicated service classes (`ReferralService`, `TriageService`, `CarePlanService`, `AssignmentService`, `NoteService`, `RpmService`, `MetricsService`, `FeatureToggle`, `AuditLogger`) with thin controllers orchestrating requests.
-- **Jobs & Events**: Background jobs for metrics, RPM follow-ups, assignment reminders, external referral imports. Events (`ServiceAssignmentCreated`, `RpmAlertEscalated`, `CarePlanApproved`) trigger notifications/audits.
-- **Routing**: `/cc2/*` or `/coordination/*` prefixes for new flows, `/legacy/*` for old placements. API routes namespaced under `/api/v2/*` with Sanctum guards and throttling.
-- **Middleware/Policies**: Add `EnsureOrganizationContext`, `EnsureFeatureEnabled`, role-based policies for each controller. Use route model binding with scoped queries to enforce organization isolation.
-- **Views/UI**: Separate Blade layouts/Livewire/Inertia components for CC 2.0 dashboards to avoid coupling legacy markup.
-- **Data Access**: Repositories/scoped query builders for CC2 models, preventing controllers from issuing raw queries.
+### Phase 6 – Metrics & OH Reporting
+- **Goals**: Deliver Ontario Health mandated metrics (acceptance rates, hours-to-first-service, missed care, ED diversion) plus exports and dashboards.
+- **Deliverables**:
+  - `MetricsController` dashboards segmented by SPO, SSPO contribution, and region, plus CSV/Excel exports for OH submissions.
+  - `MetricsService` + scheduled `ComputeOhMetricsJob` calculating aggregated indicators, storing them in `oh_metrics`.
+  - QA tooling to reconcile metrics vs. raw assignments/referrals for audit-readiness.
+  - Documentation describing weekly huddle workflows, export schedules, and data retention.
+- **Affected Files**: `app/Http/Controllers/CC2/Metrics/*`, `app/Services/CC2/MetricsService.php`, `app/Jobs/ComputeOhMetricsJob.php`, `app/Console/Kernel.php`, `resources/views/cc2/metrics/*`, `routes/cc2.php`, export classes.
+- **Risks**: Incorrect metrics jeopardizing OH compliance; expensive queries impacting production; mitigated via staged rollouts, sampling, and DB indexing.
+- **Tests Required**: Service tests verifying each metric formula, feature tests for export permissions, scheduler tests ensuring jobs run/time out safely.
 
-### Feature Flags
-- Example keys: `cc2.enabled` (global kill-switch), `cc2.intake`, `cc2.triage`, `cc2.assignments`, `cc2.rpm`, `cc2.metrics`, `legacy.placement_nav`.
-- Flags are evaluated globally, per environment, and optionally per organization to allow staged rollouts (e.g., enable CC2 intake for SE Health first).
-- All CC 2.0 routes, navigation links, and dashboards will check the relevant flag(s) before rendering; disabling a flag hides UI and returns 404 for gated endpoints.
+## Architecture Blueprint (CC2.1)
+
+### Legacy Baseline vs. Target Modular Layout
+- **Today**: Even though we now run Laravel 10, the codebase still relies on a single `routes/web.php`, fat controllers (e.g., `PatientsController`, `BookingsController`), Blade views inside shared directories, and global middleware such as `authenticated.routes`. Hospitals and retirement homes operate inside the same namespace with no concept of SPOs, SSPOs, or CC2 terminology.
+- **Target**: A modular structure that keeps retirement-home placement inside `/legacy` while all CC2.1 orchestration features (provider onboarding, Transition Review, Care Bundles, assignments, RPM, OH metrics) live under `/cc2`. Controllers become thin, service classes encapsulate domain logic, and route groups + middleware enforce role/organization boundaries.
+
+### Namespaces, Folders, and Route Groups
+| Concern | Legacy Path | CC2.1 Path | Notes |
+| --- | --- | --- | --- |
+| Controllers | `App\Http\Controllers\Legacy\*` | `App\Http\Controllers\CC2\{Organizations,Intake,CarePlanning,Assignments,Execution,Rpm,Metrics}` | Each CC2 module gets its own namespace folder with dedicated Form Requests, policies, and DTOs. |
+| Routes | `routes/legacy.php` loaded with prefix `legacy` & middleware `['web','authenticated.routes']` | `routes/cc2.php` loaded with prefix `cc2` plus middleware `['web','auth','ensure.organization','feature:cc2.enabled']`; APIs belong in `routes/api-cc2.php` with Sanctum guards | `RouteServiceProvider` registers both plus `fallback` to maintain URLs; `/legacy` can optionally drop prefix for backward compatibility via route name aliasing. |
+| Views | `resources/views/legacy/...` | `resources/views/cc2/{organizations,intake,care-bundles,...}` | Shared components under `resources/views/components/cc2`. Legacy templates remain untouched except for namespace moves. |
+| Services | `app/Services/Legacy/*` (new) | `app/Services/CC2/*` (existing Referral/Triage + new modules) | Each service exposes command-style methods (e.g., `AssignmentService::createForBundle`). |
+| Requests/Policies | `App\Http\Requests\CC2\*`, `App\Policies\CC2\*` | Reuse existing `StoreReferralRequest`, `StoreTriageResultRequest`; add new request objects per workflow. |
+| Modules | Legacy Placement, CC2 Provider Marketplace, CC2 Intake & Transition Review, CC2 Care Planning, CC2 Assignments & Scheduling, CC2 Execution & RPM, CC2 Metrics | Modules map 1:1 to phase roadmap ensuring isolation and feature flag gating. |
+
+### Service Layers & Domain Concepts
+- **Provider enrollment & marketplace**: `ServiceProviderOrganizationService`, `CapabilityService`, and `OrganizationMembershipService` manage SPO vs. SSPO onboarding, default ServiceType capabilities, and SPO↔SSPO relationship preferences (region, specialty, contract flags).
+- **Discharge/Transition Review**: `ReferralService` and `TriageService` (already implemented) persist referrals and store the Transition Needs Profile inside `TriageResult`. Controllers present these as “Transition Review” screens while keeping the internal class names.
+- **Care Bundles & Care Plans**: `CareBundleService` builds template-driven bundles referencing ServiceTypes and SSPO defaults; `CarePlanService` ties bundle lines to clinical goals, ensures review reminders, and enforces versioning.
+- **Service Assignments & Scheduling**: `AssignmentService` translates bundle lines into ServiceAssignments, calling helper classes (`ScheduleBuilder`, `OverlapGuard`). `SchedulingService` aggregates staff calendars and SSPO acceptance flows, with events like `ServiceAssignmentCreated`.
+- **Execution Documentation & RPM**: `NoteService` handles Interdisciplinary Notes with PHIPA-compliant visibility; `RpmService` ingests alerts, validates webhook signatures, queues `HandleRpmAlertJob`, and optionally spins up urgent ServiceAssignments.
+- **Metrics & OH Reporting**: `MetricsService` computes KPIs (referral acceptance, time-to-first-service, missed care, ED diversion, RPM resolution time) and stores them in `oh_metrics` for dashboards + exports.
+
+### Request / Response Flow
+`Referral (Discharge Coordinator @ SPO) → Transition Review / TNP (TriageResult) → CareBundle + CarePlan (SPO Admin/Coordinator) → ServiceAssignments & Scheduling (Service Coordinator + SSPO Coordinator) → Execution + Documentation + RPM Alerts (Field Staff + RPM Team) → Metrics & OH Reporting (SPO Admin + Platform Admin).`
+
+Each hop flows through:
+1. **Controller** (namespaced under `App\Http\Controllers\CC2\*`) verifying role + feature flag.
+2. **Form Request** ensuring Laravel 10 validation.
+3. **Service** performing domain logic, firing events + audit logs.
+4. **Policy** verifying user organization ownership or SSPO assignment scope.
+
+### Feature Flags & Backwards Compatibility
+- Flags (stored via `feature_flags` table and `FeatureToggle` service) include `cc2.enabled`, `cc2.organizations`, `cc2.intake`, `cc2.care_planning`, `cc2.assignments`, `cc2.rpm`, `cc2.metrics`, and `legacy.enabled`. Each controller uses the `EnsureFeatureEnabled` middleware to short-circuit if disabled.
+- Navigation components read the same flags to hide modules; env defaults keep `/legacy` active until SPO pilots complete.
+- Legacy controllers remain intact under `/legacy`, sharing the same auth middleware but skipping the new organization scopes so existing hospital/retirement-home workflows function unchanged.
+
+### Middleware, Policies, and Audit Logging
+- Middleware stack per CC2 route group: `auth`, `EnsureFeatureEnabled`, `EnsureOrganizationContext`, `EnsureOrganizationRole`, `verified` (if email verification is enabled). API routes also add `throttle:cc2-api` and `require-signed-payload` for RPM vendors.
+- Policies exist for every CC2 entity (organizations, referrals, triage results/TNP, care bundles, care plans, service assignments, interdisciplinary notes, RPM alerts, metrics exports). They rely on `organization_role` plus membership scopes (SPO vs. SSPO).
+- `AuditLog` records each create/update/delete on patient-facing data (referrals, TNP, bundles, plans, assignments, notes, RPM alerts) with user, organization, payload diff, and timestamp to maintain PHIPA compliance.
 
 ### Operations & Environment
-- **Database**: Target MySQL 8 (Aurora-compatible) with InnoDB for FK + transaction support.
-- **Queues**: Use Laravel queues (e.g., Redis or SQS drivers) for RPM alert ingestion, assignment notifications, and metrics jobs; workers must be provisioned in each environment.
-- **Scheduler**: Laravel scheduler (cron) will trigger recurring jobs such as `ComputeOhMetricsJob`, stale-assignment reminders, and RPM follow-up sweeps. Monitoring must ensure scheduler/queue health.
+- Laravel queues (Redis/SQS) and scheduler handle RPM alerts, assignment reminders, and OH metric aggregation; deployment runbooks include worker/watchdog monitoring.
+- Sanctum personal access tokens secure external entry points (HPG-style referrals, RPM webhooks). Webhooks require HMAC signatures and rotate secrets per organization.
+- Storage + encryption: patient identifiers and attachments leverage encrypted columns/disks; `config/filesystems.php` includes per-module directories (e.g., `care-plan-attachments`, `rpm-payloads`).
 
 ## Risks & Mitigations
 - **Schema Back-Compat**: Legacy placements rely on current columns/types. Mitigate with additive migrations, data backfills, and blue/green deployment notes.

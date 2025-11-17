@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Referral;
+use App\Models\TriageResult;
+use App\Policies\ReferralPolicy;
+use App\Policies\TriageResultPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
-use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -13,7 +16,8 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        Referral::class => ReferralPolicy::class,
+        TriageResult::class => TriageResultPolicy::class,
     ];
 
     /**

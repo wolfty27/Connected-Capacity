@@ -14,17 +14,22 @@ class ServiceProviderOrganization extends Model
         'name',
         'slug',
         'type',
+        'contact_name',
         'contact_email',
         'contact_phone',
         'address',
         'city',
         'province',
         'postal_code',
+        'regions',
+        'capabilities',
         'active',
     ];
 
     protected $casts = [
         'active' => 'boolean',
+        'regions' => 'array',
+        'capabilities' => 'array',
     ];
 
     public function users()
