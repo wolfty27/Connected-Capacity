@@ -19,3 +19,4 @@ yarn-error.log
 backup/
 .env.save
 package-lock.json
+/database/testing.sqlite

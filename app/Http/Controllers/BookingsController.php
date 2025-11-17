@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class BookingsController extends Controller
 {
@@ -102,17 +103,28 @@ public function hospitalBookings()
         }
     }
 
-    public function bookAppointment(Request $request, $id)
+    public function bookAppointment(Request $request, $id = null)
     {
         try {
             $userId = Auth::user()->id;
             $retirementHomeObj = RetirementHome::where('user_id', $userId)->first();
-            $patientObj = Patient::where('id', $id)->first();
+            $patientId = $id ?? $request->route('patient');
+            if (!$patientId) {
+                throw new \InvalidArgumentException('No patient identifier provided for booking.');
+            }
+
+            $patientObj = Patient::where('id', $patientId)->first();
+            if (!$patientObj) {
+                throw new \InvalidArgumentException('Patient not found.');
+            }
             // $patientObj->update(['status' => 'Application Progress']);
             // $patientObj->save();
 
             $bookingDate = Carbon::tomorrow();
             $slot = rand(1, 9);
+            $bookingReference = Str::uuid()->toString();
+            $startTime = $bookingDate->copy()->setTime(9, 0);
+            $endTime = $startTime->copy()->addHour();
 
             Booking::create([
                 'hospital_id' => $patientObj->hospital_id,
@@ -120,11 +132,17 @@ public function hospitalBookings()
                 'patient_id' => $patientObj->id,
                 'date' => $bookingDate,
                 'slot' => $slot,
-                'status' => "In person Assessment"
+                'status' => "In person Assessment",
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'event_uri' => 'manual-booking-' . $bookingReference,
+                'invitee_uri' => 'manual-booking-invitee-' . $bookingReference,
 
             ]);
 
-            return Redirect::to('/bookings')->with(['success' => 'Appointment booked successfully for October 24, 2022 Tuesday 2:00PM']);
+            return redirect('/bookings')->with([
+                'success' => 'Appointment booked successfully for October 24, 2022 Tuesday 2:00PM',
+            ]);
         } catch (\Exception $e) {
             return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
         }

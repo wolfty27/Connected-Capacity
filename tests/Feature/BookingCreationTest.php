@@ -17,6 +17,7 @@ class BookingCreationTest extends TestCase
 
     public function test_retirement_home_can_trigger_booking_creation()
     {
+        $this->withoutExceptionHandling();
         // Temporary route for the test to hit the booking controller action
         Route::middleware('web')->get('/test/bookings/{patient}', [BookingsController::class, 'bookAppointment']);
 
