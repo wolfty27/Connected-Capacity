@@ -47,9 +47,7 @@ class RouteServiceProvider extends ServiceProvider
                 ->namespace($this->namespace)
                 ->group(base_path('routes/web.php'));
 
-            Route::middleware(['web', 'authenticated.routes'])
-                ->namespace($this->namespace)
-                ->group(base_path('routes/legacy.php'));
+
 
             Route::prefix('cc2')
                 ->middleware(['web', 'auth', 'feature.flag:cc2.enabled', 'organization.context'])

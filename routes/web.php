@@ -18,9 +18,11 @@ use App\Http\Controllers\UserController;
 //    return view('welcome');
 //});
 
-Route::get('/', [HomeController::class, 'index']);
-Route::get('/login', [UserController::class, 'loginView'])->name('login');
 Route::post('/login', [UserController::class, 'login']);
-Route::get('/logout', [UserController::class, 'logout']);
+Route::post('/logout', [UserController::class, 'logout']);
 
-Route::view('/demo', 'demo')->middleware('authenticated.routes');
+Route::get('/{any?}', function () {
+    // Debug auth
+    // dd(Auth::user()); 
+    return view('app');
+})->where('any', '.*');

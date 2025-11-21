@@ -7,8 +7,10 @@ use Tests\Browser\CC2\CC2DuskTestCase;
 
 class SspoCoordinatorCrawlTest extends CC2DuskTestCase
 {
-    public function testDashboardAccess()
+    protected function setUp(): void
     {
+        parent::setUp();
+
         $organization = \App\Models\ServiceProviderOrganization::updateOrCreate(
             ['slug' => 'test-org'],
             [
@@ -18,7 +20,7 @@ class SspoCoordinatorCrawlTest extends CC2DuskTestCase
             ]
         );
 
-        $user = \App\Models\User::updateOrCreate(
+        $this->user = \App\Models\User::updateOrCreate(
             ['email' => 'sspo_coordinator@example.com'],
             [
                 'password' => bcrypt('password'),
@@ -28,9 +30,12 @@ class SspoCoordinatorCrawlTest extends CC2DuskTestCase
                 'name' => 'SSPO Coordinator',
             ]
         );
+    }
 
-        $this->browse(function (Browser $browser) use ($user) {
-            $this->loginAs($browser, $user->email, 'password');
+    public function testDashboardAccess()
+    {
+        $this->browse(function (Browser $browser) {
+            $this->loginAs($browser, $this->user->email, 'password');
             $browser->assertSee('CC2 Workspace')
                 ->clickLink('CC2 Workspace')
                 ->waitForLocation('/cc2', 5)

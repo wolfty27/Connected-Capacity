@@ -1,64 +1,65 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# Connected Capacity (V2.1)
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Project Overview
+Connected Capacity 2.1 is a **Service Orchestration Platform** designed to support the **Bundled High Intensity Home Care – LTC** model for Ontario Health atHome.
 
-## About Laravel
+It serves as the operational engine for **Service Provider Organizations (SPOs)** and **Specialized Service Provider Organizations (SSPOs)** to manage:
+*   **Intake & Referrals:** Transitioning patients from hospitals/community.
+*   **Transition Reviews:** Assessing patient needs (Transition Needs Profile - TNP).
+*   **Care Orchestration:** Coordinating care bundles between SPOs and SSPOs.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+The platform features a modern, interactive **React frontend** for V2.1 features, leveraging **AI (Gemini)** integrations for tasks like risk assessment, clinical narrative summarization, and capacity forecasting. A dedicated **mobile field app** is also part of the V2.1 experience.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Architecture & Structure
+The codebase is split between the **Legacy V1** system (Retirement Home Placement) and the **New V2.1** system (High-Intensity Care Orchestration). V2.1 features are being developed with an **API-first backend** approach, consumed by the React UI.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+-   **`app/Http/Controllers/CC2`**: **V2.1 Logic**. Contains controllers for SPO/SSPO workflows, Transition Reviews, and Care Orchestration.
+-   **`app/Http/Controllers/Legacy`**: **V1 Logic**. Contains legacy controllers for Hospitals and Retirement Homes.
+-   **`app/Models`**: Shared domain models. Key V2 entities include `ServiceProviderOrganization`, `ServiceAssignment`, `Referral` (Intake), and `Patient`.
+-   **`app/Services/GeminiService` (Planned):** Dedicated layer for AI integrations.
+-   **`app/Http/Controllers/Api/V2` (Planned):** Dedicated API endpoints for V2.1 frontend.
 
-## Learning Laravel
+## Key Terminology (Spec 2.1)
+*   **SPO:** Service Provider Organization (Primary care holder).
+*   **SSPO:** Specialized Service Provider Organization (Sub-contracted for specific needs like Dementia/Behavioural support).
+*   **TNP:** Transition Needs Profile (The assessment artifact).
+*   **Transition Review:** The process of triaging a patient.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Getting Started
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Prerequisites
+- PHP 8.1+
+- Composer
+- Node.js (Latest LTS)
 
-## Laravel Sponsors
+### Installation
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+1.  **Install Dependencies**
+    ```bash
+    composer install
+    npm install
+    ```
 
-### Premium Partners
+2.  **Environment Setup**
+    ```bash
+    cp .env.example .env
+    php artisan key:generate
+    # Configure your database settings in .env
+    # Add GEMINI_API_KEY and DEFAULT_PATIENT_IMAGE (see config/connected.php)
+    ```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+3.  **Database Migration**
+    ```bash
+    php artisan migrate
+    ```
 
-## Contributing
+4.  **Serve**
+    ```bash
+    php artisan serve
+    # For frontend assets (currently Laravel Mix, but planning Vite migration)
+    npm run dev 
+    ```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Code Quality
+*   **Linting:** `npm run lint` (ESLint for JS) and `./vendor/bin/phpcs` (PHPCS for PHP).
+*   **Testing:** `php artisan test` (Unit/Feature) and `php artisan dusk` (Browser).
