@@ -1,0 +1,14 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - heading "Connected Capacity" [level=2] [ref=e5]
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: Email
+      - textbox [ref=e9]
+    - generic [ref=e10]:
+      - generic [ref=e11]: Password
+      - textbox [ref=e12]
+    - button "Sign In" [ref=e13] [cursor=pointer]
+```
