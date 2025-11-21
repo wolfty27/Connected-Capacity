@@ -1,8 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Legacy\PatientsController;
+use App\Http\Controllers\Legacy\BookingsController;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -14,15 +18,35 @@ use App\Http\Controllers\UserController;
 |
 */
 
-//Route::get('/', function () {
-//    return view('welcome');
-//});
+// Restore default redirect for root
+Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect('/dashboard');
+    }
+    return redirect('/login');
+});
 
+Route::get('/login', [UserController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [UserController::class, 'login']);
 Route::post('/logout', [UserController::class, 'logout']);
 
+// Authenticated Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
+    
+    // Restore legacy patient routes for tests
+    Route::get('/patients', [PatientsController::class, 'index']);
+    
+    // Restore legacy bookings routes for tests
+    Route::get('/bookings', [BookingsController::class, 'index']);
+});
+
+// SPA Catch-all (Must be last)
 Route::get('/{any?}', function () {
-    // Debug auth
-    // dd(Auth::user()); 
-    return view('app');
+    // If user is logged in, render SPA
+    if (Auth::check()) {
+        return view('app');
+    }
+    // Otherwise redirect to login
+    return redirect('/login');
 })->where('any', '.*');
