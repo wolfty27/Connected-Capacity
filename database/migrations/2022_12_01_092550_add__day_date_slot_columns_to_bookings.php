@@ -30,8 +30,19 @@ class AddDayDateSlotColumnsToBookings extends Migration
     public function down()
     {
         Schema::table('bookings', function (Blueprint $table) {
-            $table->dropColumn(['date',  'slot']);
-            //
+            // Guarded drops so rollback doesn't fail if columns are already absent.
+            if (Schema::hasColumn('bookings', 'start_time')) {
+                $table->dropColumn('start_time');
+            }
+            if (Schema::hasColumn('bookings', 'end_time')) {
+                $table->dropColumn('end_time');
+            }
+            if (Schema::hasColumn('bookings', 'event_uri')) {
+                $table->dropColumn('event_uri');
+            }
+            if (Schema::hasColumn('bookings', 'invitee_uri')) {
+                $table->dropColumn('invitee_uri');
+            }
         });
     }
 }
