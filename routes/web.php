@@ -39,6 +39,9 @@ Route::middleware(['auth'])->group(function () {
     
     // Restore legacy bookings routes for tests
     Route::get('/bookings', [BookingsController::class, 'index']);
+
+    // Temporary route for BookingCreationTest
+    Route::middleware('web')->get('/test/bookings/{patient}', [BookingsController::class, 'bookAppointment']);
 });
 
 // SPA Catch-all (Must be last)
