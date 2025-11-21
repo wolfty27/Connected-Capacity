@@ -19,7 +19,7 @@ use App\Http\Controllers\UserController;
 //});
 
 Route::get('/', [HomeController::class, 'index']);
-Route::get('/login', [UserController::class, 'loginView']);
+Route::get('/login', [UserController::class, 'loginView'])->name('login');
 Route::post('/login', [UserController::class, 'login']);
 Route::get('/logout', [UserController::class, 'logout']);
 

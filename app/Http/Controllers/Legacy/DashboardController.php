@@ -24,7 +24,7 @@ use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    public function index (Request $request)
+    public function index(Request $request)
     {
         try {
             $user = Auth::user();
@@ -38,21 +38,21 @@ class DashboardController extends Controller
                 return $this->hospitalDashboard($request);
             } elseif ($role == 'retirement-home') {
                 return $this->retirementHomeDashboard($request);
+            } elseif (in_array($role, ['SPO_ADMIN', 'SPO_COORDINATOR', 'SSPO_COORDINATOR', 'FIELD_STAFF'])) {
+                return Redirect::route('cc2.dashboard');
             } else {
                 Auth::logout();
                 Session::flush();
                 return Redirect::to('/login')->with(['errors' => 'Invalid User']);
             }
-        }
-        catch (\Exception $e)
-        {
+        } catch (\Exception $e) {
             Auth::logout();
             Session::flush();
-            return Redirect::to('/login')->with(['errors' => $e->getMessage().' Please contact admin.']);
+            return Redirect::to('/login')->with(['errors' => $e->getMessage() . ' Please contact admin.']);
         }
     }
 
-    public function adminDashboard ($request)
+    public function adminDashboard($request)
     {
         try {
             $hospitalsObj = NewHospital::all();
@@ -66,12 +66,12 @@ class DashboardController extends Controller
                 DB::raw("(COUNT(*)) as count"),
                 DB::raw("MONTHNAME(created_at) as month_name")
             )
-            ->whereYear('created_at', date('Y'))
-            ->groupBy('month_name')
-            ->get();
+                ->whereYear('created_at', date('Y'))
+                ->groupBy('month_name')
+                ->get();
             $hospital_data = [];
-            foreach($hospitalVis as $somedata){
-                array_push($hospital_data,[
+            foreach ($hospitalVis as $somedata) {
+                array_push($hospital_data, [
                     "count" => $somedata->count,
                     "month_name" => $somedata->month_name
                 ]);
@@ -80,12 +80,12 @@ class DashboardController extends Controller
                 DB::raw("(COUNT(*)) as count"),
                 DB::raw("MONTHNAME(created_at) as month_name")
             )
-            ->whereYear('created_at', date('Y'))
-            ->groupBy('month_name')
-            ->get();
+                ->whereYear('created_at', date('Y'))
+                ->groupBy('month_name')
+                ->get();
             $retirement_home_data = [];
-            foreach($RetirementHomeVis as $retdata){
-                array_push($retirement_home_data,[
+            foreach ($RetirementHomeVis as $retdata) {
+                array_push($retirement_home_data, [
                     "count" => $retdata->count,
                     "month_name" => $retdata->month_name
                 ]);
@@ -98,35 +98,33 @@ class DashboardController extends Controller
                 'countRetirementHome' => $retirement_home_data,
             ];
             return view('dashboard.dashboard', $data);
-        }
-        catch (\Exception $e)
-        {
-            return Redirect::back()->with(['errors' => $e->getMessage().' Please contact admin.'])->withInput();
+        } catch (\Exception $e) {
+            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
         }
 
     }
 
-    public function hospitalDashboard ($request)
+    public function hospitalDashboard($request)
     {
-        try{
+        try {
             $hospitalObj = NewHospital::where('user_id', Auth::user()->id)->first();
             $patients = Patient::where('hospital_id', $hospitalObj->id)->where('status', 'Available');
-            $appointments = Booking::with(['retirement.user','patient.user'])->where('hospital_id', $hospitalObj->id)->where('status', 'In person Assessment')->whereNull('retirement_home_status')->get()->reverse();
-            $offers = Booking::with(['retirement.user','patient.user','assessment.tier'])->where('hospital_id', $hospitalObj->id)->where('status', 'Application Progress')->whereRetirement_home_status('accepted')->get()->reverse();
+            $appointments = Booking::with(['retirement.user', 'patient.user'])->where('hospital_id', $hospitalObj->id)->where('status', 'In person Assessment')->whereNull('retirement_home_status')->get()->reverse();
+            $offers = Booking::with(['retirement.user', 'patient.user', 'assessment.tier'])->where('hospital_id', $hospitalObj->id)->where('status', 'Application Progress')->whereRetirement_home_status('accepted')->get()->reverse();
 
             $hospitalOffers = Booking::select(
                 DB::raw("(COUNT(*)) as count"),
                 DB::raw("MONTHNAME(updated_at) as month_name")
             )
-            ->where('hospital_id', $hospitalObj->id)
-            ->where('retirement_home_status', 'accepted')
-            ->whereYear('updated_at', date('Y'))
-            ->groupBy('month_name')
-            ->get();
+                ->where('hospital_id', $hospitalObj->id)
+                ->where('retirement_home_status', 'accepted')
+                ->whereYear('updated_at', date('Y'))
+                ->groupBy('month_name')
+                ->get();
 
             $hospitalData = [];
-            foreach($hospitalOffers as $rethomedata){
-                array_push($hospitalData,[
+            foreach ($hospitalOffers as $rethomedata) {
+                array_push($hospitalData, [
                     "count" => $rethomedata->count,
                     "month_name" => $rethomedata->month_name
                 ]);
@@ -139,42 +137,40 @@ class DashboardController extends Controller
             ];
 
             // dd($some);
-            return view ('hospitals.dashboard', $data);
-        }
-        catch (\Exception $e)
-        {
-            return Redirect::back()->with(['errors' => $e->getMessage().' Please contact admin.'])->withInput();
+            return view('hospitals.dashboard', $data);
+        } catch (\Exception $e) {
+            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
         }
     }
 
-    public function retirementHomeDashboard ($request)
+    public function retirementHomeDashboard($request)
     {
-        try{
+        try {
             $user = Auth::user();
             $retirementHomeObj = RetirementHome::where('user_id', $user->id)->first();
-            $allpatientsObj = Patient::where('status', '!=' ,'Inactive')->where('status', '!=' ,'Placement Made')->get();
+            $allpatientsObj = Patient::where('status', '!=', 'Inactive')->where('status', '!=', 'Placement Made')->get();
             $mypatientsObj = Booking::where('retirement_home_id', $retirementHomeObj->id)->where('status', 'accept')->get();
-            $appointmentsObj = Booking::with('patient.user', 'hospital.user')->where('retirement_home_id', $retirementHomeObj->id)->where('status','In person Assessment')->get()->reverse();
-            
+            $appointmentsObj = Booking::with('patient.user', 'hospital.user')->where('retirement_home_id', $retirementHomeObj->id)->where('status', 'In person Assessment')->get()->reverse();
+
             $retirementoffers = Patient::select(
                 DB::raw("(COUNT(*)) as count"),
                 DB::raw("MONTHNAME(updated_at) as month_name")
             )
-            ->where('retirement_home_id', $retirementHomeObj->id)
-            ->where('status', 'Placement Made')
-            ->whereYear('updated_at', date('Y'))
-            ->groupBy('month_name')
-            ->get();
+                ->where('retirement_home_id', $retirementHomeObj->id)
+                ->where('status', 'Placement Made')
+                ->whereYear('updated_at', date('Y'))
+                ->groupBy('month_name')
+                ->get();
 
             // dd($retirementoffers);
 
             $retirementHomeData = [];
-            foreach($retirementoffers as $rethomedata){
-                array_push($retirementHomeData,[
+            foreach ($retirementoffers as $rethomedata) {
+                array_push($retirementHomeData, [
                     "count" => $rethomedata->count,
                     "month_name" => $rethomedata->month_name
                 ]);
-            }            
+            }
             $data = [
                 'mypatientCount' => $mypatientsObj->count(),
                 'allpatientCount' => $allpatientsObj->count(),
@@ -182,11 +178,9 @@ class DashboardController extends Controller
                 'retirementHomeData' => $retirementHomeData,
             ];
 
-            return view ('retirement_homes.dashboard', $data);
-        }
-        catch (\Exception $e)
-        {
-            return Redirect::back()->with(['errors' => $e->getMessage().' Please contact admin.'])->withInput();
+            return view('retirement_homes.dashboard', $data);
+        } catch (\Exception $e) {
+            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
         }
     }
 
