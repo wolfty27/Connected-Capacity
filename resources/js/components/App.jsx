@@ -6,6 +6,9 @@ import DashboardPlaceholder from './DashboardPlaceholder';
 import ProtectedRoute from './RouteGuards/ProtectedRoute';
 import NotFoundPage from './NotFoundPage';
 
+import TnpReviewListPage from '../pages/Tnp/TnpReviewListPage';
+import TnpReviewDetailPage from '../pages/Tnp/TnpReviewDetailPage';
+
 const App = () => {
     return (
         <AuthProvider>
@@ -17,7 +20,9 @@ const App = () => {
                     <Route element={<AppLayout />}>
                         <Route path="/" element={<DashboardPlaceholder />} />
                         <Route path="/dashboard" element={<DashboardPlaceholder />} />
-                        {/* Add more authenticated routes here */}
+                        
+                        <Route path="/tnp" element={<TnpReviewListPage />} />
+                        <Route path="/tnp/:patientId" element={<TnpReviewDetailPage />} />
                         
                         {/* Catch-all for authenticated layout */}
                         <Route path="*" element={<NotFoundPage />} />
