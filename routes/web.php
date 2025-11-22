@@ -42,6 +42,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Temporary route for BookingCreationTest
     Route::middleware('web')->get('/test/bookings/{patient}', [BookingsController::class, 'bookAppointment']);
+
+    // CC2 Routes (Migrated from RouteServiceProvider)
+    Route::prefix('cc2')
+        ->middleware(['web', 'auth', 'feature.flag:cc2.enabled', 'organization.context'])
+        ->as('cc2.')
+        ->group(base_path('routes/cc2.php'));
 });
 
 // SPA Catch-all (Must be last)

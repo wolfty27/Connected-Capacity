@@ -49,11 +49,13 @@ class RouteServiceProvider extends ServiceProvider
 
 
 
+/*
             Route::prefix('cc2')
                 ->middleware(['web', 'auth', 'feature.flag:cc2.enabled', 'organization.context'])
                 ->as('cc2.')
                 ->namespace($this->namespace)
                 ->group(base_path('routes/cc2.php'));
+*/
         });
     }
 
