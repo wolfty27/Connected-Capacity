@@ -89,4 +89,14 @@ class Patient extends Model
     {
         return $this->hasOne(TransitionNeedsProfile::class);
     }
+
+    public function careAssignments()
+    {
+        return $this->hasMany(CareAssignment::class);
+    }
+
+    public function visits()
+    {
+        return $this->hasMany(Visit::class);
+    }
 }

@@ -104,4 +104,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(RpmAlert::class, 'handled_by');
     }
+
+    public function careAssignments()
+    {
+        return $this->hasMany(CareAssignment::class, 'assigned_user_id');
+    }
+
+    public function assignedTasks()
+    {
+        return $this->hasMany(Task::class, 'assigned_to_user_id');
+    }
 }
