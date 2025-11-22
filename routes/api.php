@@ -19,5 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
+    Route::get('/v2/dashboard', [\App\Http\Controllers\Api\V2\DashboardController::class, 'index']);
+
     Route::apiResource('patients', \App\Http\Controllers\Api\PatientController::class);
 });
