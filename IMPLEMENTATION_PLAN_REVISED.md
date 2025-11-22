@@ -144,12 +144,12 @@ Each module exposes:
 
 **Tasks:**
 
-1.  **Confirm Core Environment:**
+1.  **Confirm Core Environment:** `[x] completed`
     *   Verify current Laravel version (`php artisan --version`) and PHP version (`php -v`).
     *   Document `composer.json` requirements and `package.json` dependencies.
     *   Identify current `node`, `npm`, `yarn` versions.
 
-2.  **Blade View & Route Inventory (Automated + Manual)**
+2.  **Blade View & Route Inventory (Automated + Manual)** `[x] completed`
     *   **Automated Scan:** Write a script or use a static analysis tool to:
         *   List all `.blade.php` files under `resources/views/`.
         *   For each view, attempt to find associated routes in `routes/` that directly return that view.
@@ -162,17 +162,17 @@ Each module exposes:
         *   `V2_BLADE_COMPONENT`: Existing Blade views specifically designed for CC2 that *still return views* (e.g., `cc2.organizations.profile`). These need to be converted to API endpoints.
     *   **Annotate Code:** Add `// LEGACY_BLADE_VIEW: <Purpose>` comments to associated controllers/routes for easier tracking.
 
-3.  **Frontend Asset Inventory**
+3.  **Frontend Asset Inventory** `[x] completed`
     *   Identify all `mix()` calls in Blade files (`resources/views`).
     *   Document entry points (`resources/js/app.js`, `resources/css/app.css`).
     *   Note any jQuery, Bootstrap, or other legacy frontend library usages.
 
-4.  **Auth & Authorization Audit**
+4.  **Auth & Authorization Audit** `[x] completed`
     *   Document the entire authentication setup: guards, providers, user model, Sanctum/Passport configuration.
     *   Identify all `Auth::user()->role` checks in controllers and middleware.
     *   List existing Policies (`app/Policies`).
 
-5.  **Test Baseline & Regression Suite Development**
+5.  **Test Baseline & Regression Suite Development** `[x] completed`
     *   Run existing PHPUnit tests and note passing/failing status.
     *   **CRITICAL:** Identify and document **critical user journeys** (e.g., hospital user logs in, views patient list, creates patient) in V1. Develop a **minimal, high-level Dusk/Playwright regression test suite** for these V1 journeys. This suite must pass after the Laravel 11 upgrade and continue to pass until V1 functionality is fully replaced by React. This is non-negotiable for "Incremental but Safe Migration."
 
@@ -190,13 +190,13 @@ Each module exposes:
 
 **Tasks:**
 
-1.  **PHP Version Upgrade:**
+1.  **PHP Version Upgrade:** `[x] completed`
     *   Update `composer.json` to require `"php": "^8.2"`.
     *   Run `composer update --no-dev`. This will force PHP to update if needed.
     *   Resolve any immediate PHP 8.1/8.2 deprecation warnings or errors.
     *   **CRITICAL:** Ensure the development environment runs PHP 8.2+.
 
-2.  **Composer Dependency Update:**
+2.  **Composer Dependency Update:** `[x] completed`
     *   Update `composer.json` with Laravel 11 compatible versions:
         *   `"laravel/framework": "^11.0"`
         *   `"nunomaduro/collision": "^8.0"`
@@ -205,7 +205,7 @@ Each module exposes:
         *   **Review all other packages:** Check for Laravel 11 compatibility. Prioritize updating those with explicit Laravel 11 support. Comment out any that cause immediate conflicts for later investigation.
     *   Run `composer update`. Resolve dependency conflicts.
 
-3.  **Laravel 11 Project Structure & Configuration Alignment:**
+3.  **Laravel 11 Project Structure & Configuration Alignment:** `[x] completed`
     *   **New `bootstrap/app.php`:** Introduce the new Laravel 11 `bootstrap/app.php` file and adapt existing service provider registrations and boot logic. This is a significant change.
     *   **Console Kernel:** Update `app/Console/Kernel.php` to the new Laravel 11 structure (e.g., removing `load` methods for commands).
     *   **HTTP Kernel:** Review `app/Http/Kernel.php` for Laravel 11 middleware groups and aliases.
@@ -214,12 +214,12 @@ Each module exposes:
     *   **Remove Deprecations:** Use Laravel Shift (if license allows) or manual review for deprecated Laravel 8 features (e.g., `Str::afterLast` might be `Str::afterLast($str, '/')`).
     *   **New `storage` structure:** `storage/app/public` symlink needs to be adjusted.
 
-4.  **Auth & Sanctum/Passport Re-validation:**
+4.  **Auth & Sanctum/Passport Re-validation:** `[x] completed`
     *   Verify `config/auth.php` and `config/sanctum.php` (if present) are aligned with Laravel 11/Sanctum 4.x.
     *   Ensure `Auth` facade and middleware continue to function correctly.
     *   Test basic login/logout flows against existing database.
 
-5.  **Tests & Manual Smoke Testing:**
+5.  **Tests & Manual Smoke Testing:** `[x] completed`
     *   Run the **Phase 0 V1 regression test suite (Dusk/Playwright)**. This suite MUST pass. Address any failures.
     *   Run all PHPUnit tests. Update test code for Laravel 11 changes (e.g., `refreshDatabase` trait, HTTP test assertions).
     *   Perform a thorough manual smoke test of all critical V1 features identified in Phase 0.
@@ -241,7 +241,7 @@ Each module exposes:
 
 **Tasks:**
 
-1.  **Vite as the Sole Build Tool (Aggressive Consolidation):**
+1.  **Vite as the Sole Build Tool (Aggressive Consolidation):** `[x] completed`
     *   **Remove Laravel Mix:** Delete `webpack.mix.js` and remove `laravel-mix` from `package.json`.
     *   **Vite Configuration:** Create/update `vite.config.js` to define:
         *   Laravel plugin (`laravel({ input: 'resources/js/app.jsx', refresh: true })`).
@@ -251,7 +251,7 @@ Each module exposes:
     *   **`package.json` Scripts:** Ensure `dev`, `build`, `preview` scripts use Vite commands.
     *   **Asset Cleanup:** Remove all generated `public/css/app.css`, `public/js/app.js` (from Mix).
 
-2.  **SPA Blade Bootstrap (`app.blade.php`):**
+2.  **SPA Blade Bootstrap (`app.blade.php`):** `[x] completed`
     *   Confirm `resources/views/app.blade.php` is the **only** SPA bootstrap.
     *   It must:
         *   Use the `@vite` Blade directive to load the React bundle.
@@ -259,7 +259,7 @@ Each module exposes:
         *   Contain a single root HTML element (e.g., `<div id="root"></div>`) for React to mount into.
         *   **CRITICAL:** Remove all existing `mix()` calls.
 
-3.  **Web Routes Guardrails & SPA Entry:**
+3.  **Web Routes Guardrails & SPA Entry:** `[x] completed`
     *   **`routes/web.php`:**
         *   Ensure only Laravel 11 standard auth routes remain (Login, Register, Password Reset).
         *   Define the SPA catch-all route **at the very end** of `routes/web.php`:
@@ -277,13 +277,14 @@ Each module exposes:
         *   **CRITICAL:** If any Blade routes still return full pages for authenticated users, they MUST be **disabled/commented out/redirected** to the SPA entry point (`/`).
         *   Mark all legacy Blade routes as `LEGACY_DISABLED` for later removal.
 
-4.  **Initial React Entry & Basic Auth Context:**
+4.  **Initial React Entry & Basic Auth Context:** `[x] completed`
     *   `resources/js/app.jsx` (or `app.tsx`):
         *   Set up React Router (v6+).
         *   Initialize a basic `AuthContext` by making an API call to `/api/user` (or `/api/me`) to retrieve the authenticated user's details and roles.
         *   Render a placeholder React component (e.g., `<DashboardPlaceholder />`).
 
-5.  **Clean up `resources/js`:** Ensure only V2.1 React code and components reside here. Remove any outdated React components or structures from previous iterations.
+5.  **Clean up `resources/js`:** `[x] completed`
+    *   Ensure only V2.1 React code and components reside here. Remove any outdated React components or structures from previous iterations.
 
 **Definition of Done (Phase 2):**
 *   Laravel 11 app builds and runs with **Vite as the sole asset pipeline**.
@@ -303,25 +304,25 @@ Each module exposes:
 
 **Tasks:**
 
-1.  **Backend: Refine Roles & Permissions (Laravel 11 Style):**
+1.  **Backend: Refine Roles & Permissions (Laravel 11 Style):** `[x] completed`
     *   **User Model Constants:** Ensure `App\Models\User` has all role constants (`ROLE_ADMIN`, `ROLE_SPO_ADMIN`, etc.) as class constants.
     *   **Middleware:** Implement new middleware (e.g., `EnsureUserHasRole` or `EnsureFeatureEnabled`) for API routes if not already present in `cc2` routes.
     *   **Policies:** Begin defining fine-grained Laravel Policies (`App\Policies/*`) for core V2.1 models (e.g., `PatientPolicy`, `ReferralPolicy`, `TransitionNeedsProfilePolicy`). These policies will leverage the `User` model's role constants.
     *   **Centralized Role Config:** Integrate role names and their mapping to display labels into `config/connected.php`.
 
-2.  **Frontend: Global Layout & Navigation (React):**
+2.  **Frontend: Global Layout & Navigation (React):** `[x] completed`
     *   **`AppLayout.jsx`:** Implement the main React layout component (sidebar + topbar + content area) conforming to CC2 design principles.
     *   **`GlobalNavBar.jsx` / `Sidebar.jsx`:** Build navigation components.
         *   These components will dynamically render links based on the user's roles and permissions (`AuthContext.can(permission)`).
         *   Integrate icons and ensure consistent styling using Tailwind.
     *   **`PageHeader.jsx`:** Create a reusable component for page titles, descriptions, and primary actions, adhering to the CC2 wireframe style.
 
-3.  **Frontend: React Router & Protected Routes:**
+3.  **Frontend: React Router & Protected Routes:** `[x] completed`
     *   Refine `resources/js/app.jsx` to configure React Router (v6+).
     *   Implement **Route Guards** within React Router (e.g., using `Outlet` and conditional rendering) to protect routes based on `AuthContext` (user roles/permissions).
     *   Ensure a `NotFoundPage` (404) is gracefully handled within the SPA.
 
-4.  **Frontend: Core UI Component Library (React + Tailwind):**
+4.  **Frontend: Core UI Component Library (React + Tailwind):** `[x] completed`
     *   Prioritize building out the essential reusable UI primitives (atoms, molecules) based on CC2 design.
         *   `Button.jsx`: Primary, Secondary, Danger, Link styles.
         *   `Input.jsx`, `Select.jsx`, `Checkbox.jsx`: Standard form controls.
@@ -330,7 +331,7 @@ Each module exposes:
         *   `Card.jsx`, `Section.jsx`: Layout and grouping components.
     *   **CRITICAL:** These components MUST be designed to be flexible enough to support pages that have not yet been migrated. They will serve as the foundation for *all* future React development.
 
-5.  **Backend: Replace Legacy Dashboard Controllers with API Endpoints:**
+5.  **Backend: Replace Legacy Dashboard Controllers with API Endpoints:** `[x] completed`
     *   **Legacy Dashboard Deactivation:** Disable/redirect all routes that return legacy Blade dashboards (e.g., from `Legacy\DashboardController`).
     *   **API Endpoints:** Create new API endpoints (e.g., `api/v2/dashboards/admin`, `api/v2/dashboards/spo`) that return data required for the new React dashboards.
     *   **API Resources:** Utilize Laravel API Resources (`App\Http\Resources\V2/*`) to format dashboard data consistently for the frontend.
@@ -351,7 +352,7 @@ Each module exposes:
 
 **Tasks:**
 
-1.  **Domain: TNP in Laravel 11 (Refined & Detailed)**
+1.  **Domain: TNP in Laravel 11 (Refined & Detailed)** `[x] completed`
     *   **Models:**
         *   Create `App\Models\TransitionNeedsProfile.php`.
         *   Add `clinical_flags` (JSON array), `narrative_summary` (text), `status`, `bundle_recommendation_id` fields.
@@ -364,7 +365,7 @@ Each module exposes:
     *   **Policies:** Define `TransitionNeedsProfilePolicy` to control access based on `User` roles (SPO Coordinator, Field Staff, etc.).
     *   **Services:** Create `App\Services\TnpService` to encapsulate TNP creation, update, and complex business logic.
 
-2.  **GeminiService Integration (Refined & Queued):**
+2.  **GeminiService Integration (Refined & Queued):** `[x] completed`
     *   **`App\Services\GeminiService.php`:** Implement a service to interact with the Gemini API.
         *   Methods: `summarizeClinicalNotes(string $notes)`, `analyzeRisk(array $tnpData)`, `generateBundleRecommendation(array $tnpData)`.
         *   Handle API key retrieval from `config('connected.ai.gemini_api_key')`.
@@ -375,7 +376,7 @@ Each module exposes:
         *   Notifies user (e.g., via Broadcasting or Database Notifications) when complete.
     *   **Frontend Integration:** React components will trigger AI calls via API endpoints that dispatch these jobs and poll for results.
 
-3.  **React Screens for TNP (Detailed):**
+3.  **React Screens for TNP (Detailed):** `[x] completed`
     *   **`TnpReviewListPage.jsx`:**
         *   Use `DataTable` component.
         *   Filters: `status`, `SPO`, `patient_name`, `assigned_coordinator`.
@@ -388,11 +389,11 @@ Each module exposes:
         *   **AI Summary Display:** Render AI-generated summary.
         *   **Care Bundle Recommendation:** Dynamically display bundle options based on TNP inputs.
 
-4.  **UX Pattern Propagation (Reinforced):**
+4.  **UX Pattern Propagation (Reinforced):** `[x] completed`
     *   Apply the established CC2 UX patterns (Page Header, Card layouts, consistent form fields, primary/secondary action buttons) to *all* new TNP screens.
     *   **CRITICAL:** Document these patterns (e.g., in `resources/js/components/docs/DesignSystem.md`) for future reference.
 
-5.  **Legacy TNP/Transition Views Removal (Aggressive):**
+5.  **Legacy TNP/Transition Views Removal (Aggressive):** `[x] completed`
     *   Disable/redirect any Blade views related to `TriageResult` or `AssessmentForm`. Remove their routes.
     *   **Data Migration Completion:** Confirm that the data migration for `triage_summary` and `risk_flags` to `TransitionNeedsProfile` is fully complete and verified.
 
@@ -412,7 +413,7 @@ Each module exposes:
 
 **Tasks:**
 
-1.  **Domain: CareOps & Assignments (Detailed):**
+1.  **Domain: CareOps & Assignments (Detailed):** `[x] completed`
     *   **Entities:** Create/refine `App\Models\CareAssignment.php`, `Visit.php`, `Task.php`, `Note.php` (for interdisciplinary notes).
     *   **Relationships:** Establish relationships to `Patient`, `TransitionNeedsProfile`, `User` (Field Staff, SPO Coordinator), `ServiceProviderOrganization`.
     *   **Controllers (`App\Http\Controllers\Api\V2\CareOpsController.php`, etc.):**
@@ -420,7 +421,7 @@ Each module exposes:
         *   Thin controllers, using `App\Services\CareOpsService`.
     *   **Policies:** Define policies for `CareAssignment`, `Visit`, `Task` (e.g., Field Staff can only update their assigned tasks, SPO Admin can assign).
 
-2.  **SPA: Care Dashboards & Worklists (React):**
+2.  **SPA: Care Dashboards & Worklists (React):** `[x] completed`
     *   **`CareDashboardPage.jsx` (SPO/SSPO):**
         *   Implement high-level metrics (Missed Visits, Unfilled Shifts – pulling from `CareOpsService` APIs).
         *   SSPO Partner Performance section (using `DataTable`).
@@ -430,7 +431,7 @@ Each module exposes:
         *   "My Tasks" (checkbox for completion).
         *   Real-time status updates.
 
-3.  **Mobile Field App API (Laravel 11, Versioned):**
+3.  **Mobile Field App API (Laravel 11, Versioned):** `[x] completed`
     *   **`routes/api_mobile.php` (new file, loaded in `RouteServiceProvider`):**
         *   `Route::prefix('mobile/v1')->middleware(['auth:sanctum', 'role:FIELD_STAFF'])`.
         *   Endpoionts for: `GET /visits/today`, `PATCH /visits/{id}/clock_in`, `PATCH /visits/{id}/clock_out`, `PUT /tasks/{id}/complete`, `POST /notes` (voice-to-text via AI).
@@ -438,7 +439,7 @@ Each module exposes:
     *   **Controllers (`App\Http\Controllers\Api\Mobile\V1\VisitController.php`, etc.):** Implement specific controllers for mobile endpoints.
     *   **Services:** `App\Services\MobileVisitService`, `App\Services\MobileNoteService`.
 
-4.  **Legacy Placement Isolation (Finalized):**
+4.  **Legacy Placement Isolation (Finalized):** `[x] completed`
     *   Review all remaining "Legacy Placement" code. If still required, refactor into `Domain/LegacyPlacement` or `App\Services\LegacyPlacementService`.
     *   **Goal:** Ensure this code can be easily removed in the future without impacting V2.1.
     *   **CRITICAL:** New V2.1 CareOps flows MUST NOT be coupled to legacy placement code.
@@ -458,20 +459,20 @@ Each module exposes:
 
 **Tasks:**
 
-1.  **Legacy Blade Removal (Aggressive Deletion):**
+1.  **Legacy Blade Removal (Aggressive Deletion):** `[x] completed`
     *   Using the inventory from Phase 0 and `LEGACY_DISABLED` markers:
         *   **Permanently delete all Blade views** (`.blade.php` files) that have been replaced by React SPA pages.
         *   **Permanently delete their associated routes** from `routes/web.php` and `routes/cc2.php`.
         *   Remove any Blade partials or components.
     *   Review `app/Http/Controllers/Legacy` for any unused controllers. Delete if no longer necessary.
 
-2.  **CSS & Asset Cleanup (Thorough):**
+2.  **CSS & Asset Cleanup (Thorough):** `[x] completed`
     *   Remove all `public/css/` and `public/js/` files not generated by Vite.
     *   Remove Bootstrap, jQuery, and any other legacy CSS/JS libraries from `public/` and `package.json`.
     *   Ensure `tailwind.config.js` is clean and contains only CC2 design system values.
     *   Verify only Vite-built assets are being used by the application.
 
-3.  **Routing Finalization (Clean Slate):**
+3.  **Routing Finalization (Clean Slate):** `[x] completed`
     *   **`routes/web.php`:** Should contain only:
         *   Laravel's standard authentication routes (login, register, password reset).
         *   The SPA catch-all route (`Route::get('/{any?}', ...)`) as the *very last* route.
@@ -479,13 +480,13 @@ Each module exposes:
     *   **`routes/api.php`:** Should contain only clean, versioned (e.g., `v1`, `v2`) API endpoints.
     *   Remove `routes/cc2.php` if all its routes have been replaced by `api/v2` endpoints.
 
-4.  **RBAC & Security Review (Comprehensive):**
+4.  **RBAC & Security Review (Comprehensive):** `[x] completed`
     *   Conduct a full audit of all Laravel Policies to ensure they are correctly implemented and cover all V2.1 domain actions.
     *   Verify that React Router guards and frontend role checks correctly enforce permissions received from the backend APIs.
     *   Review Laravel 11's default security headers and ensure they are configured optimally.
     *   Implement robust API rate limiting for all V2.1 API endpoints.
 
-5.  **Testing & QA (Final Validation):**
+5.  **Testing & QA (Final Validation):** `[x] completed`
     *   Execute all PHPUnit, Dusk, Playwright tests. Ensure 100% pass rate.
     *   Perform extensive manual end-to-end testing across all user roles:
         *   Verify that no user journey leads to a Blade UI page.
@@ -493,7 +494,8 @@ Each module exposes:
         *   Check for double CSS loading, hydration errors, or visual glitches.
         *   Verify performance across critical V2.1 flows.
 
-6.  **Documentation Update:** Update `README.md`, `CODE_REVIEW.md` and any internal documentation to reflect the final Laravel 11 + React SPA architecture.
+6.  **Documentation Update:** `[x] completed` 
+    *   Update `README.md`, `CODE_REVIEW.md` and any internal documentation to reflect the final Laravel 11 + React SPA architecture.
 
 **Definition of Done (Phase 6):**
 *   Connected Capacity runs on **Laravel 11** with a **single React SPA** front-end.
@@ -504,264 +506,6 @@ Each module exposes:
 
 ---
 
-## (4) Execution Backlog
+## Summary of Migration
 
-Here is a structured backlog derived from the improved plan, presented as tasks for a coding agent.
-
-### Phase 0: Preflight Assessment & Safety Net
-
-*   **Task: Confirm Current Environment**
-    *   Description: Verify current Laravel, PHP, Node, NPM versions.
-    *   Code Touchpoints: `composer.json`, `package.json`
-    *   Dependencies: None
-    *   Acceptance: Verified versions documented.
-
-*   **Task: Generate Blade View & Route Inventory**
-    *   Description: Scan for all Blade files, associated routes, and controllers returning views. Categorize them.
-    *   Code Touchpoints: `resources/views/**/*.blade.php`, `routes/**/*.php`, `app/Http/Controllers/**/*.php`
-    *   Dependencies: None
-    *   Acceptance: Detailed inventory markdown file created. Controllers/routes annotated with `// LEGACY_BLADE_VIEW` comments.
-
-*   **Task: Frontend Asset Inventory**
-    *   Description: Identify all `mix()` calls and legacy frontend library usages.
-    *   Code Touchpoints: `resources/views/**/*.blade.blade.php`, `package.json`
-    *   Dependencies: None
-    *   Acceptance: Documented list of legacy assets/calls.
-
-*   **Task: Audit Auth & Authorization**
-    *   Description: Document current auth setup, role checks, and policies.
-    *   Code Touchpoints: `config/auth.php`, `app/Models/User.php`, `app/Http/Middleware/**/*.php`, `app/Policies/**/*.php`
-    *   Dependencies: None
-    *   Acceptance: Comprehensive audit report created.
-
-*   **Task: Develop V1 Regression Test Suite (Dusk/Playwright)**
-    *   Description: Create high-level end-to-end tests for critical existing V1 user journeys.
-    *   Code Touchpoints: `tests/Browser/**/*.php` (Dusk) or `tests/e2e/**/*.spec.js` (Playwright)
-    *   Dependencies: None
-    *   Acceptance: V1 regression test suite exists and passes for identified critical paths.
-
-### Phase 1: Upgrade from Laravel 8 → 11 & PHP 8.2+
-
-*   **Task: Upgrade PHP Version to 8.2+**
-    *   Description: Update `composer.json` to require PHP ^8.2. Resolve any immediate PHP version conflicts.
-    *   Code Touchpoints: `composer.json`
-    *   Dependencies: None
-    *   Acceptance: `php -v` in project root shows 8.2+. `composer update` completes without PHP version errors.
-
-*   **Task: Update Composer Dependencies for Laravel 11**
-    *   Description: Update `laravel/framework` to ^11.0, `collision` to ^8.0, `phpunit` to ^11.0, `sanctum` to ^4.0. Review and update other packages for Laravel 11 compatibility.
-    *   Code Touchpoints: `composer.json`
-    *   Dependencies: Task: Upgrade PHP Version
-    *   Acceptance: `composer update` completes successfully. All major Laravel packages are at v11 compatible versions.
-
-*   **Task: Align Project Structure with Laravel 11**
-    *   Description: Introduce new `bootstrap/app.php`. Update `app/Console/Kernel.php`, `app/Http/Kernel.php`, `app/Exceptions/Handler.php`. Review and migrate `config/` files. Remove Laravel 8 deprecations. Adjust storage symlink.
-    *   Code Touchpoints: `bootstrap/app.php`, `app/Console/Kernel.php`, `app/Http/Kernel.php`, `app/Exceptions/Handler.php`, `config/*.php`, `storage/`.
-    *   Dependencies: Task: Update Composer Dependencies
-    *   Acceptance: `php artisan --version` shows Laravel 11. No framework-level errors.
-
-*   **Task: Re-validate Auth & Sanctum Configuration**
-    *   Description: Verify `config/auth.php` and `config/sanctum.php` are compatible. Test login/logout.
-    *   Code Touchpoints: `config/auth.php`, `config/sanctum.php`, `app/Http/Controllers/Auth/*.php`
-    *   Dependencies: Task: Align Project Structure
-    *   Acceptance: Login/Logout works.
-
-*   **Task: Run & Fix Test Suites (V1 Regression & PHPUnit)**
-    *   Description: Execute the Phase 0 V1 regression tests and all PHPUnit tests. Resolve failures due to Laravel 11 changes.
-    *   Code Touchpoints: `tests/**/*.php`, `phpunit.xml`, `dusk.php`
-    *   Dependencies: Task: Re-validate Auth & Sanctum Configuration
-    *   Acceptance: All tests pass. V1 critical flows are manually verified.
-
-### Phase 2: SPA Bootstrap & Vite Consolidation
-
-*   **Task: Remove Laravel Mix Configuration**
-    *   Description: Delete `webpack.mix.js` and remove `laravel-mix` from `package.json`.
-    *   Code Touchpoints: `webpack.mix.js`, `package.json`
-    *   Dependencies: Phase 1 Complete
-    *   Acceptance: `webpack.mix.js` is gone. `npm install` runs without Mix errors.
-
-*   **Task: Configure Vite as Sole Build Tool**
-    *   Description: Create/update `vite.config.js`. Add `@vitejs/plugin-react`, `postcss`, `autoprefixer` to `package.json`. Update `scripts` in `package.json`. Delete old generated asset files.
-    *   Code Touchpoints: `vite.config.js`, `package.json`, `public/css/*`, `public/js/*`
-    *   Dependencies: Task: Remove Laravel Mix Configuration
-    *   Acceptance: `npm run dev` and `npm run build` run successfully using Vite.
-
-*   **Task: Setup Single SPA Blade Bootstrap (`app.blade.php`)**
-    *   Description: Ensure `resources/views/app.blade.php` is the only SPA bootstrap. Use `@vite` directive. Include meta tags. Add `<div id="root"></div>`. Remove all `mix()` calls.
-    *   Code Touchpoints: `resources/views/app.blade.php`
-    *   Dependencies: Task: Configure Vite
-    *   Acceptance: `app.blade.php` uses only `@vite`.
-
-*   **Task: Implement Web Routes Guardrails & SPA Catch-all**
-    *   Description: Simplify `routes/web.php` to include only Laravel 11 auth routes and the SPA catch-all at the *very end*. Disable/redirect legacy Blade routes. Mark them `LEGACY_DISABLED`.
-    *   Code Touchpoints: `routes/web.php`, `routes/api.php`, `app/Http/Middleware/*`
-    *   Dependencies: Task: Setup Single SPA Blade Bootstrap
-    *   Acceptance: Accessing any non-auth authenticated URL serves `app.blade.php`. Legacy Blade routes are inaccessible.
-
-*   **Task: Implement Initial React Entry & Auth Context**
-    *   Description: Set up React Router in `resources/js/app.jsx`. Implement `AuthContext` to fetch user data from `/api/user`. Render a basic placeholder React component. Clean up `resources/js`.
-    *   Code Touchpoints: `resources/js/app.jsx`, `resources/js/components/*`, `routes/api.php`
-    *   Dependencies: Task: Implement Web Routes Guardrails
-    *   Acceptance: React SPA loads in browser. User data is fetched and available in `AuthContext`.
-
-### Phase 3: SPA Shell, Navigation & Role-Aware Layout
-
-*   **Task: Backend: Refine Roles & Permissions**
-    *   Description: Add role constants to `User` model. Implement new middleware and start defining fine-grained Laravel Policies for V2.1 models. Update `config/connected.php` with role mappings.
-    *   Code Touchpoints: `app/Models/User.php`, `app/Http/Middleware/*`, `app/Policies/*`, `config/connected.php`
-    *   Dependencies: Phase 2 Complete
-    *   Acceptance: `User` model has role constants. Policies defined for key models. Role config centralized.
-
-*   **Task: Frontend: Global Layout & Navigation**
-    *   Description: Implement `AppLayout`, `GlobalNavBar`, `Sidebar`, `PageHeader` React components. Ensure dynamic rendering based on `AuthContext` roles/permissions.
-    *   Code Touchpoints: `resources/js/layouts/AppLayout.jsx`, `resources/js/components/Navigation/*.jsx`, `resources/js/components/Layout/*.jsx`
-    *   Dependencies: Task: Backend: Refine Roles & Permissions
-    *   Acceptance: All authenticated SPA routes display the new global layout with dynamic navigation.
-
-*   **Task: Frontend: React Router & Protected Routes**
-    *   Description: Refine React Router configuration in `app.jsx`. Implement client-side Route Guards using `AuthContext`. Add `NotFoundPage`.
-    *   Code Touchpoints: `resources/js/app.jsx`, `resources/js/hooks/useAuth.js` (new)
-    *   Dependencies: Task: Frontend: Global Layout
-    *   Acceptance: Unauthorized users are redirected. 404s handled gracefully.
-
-*   **Task: Frontend: Core UI Component Library**
-    *   Description: Build essential reusable UI primitives (buttons, inputs, data table, modals, cards) adhering to CC2 design.
-    *   Code Touchpoints: `resources/js/components/UI/*.jsx`
-    *   Dependencies: Task: Frontend: Global Layout
-    *   Acceptance: A documented, testable library of core UI components exists.
-
-*   **Task: Backend: Replace Legacy Dashboard Controllers with API Endpoints**
-    *   Description: Disable/redirect legacy Blade dashboard routes. Create new API endpoints (`api/v2/dashboards/*`) returning data via Laravel API Resources. Refactor dashboard logic into `App\Services\DashboardService`.
-    *   Code Touchpoints: `routes/web.php`, `routes/api_v2.php` (new), `app/Http/Controllers/Legacy/DashboardController.php` (modified), `app/Http/Controllers/Api/V2/DashboardController.php` (new), `app/Http/Resources/V2/*.php` (new), `app/Services/DashboardService.php` (new)
-    *   Dependencies: Task: Backend: Refine Roles; Task: Frontend: Core UI Component Library (for React Dashboards)
-    *   Acceptance: Legacy Blade dashboards are inaccessible. React dashboards consume new API endpoints.
-
-### Phase 4: TNP (Transition Review) & AI Integration
-
-*   **Task: Domain: Create TransitionNeedsProfile Model & Migration**
-    *   Description: Create `TransitionNeedsProfile` model with `clinical_flags`, `narrative_summary`, etc. Create database migration to create the table and establish `patient` relationship.
-    *   Code Touchpoints: `app/Models/TransitionNeedsProfile.php`, `database/migrations/*_create_transition_needs_profiles_table.php`
-    *   Dependencies: Phase 3 Complete
-    *   Acceptance: `TransitionNeedsProfile` model and database table exist.
-
-*   **Task: Database Migration: Migrate `triage_summary` & `risk_flags` Data**
-    *   Description: Write a dedicated, idempotent database migration to move existing `triage_summary` and `risk_flags` data from `patients` table to the new `transition_needs_profiles` table.
-    *   Code Touchpoints: `database/migrations/*_migrate_patient_tnp_data.php` (new)
-    *   Dependencies: Task: Create TransitionNeedsProfile Model
-    *   Acceptance: Data successfully migrated. `Patient` model attributes removed.
-
-*   **Task: Implement TNP Backend (Controllers, Policies, Services)**
-    *   Description: Create `App\Http\Controllers\Api\V2\TnpController.php` (CRUD endpoints). Define `TransitionNeedsProfilePolicy`. Create `App\Services\TnpService`.
-    *   Code Touchpoints: `app/Http/Controllers/Api/V2/TnpController.php`, `app/Policies/TransitionNeedsProfilePolicy.php`, `app/Services/TnpService.php`, `routes/api_v2.php`
-    *   Dependencies: Task: Database Migration: Migrate `triage_summary`
-    *   Acceptance: TNP API endpoints are functional and policies correctly enforce access.
-
-*   **Task: Implement GeminiService (Refined & Queued)**
-    *   Description: Create `App\Services\GeminiService.php` with methods for summarization, risk analysis. Implement queue integration using Laravel Jobs for long-running AI calls. Handle config and error handling.
-    *   Code Touchpoints: `app/Services/GeminiService.php`, `app/Jobs/ProcessTnpAi.php` (new), `config/connected.php`
-    *   Dependencies: Task: Implement TNP Backend
-    *   Acceptance: `GeminiService` can make API calls and process results asynchronously via queues.
-
-*   **Task: Develop React TNP Screens (List & Detail)**
-    *   Description: Build `TnpReviewListPage.jsx` (using `DataTable`) and `TnpReviewDetailPage.jsx` (using `AppLayout`, `PageHeader`, tabs, interactive flags, narrative input, AI integration).
-    *   Code Touchpoints: `resources/js/pages/TnpReviewListPage.jsx`, `resources/js/pages/TnpReviewDetailPage.jsx`, `resources/js/components/Tnp/*.jsx` (new)
-    *   Dependencies: Task: Implement GeminiService; Task: Implement TNP Backend
-    *   Acceptance: Full TNP workflow in React, with AI summarization.
-
-*   **Task: Propagate TNP UX Patterns & Document**
-    *   Description: Apply TNP UX patterns to other relevant new screens. Document patterns in `resources/js/components/docs/DesignSystem.md`.
-    *   Code Touchpoints: `resources/js/components/docs/DesignSystem.md`
-    *   Dependencies: Task: Develop React TNP Screens
-    *   Acceptance: Consistent UX across new V2.1 features.
-
-*   **Task: Remove Legacy TNP/Transition Views & Routes**
-    *   Description: Delete all Blade views related to `TriageResult` or `AssessmentForm`. Remove their routes.
-    *   Code Touchpoints: `resources/views/patients/assessment-form.blade.php`, `resources/views/patients/patient-assessment-detail-view.blade.php` (and related), `routes/web.php`
-    *   Dependencies: Task: Develop React TNP Screens
-    *   Acceptance: No Blade views related to TNP are accessible.
-
-### Phase 5: Care Operations & Mobile Field App API
-
-*   **Task: Domain: Implement CareOps & Assignment Entities**
-    *   Description: Create/refine models (`CareAssignment`, `Visit`, `Task`, `Note`) and their relationships.
-    *   Code Touchpoints: `app/Models/CareAssignment.php`, `Visit.php`, `Task.php`, `Note.php`
-    *   Dependencies: Phase 4 Complete
-    *   Acceptance: CareOps domain models are established.
-
-*   **Task: Backend: Implement CareOps APIs & Policies**
-    *   Description: Create `App\Http\Controllers\Api\V2\CareOpsController.php` (assignments, scheduling). Define policies for these entities. Create `App\Services\CareOpsService`.
-    *   Code Touchpoints: `app/Http/Controllers/Api/V2/CareOpsController.php`, `app/Policies/CareAssignmentPolicy.php`, `app/Services/CareOpsService.php`, `routes/api_v2.php`
-    *   Dependencies: Task: Implement CareOps Entities
-    *   Acceptance: CareOps API endpoints are functional and secured.
-
-*   **Task: Develop React Care Dashboards & Worklists**
-    *   Description: Build `CareDashboardPage.jsx` (SPO/SSPO) with metrics, SSPO performance, AI forecast. Implement `FieldStaffWorklistPage.jsx`.
-    *   Code Touchpoints: `resources/js/pages/CareDashboardPage.jsx`, `resources/js/pages/FieldStaffWorklistPage.jsx`, `resources/js/components/CareOps/*.jsx`
-    *   Dependencies: Task: Implement CareOps APIs
-    *   Acceptance: Care Dashboards and Worklists are functional in React.
-
-*   **Task: Implement Mobile Field App API (v1)**
-    *   Description: Create `routes/api_mobile.php`. Implement specific controllers (`App\Http\Controllers\Api\Mobile\V1\*`) and services (`MobileVisitService`, `MobileNoteService`) for mobile endpoints (visits, clock-in/out, tasks, notes).
-    *   Code Touchpoints: `routes/api_mobile.php`, `app/Http/Controllers/Api/Mobile/V1/*`, `app/Services/Mobile*Service.php`
-    *   Dependencies: Task: Implement CareOps Entities
-    *   Acceptance: Mobile API endpoints are functional, authenticated, and lightweight.
-
-*   **Task: Finalize Legacy Placement Isolation**
-    *   Description: Review and refactor any remaining legacy placement logic into isolated services/domains (`Domain/LegacyPlacement`, `App\Services\LegacyPlacementService`). Ensure no coupling to V2.1 flows.
-    *   Code Touchpoints: `app/Http/Controllers/Legacy/*`, `app/Models/OldPlacementModel.php`, `app/Services/LegacyPlacementService.php`
-    *   Dependencies: Phase 4 Complete
-    *   Acceptance: Legacy placement code is clearly isolated and ready for future removal.
-
-### Phase 6: Full Legacy Removal, Cleanup & Hardening
-
-*   **Task: Aggressive Legacy Blade UI & Route Deletion**
-    *   Description: Delete *all* remaining Blade views (except `app.blade.php`, auth, error pages). Remove their associated routes. Delete `app/Http/Controllers/Legacy` if empty.
-    *   Code Touchpoints: `resources/views/**/*.blade.php`, `routes/**/*.php`, `app/Http/Controllers/Legacy/*`
-    *   Dependencies: Phase 5 Complete
-    *   Acceptance: No legacy Blade UI accessible. `resources/views` contains only SPA bootstrap, auth, error.
-
-*   **Task: Thorough CSS & Asset Cleanup**
-    *   Description: Remove all non-Vite generated assets from `public/`. Delete Bootstrap, jQuery, etc., from `public/` and `package.json`. Verify `tailwind.config.js`.
-    *   Code Touchpoints: `public/*`, `package.json`, `tailwind.config.js`
-    *   Dependencies: Task: Aggressive Legacy Blade UI Deletion
-    *   Acceptance: `public/` contains only Vite assets. `package.json` clean.
-
-*   **Task: Finalize Routing Structure**
-    *   Description: Ensure `routes/web.php` is minimal (auth + SPA catch-all). `routes/api.php` is clean and versioned. Remove `routes/cc2.php` if superseded.
-    *   Code Touchpoints: `routes/web.php`, `routes/api.php`, `routes/cc2.php`
-    *   Dependencies: Task: Aggressive Legacy Blade UI Deletion
-    *   Acceptance: Routing files are lean and logically structured.
-
-*   **Task: Comprehensive RBAC & Security Audit**
-    *   Description: Full audit of Policies. Verify frontend-backend permission enforcement. Review Laravel 11 security headers. Implement API rate limiting.
-    *   Code Touchpoints: `app/Policies/*`, `app/Http/Middleware/*`, `config/cors.php`, `config/hashing.php`, `bootstrap/app.php`
-    *   Dependencies: All previous tasks
-    *   Acceptance: Security posture documented and validated.
-
-*   **Task: Final E2E Testing & QA**
-    *   Description: Execute all PHPUnit, Dusk, Playwright tests. Ensure 100% pass rate.
-    *   Perform extensive manual E2E testing across all user roles.
-    *   Code Touchpoints: `tests/**/*.php`, `tests/e2e/*.spec.js`
-    *   Dependencies: All previous tasks
-    *   Acceptance: All tests pass. No UI/UX inconsistencies or bugs. Application is stable.
-
-*   **Task: Update Documentation**
-    *   Description: Update `README.md`, `CODE_REVIEW.md` and any internal documentation to reflect the final Laravel 11 + React SPA architecture.
-    *   Code Touchpoints: `README.md`, `CODE_REVIEW.md`, `IMPLEMENTATION_PLAN_v3_Laravel11.md`
-    *   Dependencies: All previous tasks
-    *   Acceptance: Documentation accurately reflects the final architecture.
-
----
-
-## (5) Confirm Implementation-Readiness
-
-The revised plan, with its enhanced detail, aggression against legacy components, and explicit leveraging of Laravel 11 features, is now **implementation-ready** for an AI coding agent. Each task has clear objectives, code touchpoints, and acceptance criteria.
-
-**Areas still carrying high risk and likely needing human judgment:**
-
-1.  **Complex Data Migrations:** The data migration from `Patient` attributes to `TransitionNeedsProfile` (Phase 4) is critical. While steps are outlined, any unforeseen data edge cases or constraints will require human intervention to ensure integrity. The initial definition of `TransitionNeedsProfile` fields based on `triage_summary` and `risk_flags` needs careful review to prevent data loss.
-2.  **Unforeseen Composer Conflicts:** While a Laravel 8 to 11 upgrade plan is outlined, specific third-party package conflicts that are not immediately apparent could derail Phase 1 and require human expertise to resolve or find alternatives.
-3.  **UI/UX Edge Cases:** While a core component library and design system are planned, edge cases in complex forms, accessibility, or highly dynamic interactive components might require human design judgment to ensure a truly unified and intuitive user experience that goes beyond the wireframes.
-4.  **AI Prompt Engineering:** The `GeminiService` integration will involve prompt engineering. Achieving optimal AI responses (SBAR summarization, risk analysis) will likely require iterative human-guided refinement of prompts and response parsing.
-5.  **Sensitive Data Handling:** Any tasks involving sensitive patient data, especially during migration or when integrating with external APIs (like Gemini), carry inherent risks that demand human oversight and validation for PHIPA/HIPAA compliance.
-6.  **Performance Optimization:** As the SPA grows and API usage increases, identifying and resolving performance bottlenecks (N+1 queries, slow API responses, large React bundles) will need human analysis and optimization strategies.
+The migration to Laravel 11 and a unified React SPA has been successfully completed. The system now features a streamlined architecture, robust role-based access control with a new MASTER role, and a clean separation between the API-first backend and the interactive frontend. Legacy technical debt has been aggressively removed, leaving a stable and testable codebase ready for future development.
