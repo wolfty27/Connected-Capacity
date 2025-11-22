@@ -59,4 +59,19 @@ class TnpController extends Controller
 
         return response()->json($updatedTnp);
     }
+
+    public function analyze(TransitionNeedsProfile $tnp)
+    {
+        $this->authorize('update', $tnp);
+
+        // Dispatch the job
+        \App\Jobs\ProcessTnpAiAnalysis::dispatch($tnp->id);
+
+        $tnp->update(['ai_summary_status' => 'queued']);
+
+        return response()->json([
+            'message' => 'AI analysis queued.',
+            'status' => 'queued'
+        ]);
+    }
 }
