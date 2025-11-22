@@ -2,10 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\HomeController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\Legacy\PatientsController;
-use App\Http\Controllers\Legacy\BookingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,17 +29,6 @@ Route::post('/logout', [UserController::class, 'logout']);
 
 // Authenticated Routes
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
-    
-    // Restore legacy patient routes for tests
-    Route::get('/patients', [PatientsController::class, 'index']);
-    
-    // Restore legacy bookings routes for tests
-    Route::get('/bookings', [BookingsController::class, 'index']);
-
-    // Temporary route for BookingCreationTest
-    Route::middleware('web')->get('/test/bookings/{patient}', [BookingsController::class, 'bookAppointment']);
-
     // CC2 Routes (Migrated from RouteServiceProvider)
     Route::prefix('cc2')
         ->middleware(['web', 'auth', 'feature.flag:cc2.enabled', 'organization.context'])
