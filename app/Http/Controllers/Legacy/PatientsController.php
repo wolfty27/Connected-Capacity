@@ -23,67 +23,14 @@ class PatientsController extends Controller
 {
     public function index(Request $request)
     {
-        try {
-            $data = [];
-            if (Auth::user()->role == 'hospital') {
-                $hospitalObj = Hospital::where('user_id', Auth::user()->id)->first();
-                $patientsObj = Patient::where('hospital_id', $hospitalObj->id)->get();
-            }
-            elseif (Auth::user()->role == 'retirement-home')
-            {
-                $patientsObj = Patient::where('status', '!=' ,'Inactive')->where('status', '!=' ,'Placement Made')->get();
-            }
-            else
-            {
-                $patientsObj = Patient::where('status' ,'Available')->get();
-
-            }
-
-            foreach ($patientsObj as $patient) {
-                $userObj = User::where('id', $patient->user_id)->first();
-                $patientHospitalObj = Hospital::where('id', $patient->hospital_id)->first();
-                $hospitalUserObj = User::where('id', $patientHospitalObj->user_id)->first();
-
-                $name = $userObj->name ?? '';
-                $gender = $patient->gender ?? '';
-                $status = $patient->status ?? '';
-                $hospital = $hospitalUserObj->name ?? '<p style="color: red;">Deleted</p>';
-                $photo = $userObj->image ?? '/assets/images/patients/default.png';
-                // $patient_form = AssessmentForm::wherePatient_id($patient->id)->first();
-
-                $patientData = [
-                    'photo' => $photo,
-                    'name' => $name,
-                    'gender' => $gender,
-                    'status' => $status,
-                    'hospital' => $hospital,
-                    'id' => $patient->id,
-                    'calendly' => $patientHospitalObj->calendly ?? null,
-                    // 'patient_form' => $patient_form
-                ];
-
-
-                $data[] = $patientData;
-            }
-
-            return view('patients.read', compact('data'));
-        } catch (\Exception $e) {
-            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
-        }
+        // Method body removed as view 'patients.read' is deleted
+        return Redirect::route('dashboard');
     }
 
     public function create(Request $request)
     {
-        try {
-            if (Auth::user()->role == 'hospital') {
-                $data = [];
-
-                return view('patients.create', $data);
-            }
-            return Redirect::back()->with(['errors' => 'Only hospitals can create patient accounts.'])->withInput();
-        } catch (\Exception $e) {
-            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
-        }
+        // Method body removed as view 'patients.create' is deleted
+        return Redirect::route('dashboard');
     }
 
     public function store(Request $request)
@@ -128,59 +75,8 @@ class PatientsController extends Controller
 
     public function appointedView(Request $request, $patientId,$bookingId)
     {
-        try {
-            $userId = Auth::user()->id;
-            $retirementHomeObj = RetirementHome::where('user_id', $userId)->first();
-            $patientObj = Patient::where('id', $patientId)->first();
-            $patientBooking = Booking::where('id', $bookingId)->first();
-            $userObj = User::where('id', $patientObj->user_id)->first();
-            $patient_form = AssessmentForm::wherePatient_id($patientId)->first();
-            if (!$patient_form) {
-                $patient_form['secondary_contact_name'] = "";
-                $patient_form['secondary_contact_relationship'] = "";
-                $patient_form['secondary_contact_phone'] = "";
-                $patient_form['secondary_contact_email'] = "";
-                $patient_form['designated_alc'] = "";
-                $patient_form['least_3_days'] = "";
-                $patient_form['pcr_covid_test'] = "";
-                $patient_form['post_acute'] = "";
-                $patient_form['if_yes'] = "";
-                $patient_form['length'] = "";
-                $patient_form['npc'] = "";
-                $patient_form['apc'] = "";
-                $patient_form['bk'] = "";
-                $patient_form = (object)$patient_form;
-            }
-
-            $data['name'] = $userObj->name;
-            $data['gender'] = $patientObj->gender;
-            $data['phone'] = $userObj->phone_number;
-            $data['email'] = $userObj->email;
-            $data['image'] = $userObj->image;
-            $data['status'] = $patientObj->status;
-            $data['patient_id'] = $patientObj->id;
-            $data['patient_form'] = $patient_form;
-            $data['booking_id'] = $patientBooking->id;
-            $data['booking_status'] = $patientBooking->status;
-
-
-            $some['mytiers'] = [];
-            $retirementHomeTiers = Tier::where('retirement_home_id', $retirementHomeObj->id)->get();
-            foreach ($retirementHomeTiers as $Tiers)
-            {
-                $arr['tier_id'] = $Tiers->id;
-                $arr['tier'] = $Tiers->tier;
-                $arr['retirement_home_price'] = $Tiers->retirement_home_price;
-                $arr['hospotal_price'] = $Tiers->hospital_price;
-    
-                $some['mytiers'][] = $arr;
-            } 
-            // dd($some, $data);
-
-        return view('patients.confirm-patient')->with(['data'=>$data, 'some'=>$some]);
-        } catch (\Exception $e) {
-            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
-        }
+        // Method body removed as view 'patients.confirm-patient' is deleted
+        return Redirect::route('dashboard');
     }    
 
     public function delete(Request $request, $id)
@@ -207,18 +103,8 @@ class PatientsController extends Controller
 
     public function edit(Request $request, $id)
     {
-        try {
-            $patientObj = Patient::where('id', $id)->first();
-            $userObj = User::where('id', $patientObj->user_id)->first();
-
-            $data['name'] = $userObj->name ?? '';
-            $data['id'] = $patientObj->id ?? '';
-            $data['gender'] = $patientObj->gender ?? '';
-
-            return view('patients.edit', compact('data'));
-        } catch (\Exception $e) {
-            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
-        }
+        // Method body removed as view 'patients.edit' is deleted
+        return Redirect::route('dashboard');
     }
 
     public function update(Request $request, $id)
@@ -252,50 +138,7 @@ class PatientsController extends Controller
     }
 
     public function placedPatients(Request $request){
-        try {
-            $data = [];
-            $patientsObj = Patient::where('status' ,'Placement Made')->get();
-            // dd($patientsObj);
-
-
-            foreach ($patientsObj as $patient) {
-                $userObj = User::where('id', $patient->user_id)->first();
-                $patientHospitalObj = Hospital::where('id', $patient->hospital_id)->first();
-                // $hospitalUserObj = User::where('id', $patientHospitalObj->user_id)->first();
-                // dd($hospitalUserObj);
-
-                // $retirementHomeObj = RetirementHome::where('id', $patient->retirement_home_id)->first();
-                // $retirementHomeUserObj = User::where('id', $retirementHomeObj->user_id)->first();
-
-
-                $name = $userObj->name ?? '';
-                $gender = $patient->gender ?? '';
-                $status = $patient->status ?? '';
-                // $hospital = $hospitalUserObj->name ?? '';
-                // $retirmentHome = $retirementHomeUserObj->name ?? '';
-                $photo = $userObj->image ?? '/assets/images/patients/default.png';
-
-                // $patient_form = AssessmentForm::wherePatient_id($patient->id)->first();
-
-                $patientData = [
-                    'photo' => $photo,
-                    'name' => $name,
-                    'gender' => $gender,
-                    'status' => $status,
-                    // 'hospital' => $hospital,
-                    // 'retirementHome' => $retirmentHome,
-                    'id' => $patient->id,
-                    'calendly' => $patientHospitalObj->calendly ?? null,
-                    // 'patient_form' => $patient_form
-                ];
-
-                $data[] = $patientData;
-            }
-
-            return view('patients.placed-patients', compact('data'));
-        } catch (\Exception $e) {
-            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
-        }
-
+        // Method body removed as view 'patients.placed-patients' is deleted
+        return Redirect::route('dashboard');
     }
 }
