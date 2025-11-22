@@ -126,46 +126,6 @@ class PatientsController extends Controller
         }
     }
 
-    public function view(Request $request, $patientId)
-    {
-        try {
-            $patientObj = Patient::where('id', $patientId)->first();
-            $patientHospitalObj = Hospital::where('id', $patientObj->hospital_id)->first();
-            $userObj = User::where('id', $patientObj->user_id)->first();
-            $patient_form = AssessmentForm::wherePatient_id($patientId)->first();
-            if (!$patient_form) {
-                $patient_form['secondary_contact_name'] = "";
-                $patient_form['secondary_contact_relationship'] = "";
-                $patient_form['secondary_contact_phone'] = "";
-                $patient_form['secondary_contact_email'] = "";
-                $patient_form['designated_alc'] = "";
-                $patient_form['least_3_days'] = "";
-                $patient_form['pcr_covid_test'] = "";
-                $patient_form['post_acute'] = "";
-                $patient_form['if_yes'] = "";
-                $patient_form['length'] = "";
-                $patient_form['npc'] = "";
-                $patient_form['apc'] = "";
-                $patient_form['bk'] = "";
-                $patient_form = (object)$patient_form;
-            }
-
-            $data['name'] = $userObj->name;
-            $data['gender'] = $patientObj->gender;
-            $data['phone'] = $userObj->phone_number;
-            $data['email'] = $userObj->email;
-            $data['image'] = $userObj->image;
-            $data['status'] = $patientObj->status;
-            $data['patient_id'] = $patientObj->id;
-            $data['patient_form'] = $patient_form;
-            $data['calendly'] = $patientHospitalObj->calendly;
-            // dd($data);
-
-        return view('patients.patient-assesment-detail-view', compact('data'));
-        } catch (\Exception $e) {
-            return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
-        }
-    }
     public function appointedView(Request $request, $patientId,$bookingId)
     {
         try {
@@ -291,90 +251,6 @@ class PatientsController extends Controller
         }
     }
 
-    public function assessmentForm(Request $request, $patientId)
-    {
-        try{
-            $patientObj = Patient::where('id', $patientId)->first();
-            $userObj = User::where('id', $patientObj->user_id)->first();
-            $patient_form = AssessmentForm::wherePatient_id($patientId)->first();
-            if (!$patient_form) {
-                $patient_form['secondary_contact_name'] = "";
-                $patient_form['secondary_contact_relationship'] = "";
-                $patient_form['secondary_contact_phone'] = "";
-                $patient_form['secondary_contact_email'] = "";
-                $patient_form['designated_alc'] = "";
-                $patient_form['least_3_days'] = "";
-                $patient_form['pcr_covid_test'] = "";
-                $patient_form['post_acute'] = "";
-                $patient_form['if_yes'] = "";
-                $patient_form['length'] = "";
-                $patient_form['npc'] = "";
-                $patient_form['apc'] = "";
-                $patient_form['bk'] = "";
-                $patient_form = (object)$patient_form;
-            }
-
-            $data['name'] = $userObj->name;
-            $data['gender'] = $patientObj->gender;
-            $data['phone'] = $userObj->phone_number;
-            $data['email'] = $userObj->email;
-            $data['status'] = $patientObj->status;
-            $data['patient_id'] = $patientObj->id;
-            $data['patient_form'] = $patient_form;
-
-            return view('patients.assessment-form', compact('data'));
-        }
-        catch (\Throwable $th) {
-            return Redirect::back()->with(['errors' => $th->getMessage() . ' Please contact admin.'])->withInput();
-        }
-    }
-
-    public function storeAssessmentForm(Request $request, $id)
-    {
-        // dd($request->apc);
-
-        $request->validate([
-            'secondary_contact_name' => "required",
-            'secondary_contact_relationship' => "required",
-            'secondary_contact_phone' => "required",
-            'secondary_contact_email' => "required",
-            'designated_alc' => "required",
-            'least_3_days' => "required",
-            'pcr_covid_test' => "required",
-            'post_acute' => "required",
-            'if_yes' => "required",
-            'length' => "required",
-            'npc' => "required",
-            'apc' => "required",
-            'bk' => "required",
-        ]);
-
-        try {
-            $patient_form = AssessmentForm::wherePatient_id($id)->delete();
-            $patient = Patient::find($id);
-            $patient->status = 'Available';
-            $patient->save();
-            $assessment_form = AssessmentForm::Create([
-                'patient_id' => $id,
-                'secondary_contact_name' => $request->secondary_contact_name,
-                'secondary_contact_relationship' => $request->secondary_contact_relationship,
-                'secondary_contact_phone' => $request->secondary_contact_phone,
-                'secondary_contact_email' => $request->secondary_contact_email,
-                'designated_alc' => $request->designated_alc,
-                'least_3_days' => $request->least_3_days,
-                'pcr_covid_test' => $request->pcr_covid_test,
-                'post_acute' => $request->post_acute,
-                'if_yes' => $request->if_yes,
-                'length' => $request->length,
-                'npc' => implode(',', (array) $request->npc),
-                'apc' => implode(',', (array) $request->apc),
-                'bk' => implode(',', (array) $request->bk),
-            ]);
-            return Redirect::to('patients')->with(['success' => 'Assessment form has been submitted']);
-        } catch (\Throwable $th) {
-            return Redirect::back()->with(['errors' => $th->getMessage() . ' Please contact admin.'])->withInput();
-        }
-    }
     public function placedPatients(Request $request){
         try {
             $data = [];
