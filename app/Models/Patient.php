@@ -84,4 +84,9 @@ class Patient extends Model
     {
         return $this->belongsTo(User::class, 'primary_coordinator_id');
     }
+
+    public function transitionNeedsProfile()
+    {
+        return $this->hasOne(TransitionNeedsProfile::class);
+    }
 }
