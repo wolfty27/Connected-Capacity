@@ -8,6 +8,9 @@ import NotFoundPage from './NotFoundPage';
 
 import TnpReviewListPage from '../pages/Tnp/TnpReviewListPage';
 import TnpReviewDetailPage from '../pages/Tnp/TnpReviewDetailPage';
+import CareDashboardPage from '../pages/CareOps/CareDashboardPage';
+import FieldStaffWorklistPage from '../pages/CareOps/FieldStaffWorklistPage';
+import RoleRoute from './RouteGuards/RoleRoute';
 
 const App = () => {
     return (
@@ -23,6 +26,15 @@ const App = () => {
                         
                         <Route path="/tnp" element={<TnpReviewListPage />} />
                         <Route path="/tnp/:patientId" element={<TnpReviewDetailPage />} />
+
+                        {/* Role-Based Routes */}
+                        <Route element={<RoleRoute roles={['SPO_ADMIN', 'SSPO_ADMIN', 'hospital', 'retirement-home', 'admin']} />}>
+                             <Route path="/care-dashboard" element={<CareDashboardPage />} />
+                        </Route>
+
+                        <Route element={<RoleRoute roles={['FIELD_STAFF', 'SPO_ADMIN']} />}>
+                            <Route path="/worklist" element={<FieldStaffWorklistPage />} />
+                        </Route>
                         
                         {/* Catch-all for authenticated layout */}
                         <Route path="*" element={<NotFoundPage />} />

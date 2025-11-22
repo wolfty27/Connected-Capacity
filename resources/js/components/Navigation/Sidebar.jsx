@@ -14,6 +14,24 @@ const Sidebar = () => {
                             <span className="ml-3">Dashboard</span>
                         </Link>
                     </li>
+                    
+                    {/* Care Ops Links */}
+                    {['SPO_ADMIN', 'SSPO_ADMIN', 'hospital', 'retirement-home', 'admin'].includes(user?.role) && (
+                        <li>
+                            <Link to="/care-dashboard" className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group">
+                                <span className="ml-3">Care Dashboard</span>
+                            </Link>
+                        </li>
+                    )}
+
+                    {['FIELD_STAFF', 'SPO_ADMIN'].includes(user?.role) && (
+                        <li>
+                            <Link to="/worklist" className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group">
+                                <span className="ml-3">My Worklist</span>
+                            </Link>
+                        </li>
+                    )}
+
                     {/* Placeholder for role-based links */}
                     {user?.role === 'hospital' && (
                         <li>
