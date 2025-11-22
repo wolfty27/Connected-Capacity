@@ -19,6 +19,10 @@ class EnsureOrganizationContext
             throw new AccessDeniedHttpException('Unauthorized');
         }
 
+        if ($user->isMaster()) {
+            return $next($request);
+        }
+
         // Relies on User::organization() relationship to resolve SPO/SSPO context.
         /** @var ServiceProviderOrganization|null $organization */
         $organization = $user->organization;

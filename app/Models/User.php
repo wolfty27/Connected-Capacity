@@ -13,6 +13,23 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_HOSPITAL = 'hospital';
+    public const ROLE_RETIREMENT_HOME = 'retirement-home';
+    public const ROLE_SPO_ADMIN = 'SPO_ADMIN';
+    public const ROLE_FIELD_STAFF = 'FIELD_STAFF';
+    public const ROLE_PATIENT = 'patient';
+    public const ROLE_SPO_COORDINATOR = 'SPO_COORDINATOR';
+    public const ROLE_SSPO_ADMIN = 'SSPO_ADMIN';
+    public const ROLE_SSPO_COORDINATOR = 'SSPO_COORDINATOR';
+    public const ROLE_ORG_ADMIN = 'ORG_ADMIN';
+    public const ROLE_MASTER = 'MASTER';
+
+    public function isMaster(): bool
+    {
+        return $this->role === self::ROLE_MASTER;
+    }
+
     /**
      * The attributes that are mass assignable.
      *

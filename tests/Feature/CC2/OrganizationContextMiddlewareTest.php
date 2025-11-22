@@ -42,6 +42,20 @@ class OrganizationContextMiddlewareTest extends TestCase
             ->assertSee($organization->name);
     }
 
+    public function test_master_user_bypasses_organization_requirement(): void
+    {
+        $this->enableCc2();
+
+        $user = User::factory()->create([
+            'role' => User::ROLE_MASTER,
+            'organization_id' => null,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/cc2/organizations/profile')
+            ->assertOk();
+    }
+
     private function enableCc2(): void
     {
         FeatureFlag::updateOrCreate(

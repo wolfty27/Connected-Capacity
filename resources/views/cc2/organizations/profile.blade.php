@@ -7,6 +7,6 @@
 <body>
     <!-- CC2 Organization Profile Stub -->
     <h1>Organization Profile</h1>
-    <div>{{ $organization->name }}</div>
+    <div>{{ $organization?->name ?? 'No Organization' }}</div>
 </body>
 </html>
