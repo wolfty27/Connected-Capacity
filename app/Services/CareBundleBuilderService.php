@@ -400,14 +400,22 @@ class CareBundleBuilderService
                 }
             }
 
-            // Update patient queue status
-            $this->updateQueueStatus($patient, 'bundle_building', $userId);
+            // Update patient queue status (optional - won't fail if no queue entry)
+            try {
+                $this->updateQueueStatus($patient, 'bundle_building', $userId);
+            } catch (\Exception $e) {
+                Log::warning("Failed to update queue status", ['error' => $e->getMessage()]);
+            }
 
-            // Apply metadata rules
-            $this->metadataEngine->applyRules('PATIENT', $patientId, 'on_update', [
-                'care_plan_created' => true,
-                'bundle_id' => $bundleId,
-            ]);
+            // Apply metadata rules (optional - won't fail if metadata not configured)
+            try {
+                $this->metadataEngine->applyRules('PATIENT', $patientId, 'on_update', [
+                    'care_plan_created' => true,
+                    'bundle_id' => $bundleId,
+                ]);
+            } catch (\Exception $e) {
+                Log::warning("Failed to apply metadata rules", ['error' => $e->getMessage()]);
+            }
 
             Log::info("Care plan created", [
                 'care_plan_id' => $carePlan->id,
@@ -541,7 +549,6 @@ class CareBundleBuilderService
     public function transitionPatientToActive(int $patientId, ?int $userId = null): Patient
     {
         $patient = Patient::findOrFail($patientId);
-        $queue = PatientQueue::where('patient_id', $patientId)->first();
 
         // Update patient status
         $patient->update([
@@ -551,23 +558,32 @@ class CareBundleBuilderService
             'activated_by' => $userId,
         ]);
 
-        // Complete queue transition
-        if ($queue) {
-            // Progress through remaining statuses to transitioned
-            $transitionPath = ['bundle_review', 'bundle_approved', 'transitioned'];
+        // Complete queue transition (optional - won't fail if no queue entry)
+        try {
+            $queue = PatientQueue::where('patient_id', $patientId)->first();
+            if ($queue) {
+                // Progress through remaining statuses to transitioned
+                $transitionPath = ['bundle_review', 'bundle_approved', 'transitioned'];
 
-            foreach ($transitionPath as $status) {
-                if ($queue->canTransitionTo($status)) {
-                    $queue->transitionTo($status, $userId, 'Care bundle published - transitioning to active');
+                foreach ($transitionPath as $status) {
+                    if ($queue->canTransitionTo($status)) {
+                        $queue->transitionTo($status, $userId, 'Care bundle published - transitioning to active');
+                    }
                 }
             }
+        } catch (\Exception $e) {
+            Log::warning("Failed to complete queue transition", ['error' => $e->getMessage()]);
         }
 
-        // Apply metadata rules for activation
-        $this->metadataEngine->applyRules('PATIENT', $patientId, 'on_status_change', [
-            'new_status' => 'Active',
-            'transitioned_from_queue' => true,
-        ]);
+        // Apply metadata rules for activation (optional)
+        try {
+            $this->metadataEngine->applyRules('PATIENT', $patientId, 'on_status_change', [
+                'new_status' => 'Active',
+                'transitioned_from_queue' => true,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning("Failed to apply activation metadata rules", ['error' => $e->getMessage()]);
+        }
 
         Log::info("Patient transitioned to active", [
             'patient_id' => $patientId,
