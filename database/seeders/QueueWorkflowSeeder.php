@@ -28,18 +28,19 @@ class QueueWorkflowSeeder extends Seeder
     {
         $this->command->info('Seeding Queue Workflow Test Data...');
 
-        // Get or create a hospital
+        // Get or create a hospital (name is on the User, not Hospital table)
         $hospital = Hospital::first();
         if (!$hospital) {
-            $hospitalUser = User::create([
-                'name' => 'General Hospital',
-                'email' => 'hospital@example.com',
-                'password' => Hash::make('password'),
-                'role' => 'hospital',
-            ]);
+            $hospitalUser = User::firstOrCreate(
+                ['email' => 'hospital@example.com'],
+                [
+                    'name' => 'General Hospital',
+                    'password' => Hash::make('password'),
+                    'role' => 'hospital',
+                ]
+            );
             $hospital = Hospital::create([
                 'user_id' => $hospitalUser->id,
-                'name' => 'General Hospital',
             ]);
         }
 

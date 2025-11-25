@@ -14,8 +14,12 @@ class DatabaseSeeder extends Seeder
     public function run()
     {
         $this->call([
+            // Core demo users (admin, hospital staff, etc.)
             DemoSeeder::class,
-            ConnectedCapacitySeeder::class,
+            // Metadata object model definitions
+            MetadataObjectModelSeeder::class,
+            // Patient workflow test data with proper names and queue statuses
+            QueueWorkflowSeeder::class,
         ]);
     }
 }
