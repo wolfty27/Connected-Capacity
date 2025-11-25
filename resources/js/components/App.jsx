@@ -5,7 +5,6 @@ import AppLayout from './Layout/AppLayout';
 import DashboardRedirect from './DashboardRedirect';
 import ProtectedRoute from './RouteGuards/ProtectedRoute';
 import NotFoundPage from './NotFoundPage';
-import Login from '../pages/Login';
 
 import TnpReviewListPage from '../pages/Tnp/TnpReviewListPage';
 import TnpReviewDetailPage from '../pages/Tnp/TnpReviewDetailPage';
@@ -51,7 +50,6 @@ const AppRoutes = () => {
         <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Homepage />} />
-            <Route path="/login" element={<Login />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
