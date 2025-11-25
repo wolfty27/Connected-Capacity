@@ -124,11 +124,10 @@ const PatientDetailPage = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                                activeTab === tab.id
+                            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
                                     ? 'border-teal-500 text-teal-600'
                                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            }`}
+                                }`}
                         >
                             {tab.label}
                             {tab.badge && (
@@ -147,16 +146,30 @@ const PatientDetailPage = () => {
                     {/* Left Column: Demographics */}
                     <Card title="Demographics" className="lg:col-span-1">
                         <div className="flex flex-col items-center mb-4">
-                            <img
-                                src={patient.photo || '/assets/images/patients/default.png'}
-                                alt={patient.name}
-                                className="w-24 h-24 rounded-full mb-2 bg-gray-200 object-cover"
-                            />
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                patient.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
-                                patient.status === 'Available' ? 'bg-emerald-100 text-emerald-800' :
-                                'bg-slate-100 text-slate-800'
-                            }`}>
+                            {patient.photo && patient.photo !== '/assets/images/patients/default.png' ? (
+                                <img
+                                    src={patient.photo}
+                                    alt={patient.name}
+                                    className="w-24 h-24 rounded-full mb-2 bg-gray-200 object-cover"
+                                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                />
+                            ) : (
+                                <div className="w-24 h-24 rounded-full mb-2 bg-gray-200 flex items-center justify-center p-2 text-center">
+                                    <span className="text-xs font-bold text-slate-600 leading-tight">
+                                        {patient.name}
+                                    </span>
+                                </div>
+                            )}
+                            {/* Fallback for image load error (hidden by default) */}
+                            <div className="w-24 h-24 rounded-full mb-2 bg-gray-200 items-center justify-center p-2 text-center hidden">
+                                <span className="text-xs font-bold text-slate-600 leading-tight">
+                                    {patient.name}
+                                </span>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${patient.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                                    patient.status === 'Available' ? 'bg-emerald-100 text-emerald-800' :
+                                        'bg-slate-100 text-slate-800'
+                                }`}>
                                 {patient.status}
                             </span>
                         </div>
@@ -332,11 +345,10 @@ const PatientDetailPage = () => {
                                 <Card title="AI Analysis (SBAR)">
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="text-sm text-slate-500">Status:</span>
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                            tnp.ai_summary_status === 'completed'
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${tnp.ai_summary_status === 'completed'
                                                 ? 'bg-emerald-100 text-emerald-800'
                                                 : 'bg-amber-100 text-amber-800'
-                                        }`}>
+                                            }`}>
                                             {tnp.ai_summary_status}
                                         </span>
                                     </div>
@@ -463,13 +475,12 @@ const PatientDetailPage = () => {
                                     <div className="p-4 bg-slate-50 rounded-lg">
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm font-medium text-slate-700">IAR Upload</span>
-                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                latestAssessment.iar_status === 'uploaded'
+                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${latestAssessment.iar_status === 'uploaded'
                                                     ? 'bg-emerald-100 text-emerald-800'
                                                     : latestAssessment.iar_status === 'failed'
-                                                    ? 'bg-rose-100 text-rose-800'
-                                                    : 'bg-amber-100 text-amber-800'
-                                            }`}>
+                                                        ? 'bg-rose-100 text-rose-800'
+                                                        : 'bg-amber-100 text-amber-800'
+                                                }`}>
                                                 {latestAssessment.iar_status || 'pending'}
                                             </span>
                                         </div>
@@ -477,13 +488,12 @@ const PatientDetailPage = () => {
                                     <div className="p-4 bg-slate-50 rounded-lg">
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm font-medium text-slate-700">CHRIS Sync</span>
-                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                latestAssessment.chris_status === 'synced'
+                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${latestAssessment.chris_status === 'synced'
                                                     ? 'bg-emerald-100 text-emerald-800'
                                                     : latestAssessment.chris_status === 'failed'
-                                                    ? 'bg-rose-100 text-rose-800'
-                                                    : 'bg-amber-100 text-amber-800'
-                                            }`}>
+                                                        ? 'bg-rose-100 text-rose-800'
+                                                        : 'bg-amber-100 text-amber-800'
+                                                }`}>
                                                 {latestAssessment.chris_status || 'pending'}
                                             </span>
                                         </div>
