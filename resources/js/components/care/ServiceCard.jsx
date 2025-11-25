@@ -34,9 +34,9 @@ const ServiceCard = ({ service, onUpdate }) => {
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Icon & Description */}
-                <div className="w-full md:w-1/3">
+                <div className="md:col-span-1">
                     <div className="flex items-start">
                         <div className={`flex-shrink-0 h-10 w-10 rounded flex items-center justify-center mr-4 ${service.category === 'CLINICAL' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'}`}>
                             <span className="font-bold text-sm">{service.code}</span>
@@ -49,7 +49,7 @@ const ServiceCard = ({ service, onUpdate }) => {
                 </div>
 
                 {/* Controls */}
-                <div className="w-full md:w-2/3 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
 
                     {/* Frequency Control */}
                     <div className="md:col-span-1">
