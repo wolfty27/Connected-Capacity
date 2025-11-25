@@ -160,12 +160,14 @@ class QueueWorkflowSeeder extends Seeder
                 ]);
 
                 // Create some service assignments
+                $spo = \App\Models\ServiceProviderOrganization::first();
                 $serviceTypes = ServiceType::take(3)->get();
                 foreach ($serviceTypes as $serviceType) {
                     ServiceAssignment::create([
                         'care_plan_id' => $carePlan->id,
                         'patient_id' => $patient->id,
                         'service_type_id' => $serviceType->id,
+                        'service_provider_organization_id' => $spo?->id,
                         'status' => 'active',
                         'frequency_rule' => '2x per week',
                     ]);
