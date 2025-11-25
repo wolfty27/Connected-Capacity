@@ -36,7 +36,7 @@ const ServiceCard = ({ service, onUpdate }) => {
 
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Icon & Description */}
-                <div className="flex-1 md:w-1/3">
+                <div className="w-full md:w-1/3">
                     <div className="flex items-start">
                         <div className={`flex-shrink-0 h-10 w-10 rounded flex items-center justify-center mr-4 ${service.category === 'CLINICAL' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'}`}>
                             <span className="font-bold text-sm">{service.code}</span>
@@ -49,10 +49,10 @@ const ServiceCard = ({ service, onUpdate }) => {
                 </div>
 
                 {/* Controls */}
-                <div className="flex-1 md:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div className="w-full md:w-2/3 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
 
                     {/* Frequency Control */}
-                    <div>
+                    <div className="md:col-span-1">
                         <div className="flex justify-between items-center mb-1">
                             <label className="text-xs font-semibold text-slate-700">Frequency (visits/week): <span className="text-slate-900 font-bold">{service.currentFrequency}</span></label>
                         </div>
@@ -76,7 +76,7 @@ const ServiceCard = ({ service, onUpdate }) => {
                     </div>
 
                     {/* Provider Dropdown */}
-                    <div className="flex flex-col justify-end">
+                    <div className="flex flex-col justify-end md:col-span-2">
                         <label className="text-xs font-semibold text-slate-700 mb-1">Provider:</label>
                         <select
                             value={service.provider}
@@ -90,7 +90,7 @@ const ServiceCard = ({ service, onUpdate }) => {
                     </div>
 
                     {/* Duration Slider */}
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-3">
                         <div className="flex justify-between items-center mb-1">
                             <label className="text-xs font-semibold text-slate-700">Duration (weeks): <span className="text-slate-900 font-bold">{service.currentDuration}</span></label>
                         </div>
