@@ -166,11 +166,19 @@ const CareBundleWizard = () => {
     const handleProceedToReview = async () => {
         if (!selectedBundle) return;
 
+        // Prevent custom bundle (not in database)
+        if (selectedBundle.id === 'custom') {
+            alert('Custom bundles are not yet supported. Please select a pre-configured bundle.');
+            return;
+        }
+
         try {
             setPublishing(true);
 
             // Build the care plan draft
             const formattedServices = careBundleBuilderApi.formatServicesForApi(services);
+            console.log('Building plan with:', { patientId, bundleId: selectedBundle.id, services: formattedServices });
+
             const response = await careBundleBuilderApi.buildPlan(
                 patientId,
                 selectedBundle.id,
@@ -181,7 +189,13 @@ const CareBundleWizard = () => {
             setStep(3);
         } catch (error) {
             console.error('Failed to build care plan', error);
-            alert('Failed to create care plan. Please try again.');
+            const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Unknown error';
+            const validationErrors = error.response?.data?.errors;
+            if (validationErrors) {
+                alert(`Failed to create care plan:\n${JSON.stringify(validationErrors, null, 2)}`);
+            } else {
+                alert(`Failed to create care plan: ${errorMsg}`);
+            }
         } finally {
             setPublishing(false);
         }

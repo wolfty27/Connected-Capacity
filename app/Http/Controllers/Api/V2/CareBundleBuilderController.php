@@ -103,17 +103,41 @@ class CareBundleBuilderController extends Controller
     public function buildPlan(Request $request, int $patientId): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'bundle_id' => 'required|exists:care_bundles,id',
+            'bundle_id' => 'required|integer',
             'services' => 'required|array',
-            'services.*.service_type_id' => 'required|exists:service_types,id',
+            'services.*.service_type_id' => 'required|integer',
             'services.*.currentFrequency' => 'required|integer|min:0',
             'services.*.currentDuration' => 'required|integer|min:0',
-            'services.*.provider_id' => 'nullable|exists:service_provider_organizations,id',
+            'services.*.provider_id' => 'nullable|integer',
             'notes' => 'nullable|string|max:2000',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Verify bundle exists
+        $bundle = \App\Models\CareBundle::find($request->bundle_id);
+        if (!$bundle) {
+            return response()->json([
+                'message' => 'Bundle not found',
+                'errors' => ['bundle_id' => "Bundle ID {$request->bundle_id} does not exist"],
+            ], 422);
+        }
+
+        // Verify service_type_ids exist
+        $serviceTypeIds = collect($request->services)->pluck('service_type_id')->unique();
+        $existingIds = \App\Models\ServiceType::whereIn('id', $serviceTypeIds)->pluck('id');
+        $missingIds = $serviceTypeIds->diff($existingIds);
+
+        if ($missingIds->isNotEmpty()) {
+            return response()->json([
+                'message' => 'Invalid service type IDs',
+                'errors' => ['services' => "Service type IDs not found: " . $missingIds->implode(', ')],
+            ], 422);
         }
 
         try {
@@ -133,6 +157,13 @@ class CareBundleBuilderController extends Controller
                 ],
             ], 201);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to create care plan', [
+                'patient_id' => $patientId,
+                'bundle_id' => $request->bundle_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'message' => 'Failed to create care plan',
                 'error' => $e->getMessage(),
