@@ -231,8 +231,9 @@ class ServiceTypeController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Group by the category column value (a string)
         $grouped = $serviceTypes->groupBy(function ($st) {
-            return $st->category?->name ?? $st->category ?? 'Uncategorized';
+            return $st->getAttributeValue('category') ?? 'Uncategorized';
         });
 
         $result = $grouped->map(function ($types, $categoryName) {
@@ -295,15 +296,27 @@ class ServiceTypeController extends Controller
 
     /**
      * Transform service type for API response.
+     *
+     * Note: ServiceType has both a 'category' column (string) AND a category() relationship.
+     * We use getAttributeValue() to access the column directly and avoid the name conflict.
      */
     protected function transformServiceType(ServiceType $serviceType, bool $includeRelations = false): array
     {
+        // Get the category relationship if loaded (use getRelation to avoid column conflict)
+        $categoryRelation = $serviceType->relationLoaded('category')
+            ? $serviceType->getRelation('category')
+            : null;
+
+        // Use the category column value directly (it stores the category name as a string)
+        $categoryName = $serviceType->getAttributeValue('category');
+        $categoryCode = $categoryRelation?->code;
+
         $data = [
             'id' => $serviceType->id,
             'code' => $serviceType->code,
             'name' => $serviceType->name,
-            'category' => $serviceType->category?->name ?? $serviceType->category,
-            'category_code' => $serviceType->category?->code,
+            'category' => $categoryName,
+            'category_code' => $categoryCode,
             'category_id' => $serviceType->category_id,
             'description' => $serviceType->description,
             'default_duration_minutes' => $serviceType->default_duration_minutes,
