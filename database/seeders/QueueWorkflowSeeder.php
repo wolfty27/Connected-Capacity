@@ -127,10 +127,9 @@ class QueueWorkflowSeeder extends Seeder
             // Create TNP
             $tnp = TransitionNeedsProfile::create([
                 'patient_id' => $patient->id,
-                'score' => rand(60, 95),
                 'clinical_flags' => $data['clinical_flags'],
-                'functional_flags' => ['ADL Assistance', 'Mobility Support'],
-                'social_flags' => ['Lives Alone'],
+                'status' => 'completed',
+                'narrative_summary' => "Patient requires care support for: " . implode(', ', $data['clinical_flags']),
             ]);
 
             // Create queue entry (transitioned)
@@ -315,12 +314,14 @@ class QueueWorkflowSeeder extends Seeder
 
             // Create TNP for patients past triage
             if (in_array($data['queue_status'], ['tnp_in_progress', 'tnp_complete', 'bundle_building', 'bundle_review', 'bundle_approved'])) {
+                $tnpStatus = $data['queue_status'] === 'tnp_in_progress' ? 'draft' : 'completed';
                 TransitionNeedsProfile::create([
                     'patient_id' => $patient->id,
-                    'score' => rand(50, 90),
                     'clinical_flags' => $data['clinical_flags'],
-                    'functional_flags' => ['ADL Assistance'],
-                    'social_flags' => [],
+                    'status' => $tnpStatus,
+                    'narrative_summary' => count($data['clinical_flags']) > 0
+                        ? "Patient requires care support for: " . implode(', ', $data['clinical_flags'])
+                        : null,
                 ]);
             }
 
