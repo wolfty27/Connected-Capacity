@@ -34,6 +34,10 @@ return [
         'organization_id' => env('IAR_ORGANIZATION_ID'),
         'submitter_id' => env('IAR_SUBMITTER_ID'),
         'timeout' => env('IAR_TIMEOUT', 30),
+        // Mock settings for development (IR-008)
+        'use_mock' => env('IAR_USE_MOCK', true),
+        'mock_mode' => env('IAR_MOCK_MODE', 'success'), // success, delayed, random_failure, always_fail
+        'mock_delay_ms' => env('IAR_MOCK_DELAY_MS', 100),
     ],
 
     'chris' => [

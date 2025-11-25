@@ -1,0 +1,43 @@
+includes:
+    - ./vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Level 5 is a good starting point - catches most issues without being too strict
+    level: 5
+
+    paths:
+        - app/
+
+    # Exclude test files and generated code
+    excludePaths:
+        - app/Console/Kernel.php
+        - app/Exceptions/Handler.php
+
+    # Laravel-specific settings
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+
+    # Ignore some common Laravel patterns that PHPStan doesn't understand
+    ignoreErrors:
+        # Allow dynamic properties on Models
+        - '#Access to an undefined property App\\Models\\[a-zA-Z]+::\$[a-zA-Z_]+#'
+
+        # Allow service container resolution
+        - '#Call to an undefined method Illuminate\\Foundation\\Application::#'
+
+        # Allow factory states
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Factories\\Factory<[^>]+>::[a-zA-Z]+\(\)#'
+
+        # Allow Eloquent magic methods
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder<[^>]+>::[a-zA-Z]+\(\)#'
+
+        # Allow request validation
+        - '#Method App\\Http\\Controllers\\[a-zA-Z\\]+::[a-zA-Z]+\(\) should return [^ ]+ but returns mixed#'
+
+    # Report unmatched ignored errors to ensure they're still relevant
+    reportUnmatchedIgnoredErrors: false
+
+    # Universal object crates (classes that can have any property)
+    universalObjectCratesClasses:
+        - Illuminate\Http\Request
+        - Illuminate\Support\Fluent

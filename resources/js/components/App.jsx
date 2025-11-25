@@ -5,6 +5,8 @@ import AppLayout from './Layout/AppLayout';
 import DashboardRedirect from './DashboardRedirect';
 import ProtectedRoute from './RouteGuards/ProtectedRoute';
 import NotFoundPage from './NotFoundPage';
+import ErrorBoundary from './ErrorBoundary';
+import ServerErrorPage from './ServerErrorPage';
 
 import TnpReviewListPage from '../pages/Tnp/TnpReviewListPage';
 import TnpReviewDetailPage from '../pages/Tnp/TnpReviewDetailPage';
@@ -50,6 +52,10 @@ const AppRoutes = () => {
         <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Homepage />} />
+
+            {/* Error Pages */}
+            <Route path="/server-error" element={<ServerErrorPage />} />
+            <Route path="/not-found" element={<NotFoundPage />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
@@ -107,9 +113,11 @@ const AppRoutes = () => {
 
 const App = () => {
     return (
-        <AuthProvider>
-            <AppRoutes />
-        </AuthProvider>
+        <ErrorBoundary>
+            <AuthProvider>
+                <AppRoutes />
+            </AuthProvider>
+        </ErrorBoundary>
     );
 };
 

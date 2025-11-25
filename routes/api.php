@@ -21,6 +21,10 @@ RateLimiter::for('api', function (Request $request) {
     return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
 });
 
+// Public routes (no auth required)
+Route::post('/client-errors', [\App\Http\Controllers\Api\ClientErrorController::class, 'store'])
+    ->middleware('throttle:10,1'); // Rate limit: 10 per minute
+
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
