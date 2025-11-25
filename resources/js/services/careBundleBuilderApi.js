@@ -1,4 +1,5 @@
-import axios from 'axios';
+// Use the configured axios instance from bootstrap.js (has withCredentials: true)
+const axios = window.axios;
 
 /**
  * Care Bundle Builder API Service
