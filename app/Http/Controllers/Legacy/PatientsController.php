@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AssessmentForm;
 use App\Models\Booking;
 use App\Models\Hospital;
-use App\Models\NewHospital;
+use App\Models\Hospital;
 use App\Models\InPersonAssessment;
 use App\Models\Patient;
 use App\Models\RetirementHome;

@@ -10,7 +10,8 @@ const DashboardRedirect = () => {
     }
 
     if (!user) {
-        return <Navigate to="/login" replace />;
+        // Redirect to home page which has login modal
+        return <Navigate to="/" replace />;
     }
 
     // Field Staff -> Worklist
@@ -23,26 +24,20 @@ const DashboardRedirect = () => {
         return <Navigate to="/sspo/dashboard" replace />;
     }
 
-    // All other admin/manager roles -> Care Dashboard
+    // All admin/coordinator roles -> Care Dashboard
     const adminRoles = [
-        'admin', 
-        'MASTER', 
-        'SPO_ADMIN', 
-        'SSPO_ADMIN', 
-        'hospital', 
-        'retirement-home', 
-        'ORG_ADMIN', 
-        'SPO_COORDINATOR', 
-        'SSPO_COORDINATOR'
+        'admin',
+        'MASTER',
+        'SPO_ADMIN',
+        'ORG_ADMIN',
+        'SPO_COORDINATOR',
     ];
 
     if (adminRoles.includes(user.role)) {
         return <Navigate to="/care-dashboard" replace />;
     }
 
-    // Fallback for unknown roles (e.g. 'patient' if they ever login here)
-    // For now, send them to care dashboard or show a "No Dashboard" message.
-    // We'll try Care Dashboard as a default safe landing for staff.
+    // Default fallback -> Care Dashboard
     return <Navigate to="/care-dashboard" replace />;
 };
 

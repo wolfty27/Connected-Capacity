@@ -39,7 +39,7 @@ const PatientsList = () => {
     };
 
     const handleStartBundle = (patient) => {
-        navigate(`/patients/${patient.id}/bundle-wizard`);
+        navigate(`/care-bundles/create/${patient.id}`);
     };
 
     const filteredPatients = patients.filter(patient => {
@@ -95,9 +95,9 @@ const PatientsList = () => {
             description="Manage your organization's patients"
             actions={
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => navigate('/queue')}>
+                    <Button variant="outline" onClick={() => navigate('/tnp')}>
                         <Clock className="w-4 h-4 mr-2" />
-                        View Queue
+                        View Intake Queue
                     </Button>
                     <Button onClick={() => console.log('Add Patient clicked')}>
                         <UserPlus className="w-4 h-4 mr-2" />

@@ -63,8 +63,6 @@ const AppRoutes = () => {
                     <Route element={<RoleRoute roles={[
                         'SPO_ADMIN',
                         'SSPO_ADMIN',
-                        'hospital',
-                        'retirement-home',
                         'admin',
                         'MASTER',
                         'ORG_ADMIN',

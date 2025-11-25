@@ -24,7 +24,7 @@ class Booking extends Model
 
     public function hospital()
     {
-        return $this->belongsTo(NewHospital::class,'hospital_id');
+        return $this->belongsTo(Hospital::class, 'hospital_id');
     }
 
     public function retirement()

@@ -8,7 +8,7 @@ use App\Models\Hospital;
 use App\Models\Patient;
 use App\Models\RetirementHome;
 use App\Models\Booking;
-use App\Models\NewHospital;
+use App\Models\Hospital;
 use App\Models\InPersonAssessment;
 use App\Models\User;
 use App\Models\Gallery;
@@ -55,14 +55,14 @@ class DashboardController extends Controller
     public function adminDashboard($request)
     {
         try {
-            $hospitalsObj = NewHospital::all();
+            $hospitalsObj = Hospital::all();
             $hospitalsCount = $hospitalsObj->count();
             $retirementHomesObj = RetirementHome::all();
             $retirementHomesCount = $retirementHomesObj->count();
             $patientsObj = Patient::all();
             $patientsCount = $patientsObj->count();
 
-            $hospitalVis = NewHospital::select(
+            $hospitalVis = Hospital::select(
                 DB::raw("(COUNT(*)) as count"),
                 DB::raw("MONTHNAME(created_at) as month_name")
             )
@@ -107,7 +107,7 @@ class DashboardController extends Controller
     public function hospitalDashboard($request)
     {
         try {
-            $hospitalObj = NewHospital::where('user_id', Auth::user()->id)->first();
+            $hospitalObj = Hospital::where('user_id', Auth::user()->id)->first();
             $patients = Patient::where('hospital_id', $hospitalObj->id)->where('status', 'Available');
             $appointments = Booking::with(['retirement.user', 'patient.user'])->where('hospital_id', $hospitalObj->id)->where('status', 'In person Assessment')->whereNull('retirement_home_status')->get()->reverse();
             $offers = Booking::with(['retirement.user', 'patient.user', 'assessment.tier'])->where('hospital_id', $hospitalObj->id)->where('status', 'Application Progress')->whereRetirement_home_status('accepted')->get()->reverse();

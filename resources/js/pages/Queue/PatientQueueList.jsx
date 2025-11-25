@@ -335,7 +335,7 @@ const PatientQueueList = () => {
 
                                             {entry.queue_status === 'bundle_building' && (
                                                 <button
-                                                    onClick={() => navigate(`/patients/${entry.patient_id}/bundle-wizard`)}
+                                                    onClick={() => navigate(`/care-bundles/create/${entry.patient_id}`)}
                                                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
                                                 >
                                                     Continue Building

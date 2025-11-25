@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\ServiceProviderOrganization;
-use App\Models\NewHospital;
+use App\Models\Hospital;
 use App\Models\RetirementHome;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -39,7 +39,7 @@ class DemoSeeder extends Seeder
             'password' => Hash::make('password'),
             'role' => User::ROLE_HOSPITAL,
         ]);
-        NewHospital::firstOrCreate(['user_id' => $hospitalUser->id]);
+        Hospital::firstOrCreate(['user_id' => $hospitalUser->id]);
 
         // 4. Field Staff
         User::updateOrCreate(['email' => 'field@example.com'], [

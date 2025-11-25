@@ -26,7 +26,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         `w-5 h-5 transition-colors ${isActive ? 'text-teal-600' : 'text-slate-400 group-hover:text-teal-600'}`;
 
     // Admin/Manager Roles
-    const isAdmin = ['SPO_ADMIN', 'SSPO_ADMIN', 'ORG_ADMIN', 'SPO_COORDINATOR', 'MASTER', 'admin', 'hospital'].includes(user?.role);
+    const isAdmin = ['SPO_ADMIN', 'SSPO_ADMIN', 'ORG_ADMIN', 'SPO_COORDINATOR', 'MASTER', 'admin'].includes(user?.role);
     // Field Staff Roles
     const isStaff = ['FIELD_STAFF', 'SPO_ADMIN'].includes(user?.role);
 
