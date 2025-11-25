@@ -95,6 +95,12 @@ const useServiceTypes = (options = {}) => {
 /**
  * Map API category names to internal category keys
  * Maps database category names (from CoreDataSeeder) to frontend category keys
+ *
+ * Categories from CoreDataSeeder:
+ * - CLINICAL: "Clinical Services"
+ * - PERSONAL: "Personal Support & Daily Living"
+ * - SAFETY: "Safety, Monitoring & Technology"
+ * - LOGISTICS: "Logistics & Access Services"
  */
 function mapCategory(apiCategory) {
     const mapping = {
@@ -103,21 +109,13 @@ function mapCategory(apiCategory) {
         'Personal Support & Daily Living': 'PERSONAL_SUPPORT',
         'Safety, Monitoring & Technology': 'SAFETY_TECH',
         'Logistics & Access Services': 'LOGISTICS',
-        // Legacy/alternative names
-        'Clinical': 'CLINICAL',
-        'Specialized': 'SPECIALIZED',
-        'Personal Support': 'PERSONAL_SUPPORT',
-        'Digital': 'SAFETY_TECH',
-        'Social Support': 'LOGISTICS',
-        // Handle already-mapped values (codes from seeder)
+        // Handle category codes from seeder
         'CLINICAL': 'CLINICAL',
         'PERSONAL': 'PERSONAL_SUPPORT',
         'SAFETY': 'SAFETY_TECH',
         'LOGISTICS': 'LOGISTICS',
-        'SPECIALIZED': 'SPECIALIZED',
+        // Handle already-mapped internal keys
         'PERSONAL_SUPPORT': 'PERSONAL_SUPPORT',
-        'DIGITAL': 'SAFETY_TECH',
-        'SOCIAL_SUPPORT': 'LOGISTICS',
         'SAFETY_TECH': 'SAFETY_TECH',
     };
     return mapping[apiCategory] || 'CLINICAL';
