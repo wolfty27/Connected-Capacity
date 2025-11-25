@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
@@ -28,8 +28,8 @@ const TnpReviewDetailPage = () => {
             setLoading(true);
             // Fetch TNP and InterRAI status in parallel
             const [tnpResponse, interraiResponse] = await Promise.all([
-                axios.get(`/api/patients/${patientId}/tnp`).catch(() => ({ data: null })),
-                axios.get(`/api/v2/interrai/patients/${patientId}/status`).catch(() => ({ data: { data: null } })),
+                api.get(`/api/patients/${patientId}/tnp`).catch(() => ({ data: null })),
+                api.get(`/api/v2/interrai/patients/${patientId}/status`).catch(() => ({ data: { data: null } })),
             ]);
 
             setTnp(tnpResponse.data);
@@ -50,7 +50,7 @@ const TnpReviewDetailPage = () => {
         if (!tnp) return;
         setAnalyzing(true);
         try {
-            await axios.post(`/api/tnp/${tnp.id}/analyze`);
+            await api.post(`/api/tnp/${tnp.id}/analyze`);
             // Poll or just reload for now
             alert('Analysis queued!'); 
             window.location.reload();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import DataTable from '../../components/UI/DataTable';
 import Button from '../../components/UI/Button';

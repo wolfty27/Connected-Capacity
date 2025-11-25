@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 
 const AiForecastPanel = ({ onRunForecast }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -10,7 +10,7 @@ const AiForecastPanel = ({ onRunForecast }) => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await axios.post('/api/v2/ai/forecast');
+            const response = await api.post('/api/v2/ai/forecast');
             setInsights(response.data.insights);
         } catch (err) {
             console.error('Forecast failed', err);

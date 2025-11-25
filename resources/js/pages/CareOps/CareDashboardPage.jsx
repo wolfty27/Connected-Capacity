@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import KpiCard from '../../components/dashboard/KpiCard';
 import PartnerPerformanceTable from '../../components/dashboard/PartnerPerformanceTable';
@@ -26,8 +26,8 @@ const CareDashboardPage = () => {
         if (!silent) setLoading(true);
         try {
             const [dashboardRes, fteRes] = await Promise.all([
-                axios.get('/api/v2/dashboards/spo'),
-                axios.get('/api/v2/staffing/fte')
+                api.get('/api/v2/dashboards/spo'),
+                api.get('/api/v2/staffing/fte')
             ]);
             setData(dashboardRes.data);
             setFteData(fteRes.data);

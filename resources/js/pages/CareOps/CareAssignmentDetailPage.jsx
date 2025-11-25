@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import Card from '../../components/UI/Card';
 import Spinner from '../../components/UI/Spinner';
@@ -18,7 +18,7 @@ const CareAssignmentDetailPage = () => {
 
     const fetchAssignment = async () => {
         try {
-            const response = await axios.get(`/api/care-assignments/${id}`);
+            const response = await api.get(`/api/care-assignments/${id}`);
             setAssignment(response.data);
         } catch (error) {
             console.error('Failed to fetch assignment:', error);
@@ -30,7 +30,7 @@ const CareAssignmentDetailPage = () => {
     const handleStatusChange = async (newStatus) => {
         setUpdating(true);
         try {
-            const response = await axios.put(`/api/care-assignments/${id}`, { status: newStatus });
+            const response = await api.put(`/api/care-assignments/${id}`, { status: newStatus });
             setAssignment(prev => ({ ...prev, status: response.data.status }));
         } catch (error) {
             console.error('Failed to update status:', error);

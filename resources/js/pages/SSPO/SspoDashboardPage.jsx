@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import DataTable from '../../components/UI/DataTable';
 import Button from '../../components/UI/Button';
@@ -13,7 +13,7 @@ const SspoDashboardPage = () => {
     useEffect(() => {
         const fetchAssignments = async () => {
             try {
-                const response = await axios.get('/api/v2/sspo/assignments');
+                const response = await api.get('/api/v2/sspo/assignments');
                 setAssignments(response.data);
             } catch (error) {
                 console.error('Failed to fetch SSPO assignments', error);

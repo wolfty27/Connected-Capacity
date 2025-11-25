@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import Card from '../../components/UI/Card';
 import Input from '../../components/UI/Input';
@@ -29,7 +29,7 @@ const ProfilePage = () => {
 
     const fetchOrg = async () => {
         try {
-            const response = await axios.get('/api/organization');
+            const response = await api.get('/api/organization');
             const data = response.data.organization;
             const options = response.data.capabilityOptions;
             
@@ -71,7 +71,7 @@ const ProfilePage = () => {
         setErrors({});
 
         try {
-            await axios.put('/api/organization', org);
+            await api.put('/api/organization', org);
             setMessage({ type: 'success', text: 'Profile updated successfully.' });
         } catch (error) {
             if (error.response && error.response.status === 422) {

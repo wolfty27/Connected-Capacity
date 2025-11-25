@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import Button from '../../components/UI/Button';
 import Card from '../../components/UI/Card';
@@ -12,7 +12,7 @@ const ShadowBillingPage = () => {
     const handleGenerateSummary = async () => {
         if (startDate && endDate) {
             try {
-                const response = await axios.post('/api/v2/finance/shadow-billing', {
+                const response = await api.post('/api/v2/finance/shadow-billing', {
                     start_date: startDate,
                     end_date: endDate
                 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { useParams, useNavigate } from 'react-router-dom';
 import Wizard from '../../components/UI/Wizard';
 import Button from '../../components/UI/Button';
@@ -76,9 +76,9 @@ const InterraiCompletionWizard = () => {
             try {
                 setLoading(true);
                 const [statusRes, historyRes, schemaRes] = await Promise.all([
-                    axios.get(`/api/v2/interrai/patients/${patientId}/status`),
-                    axios.get(`/api/v2/interrai/patients/${patientId}/assessments`),
-                    axios.get('/api/v2/interrai/form-schema'),
+                    api.get(`/api/v2/interrai/patients/${patientId}/status`),
+                    api.get(`/api/v2/interrai/patients/${patientId}/assessments`),
+                    api.get('/api/v2/interrai/form-schema'),
                 ]);
 
                 setPatient(statusRes.data.data);
@@ -129,7 +129,7 @@ const InterraiCompletionWizard = () => {
             setSubmitting(true);
             setError(null);
 
-            const response = await axios.post(
+            const response = await api.post(
                 `/api/v2/interrai/patients/${patientId}/assessments`,
                 formData
             );

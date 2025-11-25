@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { Link } from 'react-router-dom';
 import DataTable from '../../components/UI/DataTable';
 import Section from '../../components/UI/Section';
@@ -14,7 +14,7 @@ const TnpReviewListPage = () => {
     useEffect(() => {
         const fetchPatients = async () => {
             try {
-                const response = await axios.get('/api/patients');
+                const response = await api.get('/api/patients');
                 const data = response.data.data || [];
                 setAllPatients(data);
 

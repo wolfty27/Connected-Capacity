@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const fetchUser = async () => {
             try {
-                const response = await axios.get('/api/user');
+                const response = await api.get('/api/user');
                 setUser(response.data);
             } catch (error) {
                 // If 401, user is not authenticated, which is expected for guests
@@ -28,14 +28,14 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (credentials) => {
-        await axios.get('/sanctum/csrf-cookie');
-        await axios.post('/login', credentials);
-        const response = await axios.get('/api/user');
+        await api.get('/sanctum/csrf-cookie');
+        await api.post('/login', credentials);
+        const response = await api.get('/api/user');
         setUser(response.data);
     };
 
     const logout = async () => {
-        await axios.post('/logout');
+        await api.post('/logout');
         setUser(null);
     };
 

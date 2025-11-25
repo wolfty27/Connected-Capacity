@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { Link } from 'react-router-dom';
 import Section from '../../components/UI/Section';
 import DataTable from '../../components/UI/DataTable';
@@ -13,7 +13,7 @@ const FieldStaffWorklistPage = () => {
     useEffect(() => {
         const fetchAssignments = async () => {
             try {
-                const response = await axios.get('/api/care-assignments');
+                const response = await api.get('/api/care-assignments');
                 setAssignments(response.data || []);
             } catch (error) {
                 console.error('Failed to fetch assignments:', error);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import Button from '../UI/Button';
 
 const AssignmentConfigurator = ({ serviceLine, onConfirm, onCancel }) => {
@@ -27,7 +27,7 @@ const AssignmentConfigurator = ({ serviceLine, onConfirm, onCancel }) => {
         setSelectedStaff(staff);
         // Call FTE Projection API
         try {
-            const res = await axios.post('/api/v2/staffing/fte-project', { type: staff.type });
+            const res = await api.post('/api/v2/staffing/fte-project', { type: staff.type });
             setFteProjection(res.data);
         } catch (e) {
             console.error(e);
@@ -38,7 +38,7 @@ const AssignmentConfigurator = ({ serviceLine, onConfirm, onCancel }) => {
         setSelectedSspo(sspo);
         // Call Estimation API
         try {
-            const res = await axios.post('/api/v2/assignments/sspo-estimate', {
+            const res = await api.post('/api/v2/assignments/sspo-estimate', {
                 sspo_id: sspo.id,
                 frequency_rule: 'Daily', // Mock, pass real props
                 duration_minutes: 60

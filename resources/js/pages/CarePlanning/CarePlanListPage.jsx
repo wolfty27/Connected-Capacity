@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { Link } from 'react-router-dom';
 import Section from '../../components/UI/Section';
 import DataTable from '../../components/UI/DataTable';
@@ -12,7 +12,7 @@ const CarePlanListPage = () => {
     useEffect(() => {
         const fetchPlans = async () => {
             try {
-                const response = await axios.get('/api/v2/care-plans');
+                const response = await api.get('/api/v2/care-plans');
                 setPlans(response.data);
                 setLoading(false);
             } catch (error) {
