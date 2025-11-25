@@ -228,7 +228,7 @@ class CareBundleBuilderService
 
         // Default costs by category
         return match ($serviceType->code) {
-            'RN/RPN' => 120,
+            'NUR' => 120,
             'PT' => 140,
             'OT' => 150,
             'RT' => 130,
@@ -238,11 +238,18 @@ class CareBundleBuilderService
             'NP' => 200,
             'PSW' => 45,
             'HMK' => 40,
-            'DEL' => 50,
+            'DEL-ACTS' => 50,
             'RES' => 45,
             'PERS' => 50,
             'RPM' => 150,
             'SEC' => 30,
+            'TRANS' => 80,
+            'LAB' => 60,
+            'PHAR' => 25,
+            'INTERP' => 100,
+            'MEAL' => 15,
+            'REC' => 50,
+            'BEH' => 100,
             default => 100,
         };
     }

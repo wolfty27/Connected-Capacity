@@ -16,6 +16,9 @@ class ServiceType extends Model
         'category_id',
         'default_duration_minutes',
         'description',
+        'cost_code',
+        'cost_driver',
+        'source',
         'active',
     ];
 
@@ -32,7 +35,7 @@ class ServiceType extends Model
     public function careBundles()
     {
         return $this->belongsToMany(CareBundle::class)
-            ->withPivot(['default_frequency_per_week', 'default_provider_org_id'])
+            ->withPivot(['default_frequency_per_week', 'default_provider_org_id', 'assignment_type', 'role_required'])
             ->withTimestamps();
     }
 

@@ -25,7 +25,7 @@ class CareBundle extends Model
     public function serviceTypes()
     {
         return $this->belongsToMany(ServiceType::class)
-            ->withPivot(['default_frequency_per_week', 'default_provider_org_id'])
+            ->withPivot(['default_frequency_per_week', 'default_provider_org_id', 'assignment_type', 'role_required'])
             ->withTimestamps();
     }
 
