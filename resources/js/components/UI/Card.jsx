@@ -1,11 +1,34 @@
 import React from 'react';
 
-const Card = ({ title, children, className = '', ...props }) => {
+const Card = ({ title, subtitle, children, className = '', variant = 'standard', ...props }) => {
+    const baseClasses = "bg-white border rounded-xl transition-all duration-200";
+
+    const variants = {
+        standard: "border-slate-200 shadow-sm",
+        kpi: "border-slate-200 shadow-sm border-l-4",
+        interactive: "border-slate-200 shadow-sm hover:shadow-md cursor-pointer hover:border-teal-200",
+        flat: "border-transparent bg-slate-50"
+    };
+
+    // Handle KPI color coding if passed via props, otherwise default to teal
+    const kpiColorClass = props.kpiColor ? `border-l-${props.kpiColor}-500` : 'border-l-teal-500';
+
+    const finalClasses = `
+        ${baseClasses} 
+        ${variants[variant] || variants.standard} 
+        ${variant === 'kpi' ? kpiColorClass : ''} 
+        ${className}
+    `;
+
     return (
-        <div className={`bg-white border border-gray-200 rounded-lg shadow-sm ${className}`} {...props}>
-            {title && (
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h5 className="text-lg font-bold text-gray-900">{title}</h5>
+        <div className={finalClasses} {...props}>
+            {(title || subtitle) && (
+                <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-start">
+                    <div>
+                        {title && <h5 className="text-lg font-bold text-slate-800 tracking-tight">{title}</h5>}
+                        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+                    </div>
+                    {props.action && <div>{props.action}</div>}
                 </div>
             )}
             <div className="p-6">

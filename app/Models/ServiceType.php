@@ -13,6 +13,7 @@ class ServiceType extends Model
         'name',
         'code',
         'category',
+        'category_id',
         'default_duration_minutes',
         'description',
         'active',
@@ -22,6 +23,11 @@ class ServiceType extends Model
         'default_duration_minutes' => 'integer',
         'active' => 'boolean',
     ];
+
+    public function category()
+    {
+        return $this->belongsTo(ServiceCategory::class, 'category_id');
+    }
 
     public function careBundles()
     {

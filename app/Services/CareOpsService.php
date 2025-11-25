@@ -15,7 +15,7 @@ class CareOpsService
 
         if ($user->isMaster() || $user->role === User::ROLE_ADMIN) {
             // No filter for super users
-        } elseif ($user->role === User::ROLE_SPO_ADMIN) {
+        } elseif ($user->role === User::ROLE_SPO_ADMIN || $user->role === User::ROLE_SPO_COORDINATOR) {
             $query->where('service_provider_organization_id', $user->organization_id);
         } elseif ($user->role === User::ROLE_FIELD_STAFF) {
             $query->where('assigned_user_id', $user->id);

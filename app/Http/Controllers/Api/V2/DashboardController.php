@@ -8,6 +8,7 @@ use App\Models\Hospital;
 use App\Models\NewHospital;
 use App\Models\Patient;
 use App\Models\RetirementHome;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $role = $user->role;
+        \Illuminate\Support\Facades\Log::info('Dashboard access attempt', ['user_id' => $user->id, 'role' => $role]);
 
         if ($role == 'admin') {
             return $this->adminDashboard();
@@ -25,10 +27,50 @@ class DashboardController extends Controller
             return $this->hospitalDashboard($user);
         } elseif ($role == 'retirement-home') {
             return $this->retirementHomeDashboard($user);
+        } elseif (in_array($role, [
+            User::ROLE_SPO_ADMIN, 
+            User::ROLE_SPO_COORDINATOR, 
+            User::ROLE_SSPO_ADMIN, 
+            User::ROLE_SSPO_COORDINATOR, 
+            User::ROLE_FIELD_STAFF,
+            User::ROLE_MASTER
+        ])) {
+            \Illuminate\Support\Facades\Log::info('Dashboard access granted for role', ['role' => $role]);
+
+            $orgId = $user->organization_id;
+            $patientCount = 0;
+            $appointmentCount = 0;
+            $offerCount = 0;
+
+            if ($user->isMaster() || $role === User::ROLE_ORG_ADMIN) {
+                // Master sees everything
+                $patientCount = Patient::count();
+                $appointmentCount = Booking::count(); // Or Visits?
+            } elseif ($orgId) {
+                // Filter by Organization via ServiceAssignments
+                $patientCount = Patient::whereHas('serviceAssignments', function($q) use ($orgId) {
+                    $q->where('service_provider_organization_id', $orgId);
+                })->count();
+                
+                // Count active assignments/bookings for this org
+                // Assuming Booking is legacy, maybe use ServiceAssignment as 'Appointment'?
+                $appointmentCount = \App\Models\ServiceAssignment::where('service_provider_organization_id', $orgId)
+                    ->where('status', 'active') // Adjust status as needed
+                    ->count();
+            }
+
+            return response()->json([
+                'message' => 'Dashboard access granted',
+                'dashboard_type' => $role,
+                'user' => $user,
+                'patientCount' => $patientCount ?? 0,
+                'appointmentCount' => $appointmentCount ?? 0,
+                'offerCount' => $offerCount ?? 0,
+            ], 200);
         }
 
-        // For CC2 roles or unknown roles, return a basic structure or error
-        // The SPA should handle navigation to specific CC2 dashboards based on role
+        \Illuminate\Support\Facades\Log::warning('Dashboard access denied', ['user_id' => $user->id, 'role' => $role]);
+        // For unknown roles
         return response()->json(['message' => 'Dashboard data not available for this role.'], 403);
     }
 

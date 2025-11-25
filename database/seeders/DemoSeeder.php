@@ -30,6 +30,7 @@ class DemoSeeder extends Seeder
             'password' => Hash::make('password'),
             'role' => User::ROLE_SPO_ADMIN,
             'organization_id' => $spo->id,
+            'organization_role' => User::ROLE_SPO_ADMIN,
         ]);
 
         // 3. Hospital User

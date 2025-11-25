@@ -21,7 +21,7 @@ class UserController extends Controller
 
     public function login (Request $request)
     {
-
+        \Illuminate\Support\Facades\Log::info('Login attempt', ['email' => $request->email, 'wantsJson' => $request->wantsJson()]);
         try{
             $validator = Validator::make($request->all(), [
                 'email' => 'required|exists:users,email',
@@ -29,22 +29,39 @@ class UserController extends Controller
             ]);
             if ($validator->fails())
             {
+                \Illuminate\Support\Facades\Log::warning('Login validation failed', ['errors' => $validator->errors()]);
+                if ($request->wantsJson()) {
+                    return response()->json(['errors' => $validator->errors()], 422);
+                }
                 return Redirect::back()->with(['errors' => $validator->errors()->first()])->withInput();
             }
             else
             {
                 if (Auth::attempt(['email' => $request->email, 'password' => $request->password]))
                 {
+                    \Illuminate\Support\Facades\Log::info('Login successful', ['user_id' => Auth::id()]);
+                    $request->session()->regenerate();
+                    if ($request->wantsJson()) {
+                        return response()->json(['message' => 'Login successful', 'user' => Auth::user()], 200);
+                    }
                     return Redirect::to('/dashboard');
                 }
                 else
                 {
+                    \Illuminate\Support\Facades\Log::warning('Login failed: Invalid credentials');
+                    if ($request->wantsJson()) {
+                        return response()->json(['errors' => ['email' => ['Invalid email or password']]], 422);
+                    }
                     return Redirect::back()->with(['errors' => 'Invalid email or password'])->withInput();
                 }
             }
         }
         catch (\Exception $e)
         {
+            \Illuminate\Support\Facades\Log::error('Login exception', ['message' => $e->getMessage()]);
+            if ($request->wantsJson()) {
+                return response()->json(['errors' => ['message' => $e->getMessage()]], 500);
+            }
             return Redirect::back()->with(['errors' => $e->getMessage().' Please contact admin.'])->withInput();
         }
     }
@@ -52,7 +69,14 @@ class UserController extends Controller
     public function logout (Request $request)
     {
         Auth::logout();
-        Session::flush();
+        
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Logged out successfully'], 200);
+        }
+
         return redirect('/');
     }
 
@@ -71,7 +95,7 @@ class UserController extends Controller
             'timezone' => 'GMT+5'
         ]);
         Admin::create([
-            'user_id', $userObj->id
+            'user_id' => $userObj->id
         ]);
     }
 }

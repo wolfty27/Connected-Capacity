@@ -16,6 +16,7 @@ class CareAssignmentPolicy
         return $user->isMaster() || 
                $user->role === User::ROLE_ADMIN || 
                $user->role === User::ROLE_SPO_ADMIN || 
+               $user->role === User::ROLE_SPO_COORDINATOR ||
                $user->role === User::ROLE_FIELD_STAFF;
     }
 
@@ -28,7 +29,7 @@ class CareAssignmentPolicy
             return true;
         }
 
-        if ($user->role === User::ROLE_SPO_ADMIN) {
+        if ($user->role === User::ROLE_SPO_ADMIN || $user->role === User::ROLE_SPO_COORDINATOR) {
             return $user->organization_id === $careAssignment->service_provider_organization_id;
         }
 

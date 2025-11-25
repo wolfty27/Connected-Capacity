@@ -25,6 +25,10 @@ class ServiceAssignment extends Model
         'notes',
         'source',
         'rpm_alert_id',
+        'estimated_hours_per_week',
+        'estimated_total_hours',
+        'estimated_travel_km_per_week',
+        'after_hours_required',
     ];
 
     protected $casts = [

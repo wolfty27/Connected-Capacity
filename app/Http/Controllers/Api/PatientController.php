@@ -40,7 +40,11 @@ class PatientController extends Controller
 
                 return [
                     'id' => $patient->id,
-                    'name' => $userObj ? $userObj->name : 'Unknown',
+                    'user' => [
+                        'name' => $userObj ? $userObj->name : 'Unknown',
+                        'email' => $userObj ? $userObj->email : null,
+                    ],
+                    'ohip' => $patient->ohip, // Ensure Patient model has this attribute
                     'photo' => $userObj ? $userObj->image : '/assets/images/patients/default.png',
                     'gender' => $patient->gender,
                     'status' => $patient->status,
@@ -69,9 +73,15 @@ class PatientController extends Controller
             return response()->json([
                 'data' => [
                     'id' => $patient->id,
-                    'name' => $userObj ? $userObj->name : 'Unknown',
-                    'email' => $userObj ? $userObj->email : '',
-                    'phone' => $userObj ? $userObj->phone_number : '',
+                    'user' => [
+                        'name' => $userObj ? $userObj->name : 'Unknown',
+                        'email' => $userObj ? $userObj->email : '',
+                        'phone' => $userObj ? $userObj->phone_number : '',
+                    ],
+                    'name' => $userObj ? $userObj->name : 'Unknown', // Backwards compat
+                    'ohip' => $patient->ohip,
+                    'date_of_birth' => $patient->date_of_birth,
+                    'diagnosis' => null, // Placeholder
                     'gender' => $patient->gender,
                     'status' => $patient->status,
                     'photo' => $userObj ? $userObj->image : '/assets/images/patients/default.png',

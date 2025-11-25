@@ -53,7 +53,9 @@ class User extends Authenticatable
         'calendly_status',
         'calendly_username',
         'organization_id',
-        'organization_role'
+        'organization_role',
+        'employment_type',
+        'fte_value'
     ];
 
     /**

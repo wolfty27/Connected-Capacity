@@ -15,33 +15,23 @@ use App\Http\Controllers\UserController;
 |
 */
 
-// Restore default redirect for root
+// Root route - Serve SPA
 Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect('/dashboard');
-    }
-    return redirect('/login');
+    return view('app');
 });
 
-Route::get('/login', [UserController::class, 'showLoginForm'])->name('login');
+Route::middleware('guest')->group(function () {
+    Route::view('/login', 'app')->name('login');
+});
 Route::post('/login', [UserController::class, 'login']);
 Route::post('/logout', [UserController::class, 'logout']);
 
 // Authenticated Routes
 Route::middleware(['auth'])->group(function () {
-    // CC2 Routes (Migrated from RouteServiceProvider)
-    Route::prefix('cc2')
-        ->middleware(['web', 'auth', 'feature.flag:cc2.enabled', 'organization.context'])
-        ->as('cc2.')
-        ->group(base_path('routes/cc2.php'));
+    // API routes are handled in api.php
 });
 
 // SPA Catch-all (Must be last)
 Route::get('/{any?}', function () {
-    // If user is logged in, render SPA
-    if (Auth::check()) {
-        return view('app');
-    }
-    // Otherwise redirect to login
-    return redirect('/login');
+    return view('app');
 })->where('any', '.*');

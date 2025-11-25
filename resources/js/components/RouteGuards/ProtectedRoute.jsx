@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate } from 'react-router-dom';
 
 const ProtectedRoute = () => {
     const { user, loading } = useAuth();
@@ -14,9 +14,7 @@ const ProtectedRoute = () => {
     }
 
     if (!user) {
-        // Redirect to Laravel's Blade login page
-        window.location.href = '/login';
-        return null;
+        return <Navigate to="/" replace />;
     }
 
     return <Outlet />;

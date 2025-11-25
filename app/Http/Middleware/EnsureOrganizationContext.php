@@ -14,6 +14,7 @@ class EnsureOrganizationContext
     public function handle(Request $request, Closure $next)
     {
         $user = Auth::user();
+        \Illuminate\Support\Facades\Log::info('EnsureOrganizationContext middleware', ['user_id' => $user ? $user->id : 'null']);
 
         if (!$user) {
             throw new AccessDeniedHttpException('Unauthorized');
@@ -28,6 +29,7 @@ class EnsureOrganizationContext
         $organization = $user->organization;
 
         if (!$organization || !$organization->active) {
+            \Illuminate\Support\Facades\Log::warning('Organization context failed', ['user_id' => $user->id, 'org_id' => $user->organization_id, 'has_org' => (bool)$organization, 'active' => $organization ? $organization->active : false]);
             throw new AccessDeniedHttpException('Organization context required');
         }
 

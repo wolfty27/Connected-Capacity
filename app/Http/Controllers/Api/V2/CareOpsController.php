@@ -27,6 +27,12 @@ class CareOpsController extends Controller
         return response()->json($assignments);
     }
 
+    public function show(CareAssignment $assignment)
+    {
+        $this->authorize('view', $assignment);
+        return response()->json($assignment->load(['patient.user', 'assignedUser']));
+    }
+
     public function store(Request $request)
     {
         $this->authorize('create', CareAssignment::class);

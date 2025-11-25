@@ -13,6 +13,7 @@ class CareBundle extends Model
         'name',
         'code',
         'description',
+        'price',
         'default_notes',
         'active',
     ];
