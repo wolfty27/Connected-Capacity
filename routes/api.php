@@ -74,4 +74,24 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/{patientId}/plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getPlanHistory']);
         Route::post('/{patientId}/plans/{carePlanId}/publish', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'publishPlan']);
     });
+
+    // Service Types API (SC-002)
+    Route::prefix('v2/service-types')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'index']);
+        Route::get('/by-category', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'byCategory']);
+        Route::get('/categories', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'categories']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'show']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'store']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'destroy']);
+        Route::post('/{id}/toggle-active', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'toggleActive']);
+    });
+
+    // SSPO Assignment Acceptance API (SSPO-002)
+    Route::prefix('v2/assignments')->group(function () {
+        Route::get('/pending-sspo', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'pendingAcceptance']);
+        Route::post('/{id}/accept', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'accept']);
+        Route::post('/{id}/decline', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'decline']);
+        Route::get('/{id}/sspo-status', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'sspoStatus']);
+    });
 });
