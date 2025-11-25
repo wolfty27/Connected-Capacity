@@ -15,16 +15,17 @@ class SpoDashboardController extends Controller
         $monitor = new MissedCareMonitor();
         $risks = $monitor->getRiskSnapshot();
 
-        // Fetch Intake Queue
+        // Fetch Intake Queue - patients flagged as in queue
         $intakeQueue = Patient::with('user', 'hospital')
-            ->where('status', 'referral_received')
+            ->where('is_in_queue', true)
+            ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()
             ->map(function ($p) {
                 return [
                     'id' => $p->id,
                     'name' => $p->user->name ?? 'Unknown',
-                    'source' => $p->hospital->user->name ?? 'Hospital', // Assuming hospital has user
+                    'source' => $p->hospital->name ?? ($p->hospital->user->name ?? 'Hospital'),
                     'received_at' => $p->created_at->toIso8601String(),
                     'ohip' => $p->ohip
                 ];
