@@ -39,7 +39,7 @@ class DemoSeeder extends Seeder
             'password' => Hash::make('password'),
             'role' => User::ROLE_HOSPITAL,
         ]);
-        NewHospital::create(['user_id' => $hospitalUser->id]);
+        NewHospital::firstOrCreate(['user_id' => $hospitalUser->id]);
 
         // 4. Field Staff
         User::updateOrCreate(['email' => 'field@example.com'], [
