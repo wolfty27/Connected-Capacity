@@ -60,13 +60,7 @@ const CareBundleWizard = () => {
         }
     }, [apiServiceTypes, services.length]);
 
-    // Debug services state
-    useEffect(() => {
-        console.log('Current services state:', services);
-        if (services.length > 0) {
-            console.log('First service category:', services[0].category);
-        }
-    }, [services]);
+
 
     // Step 3 State - Review & Publish
     const [publishSuccess, setPublishSuccess] = useState(false);
