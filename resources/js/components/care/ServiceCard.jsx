@@ -36,25 +36,28 @@ const ServiceCard = ({ service, onUpdate }) => {
 
             <div className="flex flex-col gap-4">
 
-                {/* Top Row: Description & Frequency */}
-                <div className="flex justify-between items-start">
-                    {/* Icon & Description */}
-                    <div className="flex items-start flex-1 mr-4">
+                {/* Row 1: Description (Full Width) */}
+                <div className="w-full">
+                    <div className="flex items-start">
                         <div className={`flex-shrink-0 h-10 w-10 rounded flex items-center justify-center mr-4 ${service.category === 'CLINICAL' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'}`}>
                             <span className="font-bold text-sm">{service.code}</span>
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-slate-900">{service.name} ({service.code})</h4>
-                            <p className="text-sm text-slate-600 mt-1 max-w-sm">{service.description}</p>
+                            <p className="text-sm text-slate-600 mt-1">{service.description}</p>
                         </div>
                     </div>
+                </div>
 
-                    {/* Frequency Control (Top Right) */}
-                    <div className="flex-shrink-0">
-                        <div className="flex justify-end items-center mb-1">
+                {/* Row 2: Frequency & Duration (Side-by-Side) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-gray-100">
+
+                    {/* Frequency Control */}
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
                             <label className="text-xs font-semibold text-slate-700">Frequency (visits/week): <span className="text-slate-900 font-bold">{service.currentFrequency}</span></label>
                         </div>
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center">
                             <button
                                 onClick={() => handleFreqChange(-1)}
                                 className="p-1 rounded-l-md border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600"
@@ -71,24 +74,6 @@ const ServiceCard = ({ service, onUpdate }) => {
                                 <Plus className="w-4 h-4" />
                             </button>
                         </div>
-                    </div>
-                </div>
-
-                {/* Bottom Row: Provider & Duration */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-gray-100">
-
-                    {/* Provider Dropdown */}
-                    <div className="flex flex-col">
-                        <label className="text-xs font-semibold text-slate-700 mb-1">Provider:</label>
-                        <select
-                            value={service.provider}
-                            onChange={handleProviderChange}
-                            className="block w-full rounded-md border-slate-300 border shadow-sm focus:border-teal-500 focus:ring-teal-500 sm:text-sm py-1.5 px-3"
-                        >
-                            {PROVIDERS.map(p => (
-                                <option key={p} value={p}>{p}</option>
-                            ))}
-                        </select>
                     </div>
 
                     {/* Duration Slider */}
@@ -111,8 +96,22 @@ const ServiceCard = ({ service, onUpdate }) => {
                             <span className="text-sm text-slate-500 w-8">{service.currentDuration}</span>
                         </div>
                     </div>
-
                 </div>
+
+                {/* Row 3: Provider (Full Width) */}
+                <div className="w-full">
+                    <label className="text-xs font-semibold text-slate-700 mb-1">Provider:</label>
+                    <select
+                        value={service.provider}
+                        onChange={handleProviderChange}
+                        className="block w-full rounded-md border-slate-300 border shadow-sm focus:border-teal-500 focus:ring-teal-500 sm:text-sm py-1.5 px-3"
+                    >
+                        {PROVIDERS.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                        ))}
+                    </select>
+                </div>
+
             </div>
         </div>
     );
