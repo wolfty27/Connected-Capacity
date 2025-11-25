@@ -1,26 +1,61 @@
 import React from 'react';
-import { Bot } from 'lucide-react';
+import {
+    Bot,
+    Stethoscope,
+    User,
+    Activity,
+    Hand,
+    MessageSquare,
+    BarChart,
+    FlaskConical
+} from 'lucide-react';
 
 const BundleSummary = ({ services, totalCost, isGeneratingAi, aiRecommendation, onGenerateAi }) => {
+
+    const getServiceIcon = (name) => {
+        const lowerName = name.toLowerCase();
+        if (lowerName.includes('nursing')) return <Stethoscope className="w-5 h-5 text-slate-400" />;
+        if (lowerName.includes('personal') || lowerName.includes('psw')) return <User className="w-5 h-5 text-slate-400" />;
+        if (lowerName.includes('physio') || lowerName.includes('pt')) return <Activity className="w-5 h-5 text-slate-400" />;
+        if (lowerName.includes('occupational') || lowerName.includes('ot')) return <Hand className="w-5 h-5 text-slate-400" />;
+        if (lowerName.includes('social') || lowerName.includes('sw')) return <MessageSquare className="w-5 h-5 text-slate-400" />;
+        if (lowerName.includes('monitoring') || lowerName.includes('rpm')) return <BarChart className="w-5 h-5 text-slate-400" />;
+        if (lowerName.includes('lab')) return <FlaskConical className="w-5 h-5 text-slate-400" />;
+        return <Activity className="w-5 h-5 text-slate-400" />;
+    };
+
     return (
         <div className="space-y-6">
             {/* Bundle Summary */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">Bundle Summary</h3>
-                <div className="space-y-3 mb-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-6">Bundle Summary</h3>
+
+                <div className="space-y-3 mb-8">
                     {services.filter(s => s.currentFrequency > 0).map(s => (
-                        <div key={s.id} className="flex justify-between text-sm">
-                            <span className="text-slate-700">{s.name}</span>
-                            <span className="text-slate-900 font-medium text-right">{s.currentFrequency}/wk, {s.currentDuration} wks</span>
+                        <div key={s.id} className="border border-slate-200 rounded-lg p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                    {getServiceIcon(s.name)}
+                                </div>
+                                <div>
+                                    <div className="font-bold text-slate-900 text-sm">{s.name}</div>
+                                    <div className="text-xs text-slate-500">{s.code}</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="font-medium text-slate-900 text-sm">{s.currentFrequency} visits/week</div>
+                                <div className="text-xs text-slate-500">for {s.currentDuration} weeks</div>
+                            </div>
                         </div>
                     ))}
                     {services.filter(s => s.currentFrequency > 0).length === 0 && (
-                        <p className="text-sm text-slate-400 italic">No services selected.</p>
+                        <p className="text-sm text-slate-400 italic text-center py-4">No services selected.</p>
                     )}
                 </div>
-                <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-                    <span className="font-bold text-slate-900">Total Est. Cost:</span>
-                    <span className="font-bold text-slate-900 text-lg">${totalCost.toLocaleString()}</span>
+
+                <div className="pt-6 border-t border-slate-200 flex justify-between items-center">
+                    <span className="font-bold text-slate-900 text-lg">Total Est. Cost:</span>
+                    <span className="font-bold text-slate-900 text-3xl">${totalCost.toLocaleString()}</span>
                 </div>
             </div>
 
