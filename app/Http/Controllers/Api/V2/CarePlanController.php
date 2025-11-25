@@ -40,7 +40,8 @@ class CarePlanController extends Controller
                 'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),
                 'services' => $plan->serviceAssignments->map(fn($sa) => [
                     'id' => $sa->id,
-                    'service' => $sa->serviceType->name ?? 'Unknown',
+                    'name' => $sa->serviceType->name ?? 'Unknown',
+                    'code' => $sa->serviceType->code ?? null,
                     'status' => $sa->status,
                 ])->toArray(),
             ];

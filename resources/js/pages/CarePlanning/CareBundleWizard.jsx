@@ -498,42 +498,55 @@ const CareBundleWizard = () => {
 
                                     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
                                         {/* CLINICAL SECTION */}
-                                        <AccordionHeader title="CLINICAL" sectionKey="CLINICAL" />
+                                        <AccordionHeader title="CLINICAL SERVICES" sectionKey="CLINICAL" />
                                         {expandedSection === 'CLINICAL' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'CLINICAL').map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))}
+                                                {services.filter(s => s.category === 'CLINICAL').length > 0 ? (
+                                                    services.filter(s => s.category === 'CLINICAL').map(service => (
+                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                    ))
+                                                ) : (
+                                                    <div className="text-slate-500 text-sm">No clinical services available.</div>
+                                                )}
                                             </div>
                                         )}
-
-                                        <AccordionHeader title="SPECIALIZED" sectionKey="SPECIALIZED" />
-                                        {expandedSection === 'SPECIALIZED' && <div className="p-4 text-slate-500 text-sm">No specialized services selected.</div>}
 
                                         <AccordionHeader title="PERSONAL SUPPORT & DAILY LIVING" sectionKey="PERSONAL_SUPPORT" />
                                         {expandedSection === 'PERSONAL_SUPPORT' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'PERSONAL_SUPPORT').map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))}
+                                                {services.filter(s => s.category === 'PERSONAL_SUPPORT').length > 0 ? (
+                                                    services.filter(s => s.category === 'PERSONAL_SUPPORT').map(service => (
+                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                    ))
+                                                ) : (
+                                                    <div className="text-slate-500 text-sm">No personal support services available.</div>
+                                                )}
                                             </div>
                                         )}
 
-                                        <AccordionHeader title="SAFETY & MONITORING" sectionKey="DIGITAL" />
-                                        {expandedSection === 'DIGITAL' && (
+                                        <AccordionHeader title="SAFETY, MONITORING & TECHNOLOGY" sectionKey="SAFETY_TECH" />
+                                        {expandedSection === 'SAFETY_TECH' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'DIGITAL').map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))}
+                                                {services.filter(s => s.category === 'SAFETY_TECH').length > 0 ? (
+                                                    services.filter(s => s.category === 'SAFETY_TECH').map(service => (
+                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                    ))
+                                                ) : (
+                                                    <div className="text-slate-500 text-sm">No safety/monitoring services available.</div>
+                                                )}
                                             </div>
                                         )}
 
-                                        <AccordionHeader title="SOCIAL & LOGISTICS" sectionKey="SOCIAL_SUPPORT" />
-                                        {expandedSection === 'SOCIAL_SUPPORT' && (
+                                        <AccordionHeader title="LOGISTICS & ACCESS SERVICES" sectionKey="LOGISTICS" />
+                                        {expandedSection === 'LOGISTICS' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'SOCIAL_SUPPORT').map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))}
+                                                {services.filter(s => s.category === 'LOGISTICS').length > 0 ? (
+                                                    services.filter(s => s.category === 'LOGISTICS').map(service => (
+                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                    ))
+                                                ) : (
+                                                    <div className="text-slate-500 text-sm">No logistics services available.</div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
