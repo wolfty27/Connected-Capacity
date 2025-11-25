@@ -93,5 +93,20 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/{id}/accept', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'accept']);
         Route::post('/{id}/decline', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'decline']);
         Route::get('/{id}/sspo-status', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'sspoStatus']);
+        Route::get('/sspo-metrics', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'metrics']);
+    });
+
+    // SLA Compliance Dashboard API (SLA-005)
+    Route::prefix('v2/sla')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'dashboard']);
+        Route::get('/status', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'status']);
+        Route::get('/hpg-response', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'hpgResponse']);
+        Route::get('/missed-care', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'missedCare']);
+        Route::get('/missed-assignments', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'missedAssignments']);
+        Route::get('/sspo-performance', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'sspoPerformance']);
+        Route::get('/intake-metrics', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'intakeMetrics']);
+        Route::get('/pending-interrai', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'pendingInterrai']);
+        Route::post('/check', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'runCheck']);
+        Route::post('/huddle-report', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'generateHuddleReport']);
     });
 });
