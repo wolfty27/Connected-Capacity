@@ -1,5 +1,4 @@
-// Use the configured axios instance from bootstrap.js (has withCredentials: true)
-const axios = window.axios;
+import api from './api';
 
 /**
  * Care Bundle Builder API Service
@@ -19,7 +18,7 @@ const careBundleBuilderApi = {
      * @returns {Promise} Bundles with recommendations
      */
     async getBundles(patientId) {
-        const response = await axios.get(`/api/v2/care-builder/${patientId}/bundles`);
+        const response = await api.get(`/api/v2/care-builder/${patientId}/bundles`);
         return response.data;
     },
 
@@ -31,7 +30,7 @@ const careBundleBuilderApi = {
      * @returns {Promise} Bundle with configured services
      */
     async getBundle(patientId, bundleId) {
-        const response = await axios.get(`/api/v2/care-builder/${patientId}/bundles/${bundleId}`);
+        const response = await api.get(`/api/v2/care-builder/${patientId}/bundles/${bundleId}`);
         return response.data;
     },
 
@@ -44,7 +43,7 @@ const careBundleBuilderApi = {
      * @returns {Promise} Preview of bundle with calculated costs
      */
     async previewBundle(patientId, bundleId, services = null) {
-        const response = await axios.post(`/api/v2/care-builder/${patientId}/bundles/preview`, {
+        const response = await api.post(`/api/v2/care-builder/${patientId}/bundles/preview`, {
             bundle_id: bundleId,
             services,
         });
@@ -63,7 +62,7 @@ const careBundleBuilderApi = {
      * @returns {Promise} Created care plan
      */
     async buildPlan(patientId, bundleId, services, notes = null) {
-        const response = await axios.post(`/api/v2/care-builder/${patientId}/plans`, {
+        const response = await api.post(`/api/v2/care-builder/${patientId}/plans`, {
             bundle_id: bundleId,
             services,
             notes,
@@ -82,7 +81,7 @@ const careBundleBuilderApi = {
      * @returns {Promise} Published plan with transition details
      */
     async publishPlan(patientId, carePlanId) {
-        const response = await axios.post(`/api/v2/care-builder/${patientId}/plans/${carePlanId}/publish`);
+        const response = await api.post(`/api/v2/care-builder/${patientId}/plans/${carePlanId}/publish`);
         return response.data;
     },
 
@@ -93,7 +92,7 @@ const careBundleBuilderApi = {
      * @returns {Promise} List of care plans with summary
      */
     async getPlanHistory(patientId) {
-        const response = await axios.get(`/api/v2/care-builder/${patientId}/plans`);
+        const response = await api.get(`/api/v2/care-builder/${patientId}/plans`);
         return response.data;
     },
 

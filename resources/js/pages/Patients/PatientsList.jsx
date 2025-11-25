@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { Users, UserPlus, Clock, CheckCircle, AlertCircle, Play } from 'lucide-react';
 import Section from '../../components/UI/Section';
@@ -27,7 +27,7 @@ const PatientsList = () => {
 
     const fetchPatients = async () => {
         try {
-            const response = await axios.get('/api/patients');
+            const response = await api.get('/api/patients');
             setPatients(response.data.data || []);
             setSummary(response.data.summary || { total: 0, active: 0, in_queue: 0 });
             setLoading(false);

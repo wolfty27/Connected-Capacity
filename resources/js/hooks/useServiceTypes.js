@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-// Use the configured axios instance from bootstrap.js (has withCredentials: true)
-const axios = window.axios;
+import api from '../services/api';
 
 /**
  * useServiceTypes - Hook to fetch service types from API
@@ -32,8 +30,8 @@ const useServiceTypes = (options = {}) => {
             if (category) params.append('category', category);
 
             const [typesRes, categoriesRes] = await Promise.all([
-                axios.get(`/api/v2/service-types?${params}`),
-                axios.get('/api/v2/service-types/categories'),
+                api.get(`/api/v2/service-types?${params}`),
+                api.get('/api/v2/service-types/categories'),
             ]);
 
             // Transform API data to match expected format for CareBundleWizard

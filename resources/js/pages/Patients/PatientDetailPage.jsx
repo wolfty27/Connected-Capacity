@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../services/api';
 import Card from '../../components/UI/Card';
 import Spinner from '../../components/UI/Spinner';
 import Button from '../../components/UI/Button';
@@ -31,10 +31,10 @@ const PatientDetailPage = () => {
 
             // Fetch all data in parallel
             const [patientRes, carePlansRes, tnpRes, interraiRes] = await Promise.all([
-                axios.get(`/api/patients/${id}`),
-                axios.get(`/api/v2/care-plans?patient_id=${id}`).catch(() => ({ data: { data: [] } })),
-                axios.get(`/api/patients/${id}/tnp`).catch(() => ({ data: null })),
-                axios.get(`/api/v2/interrai/patients/${id}/status`).catch(() => ({ data: { data: null } })),
+                api.get(`/api/patients/${id}`),
+                api.get(`/api/v2/care-plans?patient_id=${id}`).catch(() => ({ data: { data: [] } })),
+                api.get(`/api/patients/${id}/tnp`).catch(() => ({ data: null })),
+                api.get(`/api/v2/interrai/patients/${id}/status`).catch(() => ({ data: { data: null } })),
             ]);
 
             setPatient(patientRes.data.data);
