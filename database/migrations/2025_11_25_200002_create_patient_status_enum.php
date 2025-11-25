@@ -239,10 +239,18 @@ return new class extends Migration
         );
 
         // Create initial transition records for audit trail
-        DB::statement("
-            INSERT INTO patient_status_transitions (patient_id, from_status, to_status, reason, created_at, updated_at)
-            SELECT id, NULL, status, 'Initial migration from legacy status', NOW(), NOW()
-            FROM patients
-        ");
+        $now = now()->format('Y-m-d H:i:s');
+        $patients = DB::table('patients')->select('id', 'status')->get();
+
+        foreach ($patients as $patient) {
+            DB::table('patient_status_transitions')->insert([
+                'patient_id' => $patient->id,
+                'from_status' => null,
+                'to_status' => $patient->status,
+                'reason' => 'Initial migration from legacy status',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
     }
 };
