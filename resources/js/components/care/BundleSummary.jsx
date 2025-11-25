@@ -54,8 +54,8 @@ const BundleSummary = ({ services, totalCost, isGeneratingAi, aiRecommendation, 
                 </div>
 
                 <div className="pt-6 border-t border-slate-200 flex justify-between items-center">
-                    <span className="font-bold text-slate-900 text-lg">Total Est. Cost:</span>
-                    <span className="font-bold text-slate-900 text-3xl">${totalCost.toLocaleString()}</span>
+                    <span className="font-bold text-slate-900 text-lg">Total Est. Weekly Cost:</span>
+                    <span className="font-bold text-slate-900 text-lg">${totalCost.toLocaleString()}</span>
                 </div>
             </div>
 

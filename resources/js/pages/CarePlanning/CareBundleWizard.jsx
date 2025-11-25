@@ -51,6 +51,7 @@ const CareBundleWizard = () => {
     const [expandedSection, setExpandedSection] = useState('CLINICAL');
     const [aiRecommendation, setAiRecommendation] = useState(null);
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+    const [globalDuration, setGlobalDuration] = useState(12);
 
     // Initialize services from API when available
     useEffect(() => {
@@ -168,8 +169,21 @@ const CareBundleWizard = () => {
         ));
     };
 
+    const handleGlobalDurationChange = (e) => {
+        const newDuration = parseInt(e.target.value);
+        setGlobalDuration(newDuration);
+        setServices(prev => prev.map(s => ({
+            ...s,
+            currentDuration: newDuration
+        })));
+    };
+
     const totalCost = services.reduce((acc, curr) => {
         return acc + (curr.costPerVisit * curr.currentFrequency * curr.currentDuration);
+    }, 0);
+
+    const weeklyCost = services.reduce((acc, curr) => {
+        return acc + (curr.costPerVisit * curr.currentFrequency);
     }, 0);
 
     const monthlyCost = careBundleBuilderApi.calculateMonthlyCost(services);
@@ -506,6 +520,7 @@ const CareBundleWizard = () => {
                                         </div>
                                     </div>
                                 </div>
+                                ```
                             </div>
                         )}
 
@@ -517,6 +532,34 @@ const CareBundleWizard = () => {
                                     <p className="text-sm text-slate-600">
                                         Services have been auto-configured based on the patient's TNP and clinical flags. Adjust frequency and duration as needed.
                                     </p>
+                                </div>
+
+                                {/* Global Duration Slider */}
+                                <div className="mb-6 p-5 bg-blue-50 border border-blue-100 rounded-lg">
+                                    <div className="flex items-start gap-3 mb-4">
+                                        <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+                                            <AlertCircle className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-slate-900">Plan Duration</h3>
+                                            <p className="text-sm text-slate-600 mt-1">
+                                                Set the default duration for the entire care plan. You can still adjust individual services below if they require a different timeline.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-sm font-medium text-slate-700 w-24">Global Duration:</span>
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="52"
+                                            value={globalDuration}
+                                            onChange={handleGlobalDurationChange}
+                                            className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                        />
+                                        <span className="text-sm font-bold text-blue-700 w-16 text-right">{globalDuration} weeks</span>
+                                    </div>
                                 </div>
 
                                 <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
@@ -655,7 +698,7 @@ const CareBundleWizard = () => {
                         <div className="w-80 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-6">
                             <BundleSummary
                                 services={services}
-                                totalCost={totalCost}
+                                totalCost={weeklyCost}
                                 isGeneratingAi={isGeneratingAi}
                                 aiRecommendation={aiRecommendation}
                                 onGenerateAi={generateRecommendation}
