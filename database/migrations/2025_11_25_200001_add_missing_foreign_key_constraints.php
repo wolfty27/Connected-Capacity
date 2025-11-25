@@ -224,10 +224,23 @@ return new class extends Migration
      */
     protected function hasIndex(string $table, string $index): bool
     {
-        $indexes = Schema::getConnection()
-            ->getDoctrineSchemaManager()
-            ->listTableIndexes($table);
-
-        return isset($indexes[$index]);
+        try {
+            $driver = Schema::getConnection()->getDriverName();
+            if ($driver === 'pgsql') {
+                $result = Schema::getConnection()->select(
+                    "SELECT indexname FROM pg_indexes WHERE tablename = ? AND indexname = ?",
+                    [$table, $index]
+                );
+                return count($result) > 0;
+            } else {
+                $result = Schema::getConnection()->select(
+                    "SHOW INDEX FROM {$table} WHERE Key_name = ?",
+                    [$index]
+                );
+                return count($result) > 0;
+            }
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 };

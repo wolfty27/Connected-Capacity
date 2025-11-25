@@ -18,7 +18,7 @@ return new class extends Migration
         // Create SSPO service capabilities pivot table
         Schema::create('sspo_service_capabilities', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('sspo_id')->constrained('sspo_organizations')->cascadeOnDelete();
+            $table->foreignId('sspo_id')->constrained('service_provider_organizations')->cascadeOnDelete();
             $table->foreignId('service_type_id')->constrained('service_types')->cascadeOnDelete();
 
             // Capacity information
@@ -73,7 +73,7 @@ return new class extends Migration
         // Create SSPO geographic coverage table for more detailed area mapping
         Schema::create('sspo_geographic_coverage', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('sspo_id')->constrained('sspo_organizations')->cascadeOnDelete();
+            $table->foreignId('sspo_id')->constrained('service_provider_organizations')->cascadeOnDelete();
             $table->string('coverage_type', 20); // postal_prefix, lhin, municipality, custom
             $table->string('coverage_value', 50); // The actual value (e.g., "K1A", "Champlain")
             $table->boolean('is_primary')->default(false);
@@ -88,7 +88,7 @@ return new class extends Migration
         // Create SSPO capacity log for tracking utilization over time
         Schema::create('sspo_capacity_snapshots', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('sspo_id')->constrained('sspo_organizations')->cascadeOnDelete();
+            $table->foreignId('sspo_id')->constrained('service_provider_organizations')->cascadeOnDelete();
             $table->foreignId('service_type_id')->nullable()->constrained('service_types')->nullOnDelete();
             $table->date('snapshot_date');
             $table->integer('total_capacity_hours');
@@ -106,7 +106,7 @@ return new class extends Migration
         if (Schema::hasTable('patients') && !Schema::hasColumn('patients', 'preferred_sspo_id')) {
             Schema::table('patients', function (Blueprint $table) {
                 $table->foreignId('preferred_sspo_id')->nullable()->after('spo_id')
-                    ->constrained('sspo_organizations')->nullOnDelete();
+                    ->constrained('service_provider_organizations')->nullOnDelete();
                 $table->json('sspo_preferences')->nullable()->after('preferred_sspo_id');
             });
         }

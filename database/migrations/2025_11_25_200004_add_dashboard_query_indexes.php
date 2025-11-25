@@ -75,13 +75,13 @@ return new class extends Migration
         // 3. Care bundle dashboard indexes
         if (Schema::hasTable('care_bundles')) {
             Schema::table('care_bundles', function (Blueprint $table) {
-                // Bundle status dashboard
-                if (!$this->hasIndex('care_bundles', 'cb_status_dashboard_idx')) {
+                // Bundle status dashboard - only if status column exists
+                if (Schema::hasColumn('care_bundles', 'status') && !$this->hasIndex('care_bundles', 'cb_status_dashboard_idx')) {
                     $table->index(['status', 'created_at'], 'cb_status_dashboard_idx');
                 }
 
-                // Bundle by patient lookup
-                if (Schema::hasColumn('care_bundles', 'patient_id') && !$this->hasIndex('care_bundles', 'cb_patient_lookup_idx')) {
+                // Bundle by patient lookup - only if both columns exist
+                if (Schema::hasColumn('care_bundles', 'patient_id') && Schema::hasColumn('care_bundles', 'status') && !$this->hasIndex('care_bundles', 'cb_patient_lookup_idx')) {
                     $table->index(['patient_id', 'status'], 'cb_patient_lookup_idx');
                 }
             });
@@ -105,13 +105,13 @@ return new class extends Migration
         // 5. Triage SLA dashboard indexes
         if (Schema::hasTable('triage_results')) {
             Schema::table('triage_results', function (Blueprint $table) {
-                // Triage completion tracking
-                if (!$this->hasIndex('triage_results', 'tr_completion_idx')) {
+                // Triage completion tracking - only if status column exists
+                if (Schema::hasColumn('triage_results', 'status') && !$this->hasIndex('triage_results', 'tr_completion_idx')) {
                     $table->index(['status', 'created_at'], 'tr_completion_idx');
                 }
 
-                // Priority distribution
-                if (Schema::hasColumn('triage_results', 'priority') && !$this->hasIndex('triage_results', 'tr_priority_idx')) {
+                // Priority distribution - only if both columns exist
+                if (Schema::hasColumn('triage_results', 'priority') && Schema::hasColumn('triage_results', 'status') && !$this->hasIndex('triage_results', 'tr_priority_idx')) {
                     $table->index(['priority', 'status'], 'tr_priority_idx');
                 }
             });
@@ -120,13 +120,13 @@ return new class extends Migration
         // 6. User/staff dashboard indexes
         if (Schema::hasTable('users')) {
             Schema::table('users', function (Blueprint $table) {
-                // Staff by organization
-                if (Schema::hasColumn('users', 'organization_id') && !$this->hasIndex('users', 'users_org_idx')) {
+                // Staff by organization - check both columns exist
+                if (Schema::hasColumn('users', 'organization_id') && Schema::hasColumn('users', 'is_active') && !$this->hasIndex('users', 'users_org_idx')) {
                     $table->index(['organization_id', 'is_active'], 'users_org_idx');
                 }
 
-                // Staff by role for scheduling
-                if (Schema::hasColumn('users', 'role') && !$this->hasIndex('users', 'users_role_idx')) {
+                // Staff by role for scheduling - check both columns exist
+                if (Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active') && !$this->hasIndex('users', 'users_role_idx')) {
                     $table->index(['role', 'is_active'], 'users_role_idx');
                 }
             });
@@ -155,13 +155,13 @@ return new class extends Migration
         // 8. Visit tracking indexes
         if (Schema::hasTable('visits')) {
             Schema::table('visits', function (Blueprint $table) {
-                // Visit completion dashboard
-                if (!$this->hasIndex('visits', 'visits_completion_idx')) {
+                // Visit completion dashboard - check columns exist
+                if (Schema::hasColumn('visits', 'status') && Schema::hasColumn('visits', 'scheduled_date') && !$this->hasIndex('visits', 'visits_completion_idx')) {
                     $table->index(['status', 'scheduled_date'], 'visits_completion_idx');
                 }
 
                 // Patient visit history
-                if (Schema::hasColumn('visits', 'patient_id') && !$this->hasIndex('visits', 'visits_patient_idx')) {
+                if (Schema::hasColumn('visits', 'patient_id') && Schema::hasColumn('visits', 'scheduled_date') && !$this->hasIndex('visits', 'visits_patient_idx')) {
                     $table->index(['patient_id', 'scheduled_date'], 'visits_patient_idx');
                 }
             });
@@ -237,11 +237,20 @@ return new class extends Migration
     protected function hasIndex(string $table, string $index): bool
     {
         try {
-            $indexes = Schema::getConnection()
-                ->getDoctrineSchemaManager()
-                ->listTableIndexes($table);
-
-            return isset($indexes[$index]);
+            $driver = Schema::getConnection()->getDriverName();
+            if ($driver === 'pgsql') {
+                $result = Schema::getConnection()->select(
+                    "SELECT indexname FROM pg_indexes WHERE tablename = ? AND indexname = ?",
+                    [$table, $index]
+                );
+                return count($result) > 0;
+            } else {
+                $result = Schema::getConnection()->select(
+                    "SHOW INDEX FROM {$table} WHERE Key_name = ?",
+                    [$index]
+                );
+                return count($result) > 0;
+            }
         } catch (\Exception $e) {
             return false;
         }
