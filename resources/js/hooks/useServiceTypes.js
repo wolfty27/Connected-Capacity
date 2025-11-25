@@ -38,7 +38,7 @@ const useServiceTypes = (options = {}) => {
             const transformedTypes = (typesRes.data.data || []).map((st) => {
                 // Debug log for first few items
                 if (st.id < 5) console.log('Mapping service type:', st);
-                
+
                 return {
                     id: String(st.id),
                     // Use category name if available, otherwise category_code, otherwise default
@@ -58,7 +58,7 @@ const useServiceTypes = (options = {}) => {
                     _api: st,
                 };
             });
-            
+
             console.log('Transformed Service Types:', transformedTypes);
 
             setServiceTypes(transformedTypes);
@@ -75,7 +75,11 @@ const useServiceTypes = (options = {}) => {
             setCategories(categoriesRes.data.data || []);
         } catch (err) {
             console.error('Failed to fetch service types:', err);
-            setError(err.response?.data?.message || 'Failed to load service types');
+            if (err.response) {
+                console.error('Response data:', err.response.data);
+                console.error('Response status:', err.response.status);
+            }
+            setError(err.message || 'Failed to load service types');
 
             // Fallback to empty arrays
             setServiceTypes([]);
@@ -110,23 +114,25 @@ const useServiceTypes = (options = {}) => {
  * - SAFETY: "Safety, Monitoring & Technology"
  * - LOGISTICS: "Logistics & Access Services"
  */
-function mapCategory(apiCategory) {
+export function mapCategory(apiCategory) {
+    if (!apiCategory) return 'CLINICAL';
+
+    const normalized = String(apiCategory).trim();
+
     const mapping = {
-        // Database category names from CoreDataSeeder
         'Clinical Services': 'CLINICAL',
         'Personal Support & Daily Living': 'PERSONAL_SUPPORT',
         'Safety, Monitoring & Technology': 'SAFETY_TECH',
         'Logistics & Access Services': 'LOGISTICS',
-        // Handle category codes from seeder
         'CLINICAL': 'CLINICAL',
         'PERSONAL': 'PERSONAL_SUPPORT',
         'SAFETY': 'SAFETY_TECH',
         'LOGISTICS': 'LOGISTICS',
-        // Handle already-mapped internal keys
         'PERSONAL_SUPPORT': 'PERSONAL_SUPPORT',
         'SAFETY_TECH': 'SAFETY_TECH',
     };
-    return mapping[apiCategory] || 'CLINICAL';
+
+    return mapping[normalized] || 'CLINICAL';
 }
 
 /**

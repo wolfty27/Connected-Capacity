@@ -17,7 +17,7 @@ import {
 import PatientSummaryCard from '../../components/care/PatientSummaryCard';
 import ServiceCard from '../../components/care/ServiceCard';
 import BundleSummary from '../../components/care/BundleSummary';
-import useServiceTypes from '../../hooks/useServiceTypes';
+import useServiceTypes, { mapCategory } from '../../hooks/useServiceTypes';
 import careBundleBuilderApi from '../../services/careBundleBuilderApi';
 
 /**
@@ -39,7 +39,7 @@ const CareBundleWizard = () => {
     const [carePlanId, setCarePlanId] = useState(null);
 
     // Fetch service types from API (SC-003)
-    const { serviceTypes: apiServiceTypes, loading: servicesLoading } = useServiceTypes();
+    const { serviceTypes: apiServiceTypes, loading: servicesLoading, error: servicesError } = useServiceTypes();
 
     // Step 1 State - Bundle Selection
     const [bundles, setBundles] = useState([]);
@@ -55,9 +55,18 @@ const CareBundleWizard = () => {
     // Initialize services from API when available
     useEffect(() => {
         if (apiServiceTypes.length > 0 && services.length === 0) {
+            console.log('Setting services from apiServiceTypes');
             setServices(apiServiceTypes);
         }
     }, [apiServiceTypes, services.length]);
+
+    // Debug services state
+    useEffect(() => {
+        console.log('Current services state:', services);
+        if (services.length > 0) {
+            console.log('First service category:', services[0].category);
+        }
+    }, [services]);
 
     // Step 3 State - Review & Publish
     const [publishSuccess, setPublishSuccess] = useState(false);
@@ -105,7 +114,11 @@ const CareBundleWizard = () => {
                         setSelectedBundle(recommended);
                         // Pre-populate services from recommended bundle
                         if (recommended.services) {
-                            setServices(recommended.services);
+                            const normalizedServices = recommended.services.map(s => ({
+                                ...s,
+                                category: mapCategory(s.category || s.category_code)
+                            }));
+                            setServices(normalizedServices);
                         }
                     }
                 } else if (configuredBundles.length > 0) {
@@ -147,7 +160,11 @@ const CareBundleWizard = () => {
     const handleBundleSelect = (bundle) => {
         setSelectedBundle(bundle);
         if (bundle.services && bundle.services.length > 0) {
-            setServices(bundle.services);
+            const normalizedServices = bundle.services.map(s => ({
+                ...s,
+                category: mapCategory(s.category || s.category_code)
+            }));
+            setServices(normalizedServices);
         }
     };
 
@@ -277,6 +294,20 @@ const CareBundleWizard = () => {
     );
 
     if (loading || servicesLoading) return <div className="p-8 text-center text-slate-500">Loading Care Delivery Plan...</div>;
+
+    if (servicesError) {
+        return (
+            <div className="p-8">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <strong className="font-bold">Error loading services: </strong>
+                    <span className="block sm:inline">{servicesError}</span>
+                    <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-auto">
+                        {JSON.stringify(servicesError, null, 2)}
+                    </pre>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white">
@@ -433,12 +464,11 @@ const CareBundleWizard = () => {
                                             >
                                                 <div className="flex justify-between items-start mb-4">
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                            bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
                                                             bundle.colorTheme === 'purple' ? 'bg-purple-100 text-purple-700' :
-                                                            bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
-                                                            'bg-blue-100 text-blue-700'
-                                                        }`}>
+                                                                bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
+                                                                    'bg-blue-100 text-blue-700'
+                                                            }`}>
                                                             {bundle.band}
                                                         </span>
                                                         {bundle.isRecommended && (
@@ -501,8 +531,8 @@ const CareBundleWizard = () => {
                                         <AccordionHeader title="CLINICAL SERVICES" sectionKey="CLINICAL" />
                                         {expandedSection === 'CLINICAL' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'CLINICAL').length > 0 ? (
-                                                    services.filter(s => s.category === 'CLINICAL').map(service => (
+                                                {services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).length > 0 ? (
+                                                    services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).map(service => (
                                                         <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
                                                     ))
                                                 ) : (
@@ -514,8 +544,8 @@ const CareBundleWizard = () => {
                                         <AccordionHeader title="PERSONAL SUPPORT & DAILY LIVING" sectionKey="PERSONAL_SUPPORT" />
                                         {expandedSection === 'PERSONAL_SUPPORT' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'PERSONAL_SUPPORT').length > 0 ? (
-                                                    services.filter(s => s.category === 'PERSONAL_SUPPORT').map(service => (
+                                                {services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).length > 0 ? (
+                                                    services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).map(service => (
                                                         <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
                                                     ))
                                                 ) : (
@@ -527,8 +557,8 @@ const CareBundleWizard = () => {
                                         <AccordionHeader title="SAFETY, MONITORING & TECHNOLOGY" sectionKey="SAFETY_TECH" />
                                         {expandedSection === 'SAFETY_TECH' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'SAFETY_TECH').length > 0 ? (
-                                                    services.filter(s => s.category === 'SAFETY_TECH').map(service => (
+                                                {services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).length > 0 ? (
+                                                    services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).map(service => (
                                                         <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
                                                     ))
                                                 ) : (
@@ -540,8 +570,8 @@ const CareBundleWizard = () => {
                                         <AccordionHeader title="LOGISTICS & ACCESS SERVICES" sectionKey="LOGISTICS" />
                                         {expandedSection === 'LOGISTICS' && (
                                             <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category === 'LOGISTICS').length > 0 ? (
-                                                    services.filter(s => s.category === 'LOGISTICS').map(service => (
+                                                {services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).length > 0 ? (
+                                                    services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).map(service => (
                                                         <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
                                                     ))
                                                 ) : (
