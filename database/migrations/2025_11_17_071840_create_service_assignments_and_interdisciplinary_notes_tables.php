@@ -18,10 +18,10 @@ class CreateServiceAssignmentsAndInterdisciplinaryNotesTables extends Migration
                 $table->id();
                 $table->foreignId('care_plan_id')->constrained('care_plans')->cascadeOnDelete();
                 $table->foreignId('patient_id')->constrained('patients')->cascadeOnDelete();
-                $table->foreignId('service_provider_organization_id')->constrained('service_provider_organizations')->cascadeOnDelete();
+                $table->foreignId('service_provider_organization_id')->nullable()->constrained('service_provider_organizations')->nullOnDelete();
                 $table->foreignId('service_type_id')->constrained('service_types')->cascadeOnDelete();
                 $table->foreignId('assigned_user_id')->nullable()->constrained('users')->nullOnDelete();
-                $table->enum('status', ['planned', 'in_progress', 'completed', 'cancelled', 'missed', 'escalated'])->default('planned');
+                $table->enum('status', ['pending', 'active', 'planned', 'in_progress', 'completed', 'cancelled', 'missed', 'escalated'])->default('pending');
                 $table->timestamp('scheduled_start')->nullable();
                 $table->timestamp('scheduled_end')->nullable();
                 $table->timestamp('actual_start')->nullable();
