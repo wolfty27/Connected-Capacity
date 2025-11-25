@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Card = ({ title, subtitle, children, className = '', variant = 'standard', action, kpiColor, ...props }) => {
+const Card = ({ title, subtitle, children, className = '', variant = 'standard', action, actions, kpiColor, ...props }) => {
     const baseClasses = "bg-white border rounded-xl transition-all duration-200";
 
     const variants = {

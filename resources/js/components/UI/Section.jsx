@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Section = ({ title, description, children, className = '', actions, ...props }) => {
+const Section = ({ title, description, children, className = '', actions, action, ...props }) => {
     return (
         <section className={`mb-8 ${className}`} {...props}>
             {(title || description || actions) && (

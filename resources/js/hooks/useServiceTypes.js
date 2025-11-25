@@ -35,23 +35,31 @@ const useServiceTypes = (options = {}) => {
             ]);
 
             // Transform API data to match expected format for CareBundleWizard
-            const transformedTypes = (typesRes.data.data || []).map((st) => ({
-                id: String(st.id),
-                category: mapCategory(st.category),
-                name: st.name,
-                code: st.code,
-                description: st.description || '',
-                defaultFrequency: st.default_frequency || 1,
-                defaultDuration: st.default_duration_weeks || 12,
-                currentFrequency: 0,
-                currentDuration: st.default_duration_weeks || 12,
-                provider: '',
-                costPerVisit: st.cost_per_visit || 0,
-                costCode: st.cost_code || `COST-${st.code}`,
-                costDriver: st.cost_driver || 'Per Visit Rate',
-                // Keep original API data for reference
-                _api: st,
-            }));
+            const transformedTypes = (typesRes.data.data || []).map((st) => {
+                // Debug log for first few items
+                if (st.id < 5) console.log('Mapping service type:', st);
+                
+                return {
+                    id: String(st.id),
+                    // Use category name if available, otherwise category_code, otherwise default
+                    category: mapCategory(st.category || st.category_code),
+                    name: st.name,
+                    code: st.code,
+                    description: st.description || '',
+                    defaultFrequency: st.default_frequency || 1,
+                    defaultDuration: st.default_duration_weeks || 12,
+                    currentFrequency: 0,
+                    currentDuration: st.default_duration_weeks || 12,
+                    provider: '',
+                    costPerVisit: st.cost_per_visit || 0,
+                    costCode: st.cost_code || `COST-${st.code}`,
+                    costDriver: st.cost_driver || 'Per Visit Rate',
+                    // Keep original API data for reference
+                    _api: st,
+                };
+            });
+            
+            console.log('Transformed Service Types:', transformedTypes);
 
             setServiceTypes(transformedTypes);
 
