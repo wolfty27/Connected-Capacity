@@ -109,4 +109,16 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/check', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'runCheck']);
         Route::post('/huddle-report', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'generateHuddleReport']);
     });
+
+    // SSPO Performance Metrics API (SSPO-004)
+    Route::prefix('v2/sspo')->group(function () {
+        Route::get('/rankings', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'rankings']);
+        Route::get('/{id}/performance', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'show']);
+        Route::get('/{id}/dashboard', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'dashboard']);
+        Route::get('/{id}/acceptance', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'acceptance']);
+        Route::get('/{id}/response-time', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'responseTime']);
+        Route::get('/{id}/trend', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'trend']);
+        Route::get('/{id}/service-types', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'serviceTypes']);
+        Route::get('/{id}/decline-reasons', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'declineReasons']);
+    });
 });

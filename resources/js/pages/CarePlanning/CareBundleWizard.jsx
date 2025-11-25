@@ -17,7 +17,7 @@ import {
 import PatientSummaryCard from '../../components/care/PatientSummaryCard';
 import ServiceCard from '../../components/care/ServiceCard';
 import BundleSummary from '../../components/care/BundleSummary';
-import { INITIAL_SERVICES } from '../../data/careBundleConstants';
+import useServiceTypes from '../../hooks/useServiceTypes';
 import careBundleBuilderApi from '../../services/careBundleBuilderApi';
 
 /**
@@ -38,16 +38,26 @@ const CareBundleWizard = () => {
     const [publishing, setPublishing] = useState(false);
     const [carePlanId, setCarePlanId] = useState(null);
 
+    // Fetch service types from API (SC-003)
+    const { serviceTypes: apiServiceTypes, loading: servicesLoading } = useServiceTypes();
+
     // Step 1 State - Bundle Selection
     const [bundles, setBundles] = useState([]);
     const [selectedBundle, setSelectedBundle] = useState(null);
     const [recommendedBundle, setRecommendedBundle] = useState(null);
 
-    // Step 2 State - Service Configuration
-    const [services, setServices] = useState(INITIAL_SERVICES);
+    // Step 2 State - Service Configuration (initialized from API)
+    const [services, setServices] = useState([]);
     const [expandedSection, setExpandedSection] = useState('CLINICAL');
     const [aiRecommendation, setAiRecommendation] = useState(null);
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+    // Initialize services from API when available
+    useEffect(() => {
+        if (apiServiceTypes.length > 0 && services.length === 0) {
+            setServices(apiServiceTypes);
+        }
+    }, [apiServiceTypes, services.length]);
 
     // Step 3 State - Review & Publish
     const [publishSuccess, setPublishSuccess] = useState(false);
@@ -110,7 +120,7 @@ const CareBundleWizard = () => {
                     colorTheme: b.code === 'COMPLEX' ? 'green' : b.code === 'PALLIATIVE' ? 'purple' : 'blue',
                     band: b.code === 'COMPLEX' ? 'Band B' : b.code === 'PALLIATIVE' ? 'Band C' : 'Band A',
                     price: b.price || 1200,
-                    services: INITIAL_SERVICES
+                    services: apiServiceTypes.length > 0 ? apiServiceTypes : services
                 }));
                 setBundles(enrichedBundles);
 
@@ -266,7 +276,7 @@ const CareBundleWizard = () => {
         </button>
     );
 
-    if (loading) return <div className="p-8 text-center text-slate-500">Loading Care Delivery Plan...</div>;
+    if (loading || servicesLoading) return <div className="p-8 text-center text-slate-500">Loading Care Delivery Plan...</div>;
 
     return (
         <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white">
@@ -453,7 +463,7 @@ const CareBundleWizard = () => {
 
                                         {/* Custom Bundle Option */}
                                         <div
-                                            onClick={() => handleBundleSelect({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.', services: INITIAL_SERVICES })}
+                                            onClick={() => handleBundleSelect({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.', services: apiServiceTypes.length > 0 ? apiServiceTypes : services })}
                                             className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === 'custom'
                                                 ? 'border-slate-600 bg-slate-50'
                                                 : 'border-slate-200 bg-white hover:border-slate-300'
