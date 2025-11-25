@@ -99,7 +99,7 @@ const ServiceCard = ({ service, onUpdate }) => {
                 </div>
 
                 {/* Row 3: Provider (Full Width) */}
-                <div className="w-full">
+                <div className="w-full pt-2 border-t border-gray-100">
                     <label className="text-xs font-semibold text-slate-700 mb-1">Provider:</label>
                     <select
                         value={service.provider}
