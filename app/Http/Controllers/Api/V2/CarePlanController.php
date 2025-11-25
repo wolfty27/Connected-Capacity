@@ -13,25 +13,40 @@ use Illuminate\Support\Facades\Auth;
 
 class CarePlanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $plans = CarePlan::with(['patient.user', 'careBundle'])
-            ->where('status', 'active')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = CarePlan::with(['patient.user', 'careBundle', 'serviceAssignments.serviceType']);
+
+        // Filter by patient_id if provided
+        if ($request->has('patient_id')) {
+            $query->where('patient_id', $request->patient_id);
+        } else {
+            // Default: only show active plans when listing all
+            $query->where('status', 'active');
+        }
+
+        $plans = $query->orderBy('created_at', 'desc')->get();
 
         // Transform for UI
         $data = $plans->map(function ($plan) {
             return [
                 'id' => $plan->id,
+                'patient_id' => $plan->patient_id,
                 'patient' => $plan->patient->user->name ?? 'Unknown',
                 'bundle' => $plan->careBundle->name ?? 'Custom',
-                'status' => ucfirst($plan->status),
+                'bundle_code' => $plan->careBundle->code ?? null,
+                'status' => $plan->status, // Keep lowercase for frontend filtering
                 'start_date' => $plan->created_at->format('Y-m-d'),
+                'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),
+                'services' => $plan->serviceAssignments->map(fn($sa) => [
+                    'id' => $sa->id,
+                    'service' => $sa->serviceType->name ?? 'Unknown',
+                    'status' => $sa->status,
+                ])->toArray(),
             ];
         });
 
-        return response()->json($data);
+        return response()->json(['data' => $data]);
     }
 
     public function store(Request $request)
