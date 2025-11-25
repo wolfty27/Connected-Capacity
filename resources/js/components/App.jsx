@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../contexts/AuthContext';
 import AppLayout from './Layout/AppLayout';
 import DashboardRedirect from './DashboardRedirect';
@@ -83,8 +83,8 @@ const AppRoutes = () => {
                         <Route path="/assignments/:id" element={<CareAssignmentDetailPage />} />
                         <Route path="/sspo/dashboard" element={<SspoDashboardPage />} />
 
-                        {/* New Contract Routes (Phase 1) */}
-                        <Route path="/care-bundles" element={<CarePlanListPage />} />
+                        {/* Care Bundle Routes - redirect list to patients, keep wizard */}
+                        <Route path="/care-bundles" element={<Navigate to="/patients" replace />} />
                         <Route path="/care-bundles/create/:patientId" element={<CareBundleWizard />} />
                         <Route path="/staff" element={<SpoStaffPage />} />
                         <Route path="/sspo-marketplace" element={<SspoMarketplacePage />} />
