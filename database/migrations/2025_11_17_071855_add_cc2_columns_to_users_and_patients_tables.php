@@ -53,6 +53,18 @@ class AddCc2ColumnsToUsersAndPatientsTables extends Migration
                 if (!Schema::hasColumn('patients', 'primary_coordinator_id')) {
                     $table->foreignId('primary_coordinator_id')->nullable()->after('risk_flags')->constrained('users')->nullOnDelete();
                 }
+
+                if (!Schema::hasColumn('patients', 'is_in_queue')) {
+                    $table->boolean('is_in_queue')->default(false)->after('primary_coordinator_id');
+                }
+
+                if (!Schema::hasColumn('patients', 'activated_at')) {
+                    $table->timestamp('activated_at')->nullable()->after('is_in_queue');
+                }
+
+                if (!Schema::hasColumn('patients', 'activated_by')) {
+                    $table->foreignId('activated_by')->nullable()->after('activated_at')->constrained('users')->nullOnDelete();
+                }
             });
         }
     }
@@ -71,7 +83,12 @@ class AddCc2ColumnsToUsersAndPatientsTables extends Migration
                     $table->dropColumn('primary_coordinator_id');
                 }
 
-                foreach (['risk_flags', 'rai_cha_score', 'maple_score', 'triage_summary'] as $column) {
+                if (Schema::hasColumn('patients', 'activated_by')) {
+                    $table->dropForeign(['activated_by']);
+                    $table->dropColumn('activated_by');
+                }
+
+                foreach (['activated_at', 'is_in_queue', 'risk_flags', 'rai_cha_score', 'maple_score', 'triage_summary'] as $column) {
                     if (Schema::hasColumn('patients', $column)) {
                         $table->dropColumn($column);
                     }
