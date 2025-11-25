@@ -108,21 +108,33 @@ const PatientsList = () => {
         >
             {/* Summary Stats */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div
+                    onClick={() => setActiveTab('all')}
+                    className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${activeTab === 'all' ? 'border-blue-500 ring-2 ring-blue-100 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                        }`}
+                >
                     <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
                         <Users className="w-4 h-4" />
                         Total Patients
                     </div>
                     <div className="text-2xl font-bold text-gray-900">{summary.total}</div>
                 </div>
-                <div className="bg-white border border-green-200 rounded-lg p-4">
+                <div
+                    onClick={() => setActiveTab('active')}
+                    className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${activeTab === 'active' ? 'border-green-500 ring-2 ring-green-100 shadow-md' : 'border-green-200 hover:border-green-400 hover:shadow-sm'
+                        }`}
+                >
                     <div className="flex items-center gap-2 text-green-600 text-sm mb-1">
                         <CheckCircle className="w-4 h-4" />
                         Active
                     </div>
                     <div className="text-2xl font-bold text-green-700">{summary.active}</div>
                 </div>
-                <div className="bg-white border border-yellow-200 rounded-lg p-4">
+                <div
+                    onClick={() => setActiveTab('queue')}
+                    className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${activeTab === 'queue' ? 'border-yellow-500 ring-2 ring-yellow-100 shadow-md' : 'border-yellow-200 hover:border-yellow-400 hover:shadow-sm'
+                        }`}
+                >
                     <div className="flex items-center gap-2 text-yellow-600 text-sm mb-1">
                         <Clock className="w-4 h-4" />
                         In Queue
@@ -131,39 +143,7 @@ const PatientsList = () => {
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200 mb-6">
-                <button
-                    onClick={() => setActiveTab('all')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                        activeTab === 'all'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                    All Patients ({patients.length})
-                </button>
-                <button
-                    onClick={() => setActiveTab('active')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                        activeTab === 'active'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                    Active ({patients.filter(p => !p.is_in_queue).length})
-                </button>
-                <button
-                    onClick={() => setActiveTab('queue')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                        activeTab === 'queue'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                    In Queue ({patients.filter(p => p.is_in_queue).length})
-                </button>
-            </div>
+
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -246,8 +226,8 @@ const PatientsList = () => {
                         {activeTab === 'queue'
                             ? 'No patients in queue.'
                             : activeTab === 'active'
-                            ? 'No active patients.'
-                            : 'No patients found.'}
+                                ? 'No active patients.'
+                                : 'No patients found.'}
                     </p>
                     {activeTab === 'queue' && (
                         <p className="text-sm text-gray-400 mt-1">
