@@ -20,13 +20,13 @@ class DemoSeeder extends Seeder
             'role' => User::ROLE_ADMIN,
         ]);
 
-        // 2. SPO Admin & Organization
+        // 2. SPO Admin & Organization (SE Health)
         $spo = ServiceProviderOrganization::firstOrCreate(
-            ['slug' => 'demo-spo'],
-            ['name' => 'Demo SPO', 'active' => true]
+            ['slug' => 'se-health'],
+            ['name' => 'SE Health', 'active' => true]
         );
-        User::updateOrCreate(['email' => 'spo@example.com'], [
-            'name' => 'SPO Admin',
+        User::updateOrCreate(['email' => 'admin@sehc.com'], [
+            'name' => 'SE Health Admin',
             'password' => Hash::make('password'),
             'role' => User::ROLE_SPO_ADMIN,
             'organization_id' => $spo->id,
