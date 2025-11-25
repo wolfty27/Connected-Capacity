@@ -174,11 +174,17 @@ return new class extends Migration
             $table->index(['patient_queue_id', 'created_at']);
         });
 
-        // 8. Update patients table with queue-related columns
+        // 8. Update patients table with queue-related columns (skip if already added)
         Schema::table('patients', function (Blueprint $table) {
-            $table->boolean('is_in_queue')->default(false)->after('status');
-            $table->timestamp('activated_at')->nullable()->after('is_in_queue');
-            $table->foreignId('activated_by')->nullable()->after('activated_at')->constrained('users')->nullOnDelete();
+            if (!Schema::hasColumn('patients', 'is_in_queue')) {
+                $table->boolean('is_in_queue')->default(false)->after('status');
+            }
+            if (!Schema::hasColumn('patients', 'activated_at')) {
+                $table->timestamp('activated_at')->nullable()->after('is_in_queue');
+            }
+            if (!Schema::hasColumn('patients', 'activated_by')) {
+                $table->foreignId('activated_by')->nullable()->after('activated_at')->constrained('users')->nullOnDelete();
+            }
         });
 
         // 9. Service Metadata - Enhanced service configuration
