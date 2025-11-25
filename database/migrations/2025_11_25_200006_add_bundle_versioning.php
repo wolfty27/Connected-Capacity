@@ -160,6 +160,12 @@ return new class extends Migration
                     [$table, $index]
                 );
                 return count($result) > 0;
+            } elseif ($driver === 'sqlite') {
+                $result = Schema::getConnection()->select(
+                    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                    [$index]
+                );
+                return count($result) > 0;
             } else {
                 $result = Schema::getConnection()->select(
                     "SHOW INDEX FROM {$table} WHERE Key_name = ?",
