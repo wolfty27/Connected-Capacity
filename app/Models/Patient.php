@@ -56,6 +56,37 @@ class Patient extends Model
         return $this->hasOne(TriageResult::class);
     }
 
+    public function interraiAssessments()
+    {
+        return $this->hasMany(InterraiAssessment::class);
+    }
+
+    /**
+     * Get the most recent InterRAI assessment.
+     */
+    public function latestInterraiAssessment()
+    {
+        return $this->hasOne(InterraiAssessment::class)->latestOfMany('assessment_date');
+    }
+
+    /**
+     * Check if patient has a current (non-stale) InterRAI assessment.
+     */
+    public function hasCurrentInterraiAssessment(): bool
+    {
+        return $this->interraiAssessments()
+            ->where('assessment_date', '>=', now()->subMonths(InterraiAssessment::STALENESS_MONTHS))
+            ->exists();
+    }
+
+    /**
+     * Check if patient needs a new InterRAI assessment.
+     */
+    public function needsInterraiAssessment(): bool
+    {
+        return !$this->hasCurrentInterraiAssessment();
+    }
+
     public function carePlans()
     {
         return $this->hasMany(CarePlan::class);

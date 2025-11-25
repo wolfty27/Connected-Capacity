@@ -18,12 +18,14 @@ class ServiceType extends Model
         'description',
         'cost_code',
         'cost_driver',
+        'cost_per_visit',
         'source',
         'active',
     ];
 
     protected $casts = [
         'default_duration_minutes' => 'integer',
+        'cost_per_visit' => 'decimal:2',
         'active' => 'boolean',
     ];
 
