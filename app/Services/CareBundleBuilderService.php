@@ -472,7 +472,13 @@ class CareBundleBuilderService
 
         foreach ($configurations as $config) {
             if (($config['currentFrequency'] ?? 0) > 0) {
-                $goals[] = "Provide {$config['name']} services {$config['currentFrequency']}x per week";
+                // Get service name from database if not provided
+                $serviceName = $config['name'] ?? null;
+                if (!$serviceName && isset($config['service_type_id'])) {
+                    $serviceType = ServiceType::find($config['service_type_id']);
+                    $serviceName = $serviceType?->name ?? 'Service';
+                }
+                $goals[] = "Provide {$serviceName} services {$config['currentFrequency']}x per week";
             }
         }
 
@@ -487,12 +493,26 @@ class CareBundleBuilderService
         $interventions = [];
 
         foreach ($configurations as $config) {
-            if (($config['currentFrequency'] ?? 0) > 0 && !empty($config['description'])) {
-                $interventions[] = [
-                    'service' => $config['name'],
-                    'description' => $config['description'],
-                    'frequency' => "{$config['currentFrequency']}x/week",
-                ];
+            if (($config['currentFrequency'] ?? 0) > 0) {
+                // Get service details from database if not provided
+                $serviceName = $config['name'] ?? null;
+                $description = $config['description'] ?? null;
+
+                if ((!$serviceName || !$description) && isset($config['service_type_id'])) {
+                    $serviceType = ServiceType::find($config['service_type_id']);
+                    if ($serviceType) {
+                        $serviceName = $serviceName ?? $serviceType->name;
+                        $description = $description ?? $serviceType->description;
+                    }
+                }
+
+                if ($serviceName) {
+                    $interventions[] = [
+                        'service' => $serviceName,
+                        'description' => $description ?? 'As prescribed',
+                        'frequency' => "{$config['currentFrequency']}x/week",
+                    ];
+                }
             }
         }
 
