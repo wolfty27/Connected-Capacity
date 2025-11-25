@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-600 antialiased;
+  }
+}
+
+@layer utilities {
+  .glass-nav {
+    @apply bg-white/90 backdrop-blur-md border-b border-slate-200;
+  }
+
+  .card-shadow {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  }
+
+  .ai-glow {
+    box-shadow: 0 0 15px rgba(106, 103, 206, 0.15);
+  }
+
+  .hero-blob {
+    position: absolute;
+    filter: blur(80px);
+    z-index: -1;
+    opacity: 0.4;
+  }
+}
