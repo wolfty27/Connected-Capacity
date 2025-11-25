@@ -23,10 +23,10 @@ const PatientSummaryCard = ({ patient, tnp }) => {
     const tnpColor = tnpScore > 80 ? 'text-rose-700 bg-rose-50 border-rose-100' : 'text-amber-700 bg-amber-50 border-amber-100';
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden sticky top-6">
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-5 border-b border-slate-100">
                 <h2 className="text-lg font-bold mb-4 text-slate-800">Patient Summary</h2>
-                
+
                 <div className="flex items-start gap-4 mb-4">
                     <div className="w-16 h-16 rounded-md bg-slate-200 flex items-center justify-center text-slate-400 text-2xl font-bold">
                         {patient.user?.name ? patient.user.name.charAt(0) : 'P'}
@@ -37,7 +37,7 @@ const PatientSummaryCard = ({ patient, tnp }) => {
                         <p className="text-sm text-slate-600">DOB: {patient.date_of_birth || 'N/A'}</p>
                     </div>
                 </div>
-                
+
                 <div className="space-y-3 text-sm">
                     <div>
                         <span className="font-semibold text-slate-900">OHIP: </span>
@@ -51,7 +51,7 @@ const PatientSummaryCard = ({ patient, tnp }) => {
                     </div>
                 </div>
             </div>
-            
+
             <div className={`p-5 border-t ${tnpColor}`}>
                 <p className="font-semibold text-slate-900 mb-1 text-xs uppercase">Transition Needs Profile (TNP)</p>
                 <div className="flex items-center gap-2">

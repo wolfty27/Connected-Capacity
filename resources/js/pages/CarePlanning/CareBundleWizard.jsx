@@ -382,288 +382,286 @@ const CareBundleWizard = () => {
                     </div>
                 </header>
 
-                {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto p-8">
-                    <div className="flex flex-col xl:flex-row gap-8">
+                {/* Scrollable Content Container */}
+                <div className="flex-1 flex overflow-hidden">
 
-                        {/* Left Column: Patient Summary */}
-                        <div className="xl:w-1/4 w-full shrink-0">
-                            <PatientSummaryCard patient={patient} />
+                    {/* Left Column: Patient Summary (Independent Scroll) */}
+                    <div className="w-1/4 min-w-[320px] shrink-0 overflow-y-auto border-r border-slate-200 bg-slate-50/50 p-6">
+                        <PatientSummaryCard patient={patient} />
 
-                            {/* Queue Status Card */}
-                            {patient?.is_in_queue && (
-                                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <div className="flex items-center gap-2 text-yellow-700 font-medium mb-2">
-                                        <Users className="w-4 h-4" />
-                                        Patient In Queue
-                                    </div>
-                                    <p className="text-sm text-yellow-600">
-                                        This patient is currently in the intake queue. Publishing this care bundle will transition them to an active patient profile.
-                                    </p>
+                        {/* Queue Status Card */}
+                        {patient?.is_in_queue && (
+                            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <div className="flex items-center gap-2 text-yellow-700 font-medium mb-2">
+                                    <Users className="w-4 h-4" />
+                                    Patient In Queue
                                 </div>
-                            )}
+                                <p className="text-sm text-yellow-600">
+                                    This patient is currently in the intake queue. Publishing this care bundle will transition them to an active patient profile.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Middle Column: Main Form (Independent Scroll) */}
+                    <div className="flex-1 overflow-y-auto p-8 bg-white">
+                        {/* Stepper Indicator */}
+                        <div className="mb-8 flex items-center justify-between relative max-w-2xl mx-auto">
+                            <div className="absolute left-0 top-1/2 w-full h-0.5 bg-slate-200 -z-10"></div>
+                            <div className={`flex flex-col items-center bg-white px-4 ${step >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
+                                    {step > 1 ? <Check className="w-4 h-4" /> : '1'}
+                                </div>
+                                <span className="text-sm font-medium">Select Bundle</span>
+                            </div>
+                            <div className={`flex flex-col items-center bg-white px-4 ${step >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
+                                    {step > 2 ? <Check className="w-4 h-4" /> : '2'}
+                                </div>
+                                <span className="text-sm font-medium">Customize Services</span>
+                            </div>
+                            <div className={`flex flex-col items-center bg-white px-4 ${step >= 3 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>3</div>
+                                <span className="text-sm font-medium">Review & Publish</span>
+                            </div>
                         </div>
 
-                        {/* Middle Column: Main Form */}
-                        <div className="flex-1">
-                            {/* Stepper Indicator */}
-                            <div className="mb-8 flex items-center justify-between relative max-w-2xl mx-auto">
-                                <div className="absolute left-0 top-1/2 w-full h-0.5 bg-slate-200 -z-10"></div>
-                                <div className={`flex flex-col items-center bg-white px-4 ${step >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
-                                        {step > 1 ? <Check className="w-4 h-4" /> : '1'}
-                                    </div>
-                                    <span className="text-sm font-medium">Select Bundle</span>
-                                </div>
-                                <div className={`flex flex-col items-center bg-white px-4 ${step >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
-                                        {step > 2 ? <Check className="w-4 h-4" /> : '2'}
-                                    </div>
-                                    <span className="text-sm font-medium">Customize Services</span>
-                                </div>
-                                <div className={`flex flex-col items-center bg-white px-4 ${step >= 3 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>3</div>
-                                    <span className="text-sm font-medium">Review & Publish</span>
-                                </div>
-                            </div>
-
-                            {/* Step 1: Bundle Selection */}
-                            {step === 1 && (
-                                <div className="space-y-6">
-                                    <div className="mb-6">
-                                        <h1 className="text-xl font-bold text-slate-900 mb-2">Step 1: Select Care Bundle</h1>
-                                        <p className="text-sm text-slate-600">
-                                            Based on the patient's TNP score and clinical flags, bundles have been pre-configured by the metadata engine.
-                                        </p>
-                                        {recommendedBundle && (
-                                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
-                                                <Star className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                                                <div>
-                                                    <span className="font-medium text-green-800">Recommended: {recommendedBundle.name}</span>
-                                                    <p className="text-sm text-green-700 mt-0.5">{recommendedBundle.reason}</p>
-                                                </div>
+                        {/* Step 1: Bundle Selection */}
+                        {step === 1 && (
+                            <div className="space-y-6">
+                                <div className="mb-6">
+                                    <h1 className="text-xl font-bold text-slate-900 mb-2">Step 1: Select Care Bundle</h1>
+                                    <p className="text-sm text-slate-600">
+                                        Based on the patient's TNP score and clinical flags, bundles have been pre-configured by the metadata engine.
+                                    </p>
+                                    {recommendedBundle && (
+                                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+                                            <Star className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="font-medium text-green-800">Recommended: {recommendedBundle.name}</span>
+                                                <p className="text-sm text-green-700 mt-0.5">{recommendedBundle.reason}</p>
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
+                                </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {bundles.map(bundle => (
-                                            <div
-                                                key={bundle.id}
-                                                onClick={() => handleBundleSelect(bundle)}
-                                                className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === bundle.id
-                                                    ? 'border-blue-600 bg-blue-50'
-                                                    : 'border-slate-200 bg-white hover:border-slate-300'
-                                                    }`}
-                                            >
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
-                                                            bundle.colorTheme === 'purple' ? 'bg-purple-100 text-purple-700' :
-                                                                bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
-                                                                    'bg-blue-100 text-blue-700'
-                                                            }`}>
-                                                            {bundle.band}
-                                                        </span>
-                                                        {bundle.isRecommended && (
-                                                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                                                        )}
-                                                    </div>
-                                                    {selectedBundle?.id === bundle.id && <Check className="w-5 h-5 text-blue-600" />}
-                                                </div>
-                                                <h3 className="text-lg font-bold text-slate-900 mb-2">{bundle.name}</h3>
-                                                <p className="text-sm text-slate-600 mb-4 line-clamp-3">{bundle.description}</p>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                                        <DollarSign className="w-4 h-4 text-slate-400" />
-                                                        Est. ${bundle.estimatedMonthlyCost || bundle.price || 0}/mo
-                                                    </div>
-                                                    {bundle.serviceCount && (
-                                                        <span className="text-xs text-slate-500">{bundle.serviceCount} services</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-
-                                        {/* Custom Bundle Option */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {bundles.map(bundle => (
                                         <div
-                                            onClick={() => handleBundleSelect({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.', services: apiServiceTypes.length > 0 ? apiServiceTypes : services })}
-                                            className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === 'custom'
-                                                ? 'border-slate-600 bg-slate-50'
+                                            key={bundle.id}
+                                            onClick={() => handleBundleSelect(bundle)}
+                                            className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === bundle.id
+                                                ? 'border-blue-600 bg-blue-50'
                                                 : 'border-slate-200 bg-white hover:border-slate-300'
                                                 }`}
                                         >
                                             <div className="flex justify-between items-start mb-4">
-                                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                                                    Flexible
-                                                </span>
-                                                {selectedBundle?.id === 'custom' && <Check className="w-5 h-5 text-slate-600" />}
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
+                                                        bundle.colorTheme === 'purple' ? 'bg-purple-100 text-purple-700' :
+                                                            bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
+                                                                'bg-blue-100 text-blue-700'
+                                                        }`}>
+                                                        {bundle.band}
+                                                    </span>
+                                                    {bundle.isRecommended && (
+                                                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                                    )}
+                                                </div>
+                                                {selectedBundle?.id === bundle.id && <Check className="w-5 h-5 text-blue-600" />}
                                             </div>
-                                            <h3 className="text-lg font-bold text-slate-900 mb-2">Build Custom Bundle</h3>
-                                            <p className="text-sm text-slate-600 mb-4">Build a fully customized care plan from scratch with all available services.</p>
-                                            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                                <DollarSign className="w-4 h-4 text-slate-400" />
-                                                Variable Cost
+                                            <h3 className="text-lg font-bold text-slate-900 mb-2">{bundle.name}</h3>
+                                            <p className="text-sm text-slate-600 mb-4 line-clamp-3">{bundle.description}</p>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                                    <DollarSign className="w-4 h-4 text-slate-400" />
+                                                    Est. ${bundle.estimatedMonthlyCost || bundle.price || 0}/mo
+                                                </div>
+                                                {bundle.serviceCount && (
+                                                    <span className="text-xs text-slate-500">{bundle.serviceCount} services</span>
+                                                )}
                                             </div>
+                                        </div>
+                                    ))}
+
+                                    {/* Custom Bundle Option */}
+                                    <div
+                                        onClick={() => handleBundleSelect({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.', services: apiServiceTypes.length > 0 ? apiServiceTypes : services })}
+                                        className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === 'custom'
+                                            ? 'border-slate-600 bg-slate-50'
+                                            : 'border-slate-200 bg-white hover:border-slate-300'
+                                            }`}
+                                    >
+                                        <div className="flex justify-between items-start mb-4">
+                                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                                                Flexible
+                                            </span>
+                                            {selectedBundle?.id === 'custom' && <Check className="w-5 h-5 text-slate-600" />}
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-900 mb-2">Build Custom Bundle</h3>
+                                        <p className="text-sm text-slate-600 mb-4">Build a fully customized care plan from scratch with all available services.</p>
+                                        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                            <DollarSign className="w-4 h-4 text-slate-400" />
+                                            Variable Cost
                                         </div>
                                     </div>
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            {/* Step 2: Service Configuration */}
-                            {step === 2 && (
-                                <>
-                                    <div className="mb-6">
-                                        <h1 className="text-xl font-bold text-slate-900 mb-2">Step 2: Customize Services</h1>
-                                        <p className="text-sm text-slate-600">
-                                            Services have been auto-configured based on the patient's TNP and clinical flags. Adjust frequency and duration as needed.
-                                        </p>
-                                    </div>
+                        {/* Step 2: Service Configuration */}
+                        {step === 2 && (
+                            <>
+                                <div className="mb-6">
+                                    <h1 className="text-xl font-bold text-slate-900 mb-2">Step 2: Customize Services</h1>
+                                    <p className="text-sm text-slate-600">
+                                        Services have been auto-configured based on the patient's TNP and clinical flags. Adjust frequency and duration as needed.
+                                    </p>
+                                </div>
 
-                                    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-                                        {/* CLINICAL SECTION */}
-                                        <AccordionHeader title="CLINICAL SERVICES" sectionKey="CLINICAL" />
-                                        {expandedSection === 'CLINICAL' && (
-                                            <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).length > 0 ? (
-                                                    services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).map(service => (
-                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                    ))
-                                                ) : (
-                                                    <div className="text-slate-500 text-sm">No clinical services available.</div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        <AccordionHeader title="PERSONAL SUPPORT & DAILY LIVING" sectionKey="PERSONAL_SUPPORT" />
-                                        {expandedSection === 'PERSONAL_SUPPORT' && (
-                                            <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).length > 0 ? (
-                                                    services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).map(service => (
-                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                    ))
-                                                ) : (
-                                                    <div className="text-slate-500 text-sm">No personal support services available.</div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        <AccordionHeader title="SAFETY, MONITORING & TECHNOLOGY" sectionKey="SAFETY_TECH" />
-                                        {expandedSection === 'SAFETY_TECH' && (
-                                            <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).length > 0 ? (
-                                                    services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).map(service => (
-                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                    ))
-                                                ) : (
-                                                    <div className="text-slate-500 text-sm">No safety/monitoring services available.</div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        <AccordionHeader title="LOGISTICS & ACCESS SERVICES" sectionKey="LOGISTICS" />
-                                        {expandedSection === 'LOGISTICS' && (
-                                            <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                                {services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).length > 0 ? (
-                                                    services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).map(service => (
-                                                        <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                    ))
-                                                ) : (
-                                                    <div className="text-slate-500 text-sm">No logistics services available.</div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Step 3: Review & Publish */}
-                            {step === 3 && (
-                                <div className="space-y-6">
-                                    {publishSuccess ? (
-                                        <div className="text-center py-12">
-                                            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                                            <h2 className="text-2xl font-bold text-slate-900 mb-2">Care Plan Published!</h2>
-                                            <p className="text-slate-600 mb-4">{transitionMessage}</p>
-                                            <p className="text-sm text-slate-500">Redirecting to patient profile...</p>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="mb-6">
-                                                <h1 className="text-xl font-bold text-slate-900 mb-2">Step 3: Review & Publish</h1>
-                                                <p className="text-sm text-slate-600">
-                                                    Review the care plan summary below. Publishing will activate services and transition the patient from the queue to their active profile.
-                                                </p>
-                                            </div>
-
-                                            {/* Transition Warning */}
-                                            {patient?.is_in_queue && (
-                                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-                                                    <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                                                    <div>
-                                                        <h3 className="font-medium text-blue-800">Queue Transition</h3>
-                                                        <p className="text-sm text-blue-700 mt-1">
-                                                            Publishing this care plan will transition the patient from the intake queue to their active patient profile. All configured services will be activated.
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                    {/* CLINICAL SECTION */}
+                                    <AccordionHeader title="CLINICAL SERVICES" sectionKey="CLINICAL" />
+                                    {expandedSection === 'CLINICAL' && (
+                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                                            {services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).length > 0 ? (
+                                                services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).map(service => (
+                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                ))
+                                            ) : (
+                                                <div className="text-slate-500 text-sm">No clinical services available.</div>
                                             )}
+                                        </div>
+                                    )}
 
-                                            {/* Summary */}
-                                            <div className="bg-white border border-slate-200 rounded-lg p-6">
-                                                <h3 className="font-bold text-slate-900 mb-4">Care Plan Summary</h3>
+                                    <AccordionHeader title="PERSONAL SUPPORT & DAILY LIVING" sectionKey="PERSONAL_SUPPORT" />
+                                    {expandedSection === 'PERSONAL_SUPPORT' && (
+                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                                            {services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).length > 0 ? (
+                                                services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).map(service => (
+                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                ))
+                                            ) : (
+                                                <div className="text-slate-500 text-sm">No personal support services available.</div>
+                                            )}
+                                        </div>
+                                    )}
 
-                                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                                    <div className="p-4 bg-slate-50 rounded-lg">
-                                                        <div className="text-sm text-slate-500">Selected Bundle</div>
-                                                        <div className="font-medium text-slate-900">{selectedBundle?.name || 'Custom'}</div>
-                                                    </div>
-                                                    <div className="p-4 bg-slate-50 rounded-lg">
-                                                        <div className="text-sm text-slate-500">Estimated Monthly Cost</div>
-                                                        <div className="font-medium text-slate-900">${monthlyCost.toLocaleString()}</div>
-                                                    </div>
-                                                </div>
+                                    <AccordionHeader title="SAFETY, MONITORING & TECHNOLOGY" sectionKey="SAFETY_TECH" />
+                                    {expandedSection === 'SAFETY_TECH' && (
+                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                                            {services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).length > 0 ? (
+                                                services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).map(service => (
+                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                ))
+                                            ) : (
+                                                <div className="text-slate-500 text-sm">No safety/monitoring services available.</div>
+                                            )}
+                                        </div>
+                                    )}
 
-                                                <h4 className="font-medium text-slate-900 mb-3">Active Services</h4>
-                                                <div className="space-y-2">
-                                                    {services.filter(s => (s.currentFrequency || 0) > 0).map(service => (
-                                                        <div key={service.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                                                            <div>
-                                                                <span className="font-medium text-slate-800">{service.name}</span>
-                                                                <span className="text-slate-500 text-sm ml-2">
-                                                                    {service.currentFrequency}x/week for {service.currentDuration} weeks
-                                                                </span>
-                                                            </div>
-                                                            <span className="text-slate-600">
-                                                                ${(service.costPerVisit * service.currentFrequency * 4).toLocaleString()}/mo
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-
-                                                {services.filter(s => (s.currentFrequency || 0) > 0).length === 0 && (
-                                                    <p className="text-slate-500 text-sm italic">No services selected. Please go back and configure services.</p>
-                                                )}
-                                            </div>
-                                        </>
+                                    <AccordionHeader title="LOGISTICS & ACCESS SERVICES" sectionKey="LOGISTICS" />
+                                    {expandedSection === 'LOGISTICS' && (
+                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                                            {services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).length > 0 ? (
+                                                services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).map(service => (
+                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                                                ))
+                                            ) : (
+                                                <div className="text-slate-500 text-sm">No logistics services available.</div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
-                            )}
-                        </div>
+                            </>
+                        )}
 
-                        {/* Right Column: Summary & Recommendation */}
-                        {step !== 3 && (
-                            <div className="xl:w-80 w-full shrink-0">
-                                <BundleSummary
-                                    services={services}
-                                    totalCost={totalCost}
-                                    isGeneratingAi={isGeneratingAi}
-                                    aiRecommendation={aiRecommendation}
-                                    onGenerateAi={generateRecommendation}
-                                />
+                        {/* Step 3: Review & Publish */}
+                        {step === 3 && (
+                            <div className="space-y-6">
+                                {publishSuccess ? (
+                                    <div className="text-center py-12">
+                                        <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Care Plan Published!</h2>
+                                        <p className="text-slate-600 mb-4">{transitionMessage}</p>
+                                        <p className="text-sm text-slate-500">Redirecting to patient profile...</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="mb-6">
+                                            <h1 className="text-xl font-bold text-slate-900 mb-2">Step 3: Review & Publish</h1>
+                                            <p className="text-sm text-slate-600">
+                                                Review the care plan summary below. Publishing will activate services and transition the patient from the queue to their active profile.
+                                            </p>
+                                        </div>
+
+                                        {/* Transition Warning */}
+                                        {patient?.is_in_queue && (
+                                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+                                                <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <h3 className="font-medium text-blue-800">Queue Transition</h3>
+                                                    <p className="text-sm text-blue-700 mt-1">
+                                                        Publishing this care plan will transition the patient from the intake queue to their active patient profile. All configured services will be activated.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Summary */}
+                                        <div className="bg-white border border-slate-200 rounded-lg p-6">
+                                            <h3 className="font-bold text-slate-900 mb-4">Care Plan Summary</h3>
+
+                                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                                <div className="p-4 bg-slate-50 rounded-lg">
+                                                    <div className="text-sm text-slate-500">Selected Bundle</div>
+                                                    <div className="font-medium text-slate-900">{selectedBundle?.name || 'Custom'}</div>
+                                                </div>
+                                                <div className="p-4 bg-slate-50 rounded-lg">
+                                                    <div className="text-sm text-slate-500">Estimated Monthly Cost</div>
+                                                    <div className="font-medium text-slate-900">${monthlyCost.toLocaleString()}</div>
+                                                </div>
+                                            </div>
+
+                                            <h4 className="font-medium text-slate-900 mb-3">Active Services</h4>
+                                            <div className="space-y-2">
+                                                {services.filter(s => (s.currentFrequency || 0) > 0).map(service => (
+                                                    <div key={service.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                                                        <div>
+                                                            <span className="font-medium text-slate-800">{service.name}</span>
+                                                            <span className="text-slate-500 text-sm ml-2">
+                                                                {service.currentFrequency}x/week for {service.currentDuration} weeks
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-slate-600">
+                                                            ${(service.costPerVisit * service.currentFrequency * 4).toLocaleString()}/mo
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {services.filter(s => (s.currentFrequency || 0) > 0).length === 0 && (
+                                                <p className="text-slate-500 text-sm italic">No services selected. Please go back and configure services.</p>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
+
+                    {/* Right Column: Summary & Recommendation (Independent Scroll) */}
+                    {step !== 3 && (
+                        <div className="w-80 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-6">
+                            <BundleSummary
+                                services={services}
+                                totalCost={totalCost}
+                                isGeneratingAi={isGeneratingAi}
+                                aiRecommendation={aiRecommendation}
+                                onGenerateAi={generateRecommendation}
+                            />
+                        </div>
+                    )}
                 </div>
             </main>
         </div>
