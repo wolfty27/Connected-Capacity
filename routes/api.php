@@ -121,4 +121,24 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/{id}/service-types', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'serviceTypes']);
         Route::get('/{id}/decline-reasons', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'declineReasons']);
     });
+
+    // InterRAI Assessment API (IR-006)
+    Route::prefix('v2/interrai')->group(function () {
+        // Patient assessment needs
+        Route::get('/patients-needing-assessment', [\App\Http\Controllers\Api\V2\InterraiController::class, 'patientsNeedingAssessment']);
+        Route::get('/patients/{patient}/status', [\App\Http\Controllers\Api\V2\InterraiController::class, 'patientStatus']);
+        Route::get('/patients/{patient}/assessments', [\App\Http\Controllers\Api\V2\InterraiController::class, 'patientAssessments']);
+        Route::post('/patients/{patient}/assessments', [\App\Http\Controllers\Api\V2\InterraiController::class, 'store']);
+
+        // Assessment details and management
+        Route::get('/assessments/{assessment}', [\App\Http\Controllers\Api\V2\InterraiController::class, 'show']);
+        Route::post('/assessments/{assessment}/retry-iar', [\App\Http\Controllers\Api\V2\InterraiController::class, 'retryIarUpload']);
+
+        // Form schema and utilities
+        Route::get('/form-schema', [\App\Http\Controllers\Api\V2\InterraiController::class, 'formSchema']);
+
+        // IAR upload monitoring
+        Route::get('/pending-iar-uploads', [\App\Http\Controllers\Api\V2\InterraiController::class, 'pendingIarUploads']);
+        Route::get('/failed-iar-uploads', [\App\Http\Controllers\Api\V2\InterraiController::class, 'failedIarUploads']);
+    });
 });
