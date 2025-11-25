@@ -39,7 +39,7 @@ const ServiceCard = ({ service, onUpdate }) => {
                 {/* Row 1: Description (Full Width) */}
                 <div className="w-full">
                     <div className="flex items-start">
-                        <div className={`flex-shrink-0 h-10 w-10 rounded flex items-center justify-center mr-4 ${service.category === 'CLINICAL' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <div className={`flex-shrink-0 h-10 w-auto px-2 min-w-[2.5rem] rounded flex items-center justify-center mr-4 ${service.category === 'CLINICAL' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'}`}>
                             <span className="font-bold text-sm">{service.code}</span>
                         </div>
                         <div>
