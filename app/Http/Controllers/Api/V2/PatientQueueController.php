@@ -313,7 +313,7 @@ class PatientQueueController extends Controller
         return response()->json([
             'message' => 'Bundle building started',
             'data' => $queue->fresh(['patient.user']),
-            'redirect_to' => "/patients/{$queue->patient_id}/bundle-wizard",
+            'redirect_to' => "/care-bundles/create/{$queue->patient_id}",
         ]);
     }
 }

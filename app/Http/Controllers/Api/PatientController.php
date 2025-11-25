@@ -68,7 +68,7 @@ class PatientController extends Controller
                     'activated_at' => $patient->activated_at,
                     // TNP info if available
                     'has_tnp' => $patient->transitionNeedsProfile !== null,
-                    'tnp_score' => $patient->transitionNeedsProfile?->score,
+                    'tnp_status' => $patient->transitionNeedsProfile?->status,
                 ];
             });
 
@@ -130,8 +130,9 @@ class PatientController extends Controller
                     'has_tnp' => $patient->transitionNeedsProfile !== null,
                     'tnp' => $patient->transitionNeedsProfile ? [
                         'id' => $patient->transitionNeedsProfile->id,
-                        'score' => $patient->transitionNeedsProfile->score,
+                        'status' => $patient->transitionNeedsProfile->status,
                         'clinical_flags' => $patient->transitionNeedsProfile->clinical_flags,
+                        'narrative_summary' => $patient->transitionNeedsProfile->narrative_summary,
                     ] : null,
                     // Care plans
                     'care_plans' => $patient->carePlans->map(function ($plan) {

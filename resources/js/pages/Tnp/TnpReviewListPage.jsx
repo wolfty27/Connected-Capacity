@@ -92,7 +92,7 @@ const TnpReviewListPage = () => {
                 if (row.queue_status === 'tnp_complete') {
                     return (
                         <Link
-                            to={`/patients/${row.id}/bundle-wizard`}
+                            to={`/care-bundles/create/${row.id}`}
                             className="font-medium text-green-600 hover:text-green-800 text-sm border border-green-200 bg-green-50 px-3 py-1 rounded-md transition-colors"
                         >
                             Build Bundle

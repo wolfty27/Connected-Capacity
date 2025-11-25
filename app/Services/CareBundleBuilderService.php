@@ -99,11 +99,9 @@ class CareBundleBuilderService
                 'risk_flags' => $patient->risk_flags ?? [],
             ],
             'tnp' => $tnp ? [
-                'score' => $tnp->score ?? null,
                 'clinical_flags' => $tnp->clinical_flags ?? [],
-                'functional_flags' => $tnp->functional_flags ?? [],
-                'social_flags' => $tnp->social_flags ?? [],
-                'service_recommendation' => $tnp->service_recommendation ?? null,
+                'narrative_summary' => $tnp->narrative_summary ?? null,
+                'status' => $tnp->status ?? null,
             ] : null,
             'clinical_flags' => $tnp->clinical_flags ?? [],
             'has_cognitive_flag' => $this->hasFlag($tnp, 'Cognitive'),
@@ -122,11 +120,8 @@ class CareBundleBuilderService
             return false;
         }
 
-        $flags = array_merge(
-            $tnp->clinical_flags ?? [],
-            $tnp->functional_flags ?? [],
-            $tnp->social_flags ?? []
-        );
+        // Only use clinical_flags as functional_flags and social_flags don't exist in the TNP table
+        $flags = $tnp->clinical_flags ?? [];
 
         foreach ($flags as $f) {
             if (str_contains(strtolower($f), strtolower($flag))) {
