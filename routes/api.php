@@ -52,4 +52,26 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
     Route::get('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'show']);
     Route::put('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'update']);
+
+    // Patient Queue Management (Workday-style workflow)
+    Route::prefix('v2/patient-queue')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'store']);
+        Route::get('/ready-for-bundle', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'readyForBundle']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'update']);
+        Route::post('/{id}/transition', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'transition']);
+        Route::get('/{id}/transitions', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'transitions']);
+        Route::post('/{id}/start-bundle', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'startBundleBuilding']);
+    });
+
+    // Care Bundle Builder (Metadata-driven)
+    Route::prefix('v2/care-builder')->group(function () {
+        Route::get('/{patientId}/bundles', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getBundles']);
+        Route::get('/{patientId}/bundles/{bundleId}', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getBundle']);
+        Route::post('/{patientId}/bundles/preview', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'previewBundle']);
+        Route::post('/{patientId}/plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'buildPlan']);
+        Route::get('/{patientId}/plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getPlanHistory']);
+        Route::post('/{patientId}/plans/{carePlanId}/publish', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'publishPlan']);
+    });
 });

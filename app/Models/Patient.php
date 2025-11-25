@@ -23,12 +23,17 @@ class Patient extends Model
         'rai_cha_score',
         'risk_flags',
         'primary_coordinator_id',
+        'is_in_queue',
+        'activated_at',
+        'activated_by',
     ];
 
     protected $casts = [
         'status' => 'string',
         'triage_summary' => 'array',
         'risk_flags' => 'array',
+        'is_in_queue' => 'boolean',
+        'activated_at' => 'datetime',
     ];
 
     public function user()
@@ -99,5 +104,46 @@ class Patient extends Model
     public function visits()
     {
         return $this->hasMany(Visit::class);
+    }
+
+    /**
+     * Get the patient's queue entry.
+     */
+    public function queueEntry()
+    {
+        return $this->hasOne(PatientQueue::class);
+    }
+
+    /**
+     * Check if patient is currently in the queue.
+     */
+    public function isInQueue(): bool
+    {
+        return $this->is_in_queue ||
+               $this->queueEntry()->whereNotIn('queue_status', ['transitioned'])->exists();
+    }
+
+    /**
+     * Get the patient's current queue status.
+     */
+    public function getQueueStatusAttribute(): ?string
+    {
+        return $this->queueEntry?->queue_status;
+    }
+
+    /**
+     * Scope to get patients currently in queue.
+     */
+    public function scopeInQueue($query)
+    {
+        return $query->where('is_in_queue', true);
+    }
+
+    /**
+     * Scope to get active patients (not in queue).
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'Active')->where('is_in_queue', false);
     }
 }

@@ -1,12 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ChevronDown, ChevronUp, ArrowLeft, ArrowRight, Check, DollarSign } from 'lucide-react';
+import {
+    ChevronDown,
+    ChevronUp,
+    ArrowLeft,
+    ArrowRight,
+    Check,
+    DollarSign,
+    AlertCircle,
+    Loader2,
+    CheckCircle2,
+    Users,
+    Star
+} from 'lucide-react';
 import PatientSummaryCard from '../../components/care/PatientSummaryCard';
 import ServiceCard from '../../components/care/ServiceCard';
 import BundleSummary from '../../components/care/BundleSummary';
 import { INITIAL_SERVICES } from '../../data/careBundleConstants';
+import careBundleBuilderApi from '../../services/careBundleBuilderApi';
 
+/**
+ * CareBundleWizard - Metadata-driven care bundle builder
+ *
+ * Implements a Workday-style workflow where:
+ * 1. Bundles are pre-configured based on patient's TNP via metadata engine
+ * 2. Services are auto-adjusted based on clinical rules
+ * 3. Publishing triggers transition from queue to active patient profile
+ */
 const CareBundleWizard = () => {
     const { patientId } = useParams();
     const navigate = useNavigate();
@@ -14,49 +35,82 @@ const CareBundleWizard = () => {
     const [patient, setPatient] = useState(null);
     const [tnp, setTnp] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [publishing, setPublishing] = useState(false);
+    const [carePlanId, setCarePlanId] = useState(null);
 
-    // Step 1 State
+    // Step 1 State - Bundle Selection
     const [bundles, setBundles] = useState([]);
     const [selectedBundle, setSelectedBundle] = useState(null);
+    const [recommendedBundle, setRecommendedBundle] = useState(null);
 
-    // Step 2 State
+    // Step 2 State - Service Configuration
     const [services, setServices] = useState(INITIAL_SERVICES);
     const [expandedSection, setExpandedSection] = useState('CLINICAL');
     const [aiRecommendation, setAiRecommendation] = useState(null);
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
+    // Step 3 State - Review & Publish
+    const [publishSuccess, setPublishSuccess] = useState(false);
+    const [transitionMessage, setTransitionMessage] = useState(null);
+
     useEffect(() => {
-        const fetchData = async () => {
+        fetchData();
+    }, [patientId]);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+
+            // Fetch patient and TNP data
+            const [patientRes, tnpRes] = await Promise.all([
+                axios.get(`/api/patients/${patientId}`).catch(err => {
+                    console.error('Patient fetch failed', err);
+                    return { data: { data: null } };
+                }),
+                axios.get(`/api/patients/${patientId}/tnp`).catch(err => {
+                    console.warn('TNP fetch failed (likely 404), continuing without TNP data.', err);
+                    return { data: null };
+                })
+            ]);
+
+            if (patientRes.data.data) {
+                setPatient(patientRes.data.data);
+            } else {
+                console.error("Critical: Patient data missing");
+            }
+
+            setTnp(tnpRes.data);
+
+            // Fetch bundles with metadata-driven configuration
             try {
-                const [patientRes, tnpRes, bundlesRes] = await Promise.all([
-                    axios.get(`/api/patients/${patientId}`).catch(err => {
-                        console.error('Patient fetch failed', err);
-                        return { data: { data: null } };
-                    }),
-                    axios.get(`/api/patients/${patientId}/tnp`).catch(err => {
-                        console.warn('TNP fetch failed (likely 404), continuing without TNP data.', err);
-                        return { data: null };
-                    }),
-                    axios.get('/api/v2/bundle-templates').catch(err => {
-                        console.error('Bundles fetch failed', err);
-                        return { data: [] };
-                    })
-                ]);
+                const bundleResponse = await careBundleBuilderApi.getBundles(patientId);
+                const configuredBundles = bundleResponse.data || [];
+                setBundles(configuredBundles);
 
-                if (patientRes.data.data) {
-                    setPatient(patientRes.data.data);
-                } else {
-                    console.error("Critical: Patient data missing");
+                // Set recommended bundle from API
+                if (bundleResponse.recommended_bundle) {
+                    setRecommendedBundle(bundleResponse.recommended_bundle);
+                    const recommended = configuredBundles.find(b => b.id === bundleResponse.recommended_bundle.id);
+                    if (recommended) {
+                        setSelectedBundle(recommended);
+                        // Pre-populate services from recommended bundle
+                        if (recommended.services) {
+                            setServices(recommended.services);
+                        }
+                    }
+                } else if (configuredBundles.length > 0) {
+                    setSelectedBundle(configuredBundles[0]);
                 }
-
-                setTnp(tnpRes.data);
-
-                // Enrich bundles with UI metadata (colors/bands) until DB has them
+            } catch (bundleErr) {
+                console.error('Bundle builder API failed, falling back to template API', bundleErr);
+                // Fallback to basic bundle templates
+                const bundlesRes = await axios.get('/api/v2/bundle-templates').catch(() => ({ data: [] }));
                 const enrichedBundles = (bundlesRes.data || []).map(b => ({
                     ...b,
                     colorTheme: b.code === 'COMPLEX' ? 'green' : b.code === 'PALLIATIVE' ? 'purple' : 'blue',
                     band: b.code === 'COMPLEX' ? 'Band B' : b.code === 'PALLIATIVE' ? 'Band C' : 'Band A',
-                    price: b.price || 1200
+                    price: b.price || 1200,
+                    services: INITIAL_SERVICES
                 }));
                 setBundles(enrichedBundles);
 
@@ -70,15 +124,22 @@ const CareBundleWizard = () => {
                 } else {
                     setSelectedBundle(enrichedBundles.find(b => b.code === 'STD-MED') || enrichedBundles[0]);
                 }
-
-            } catch (error) {
-                console.error('Failed to fetch wizard data', error);
-            } finally {
-                setLoading(false);
             }
-        };
-        fetchData();
-    }, [patientId]);
+
+        } catch (error) {
+            console.error('Failed to fetch wizard data', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // When bundle selection changes, update services
+    const handleBundleSelect = (bundle) => {
+        setSelectedBundle(bundle);
+        if (bundle.services && bundle.services.length > 0) {
+            setServices(bundle.services);
+        }
+    };
 
     const handleUpdateService = (id, field, value) => {
         setServices(prev => prev.map(s =>
@@ -90,56 +151,94 @@ const CareBundleWizard = () => {
         return acc + (curr.costPerVisit * curr.currentFrequency * curr.currentDuration);
     }, 0);
 
+    const monthlyCost = careBundleBuilderApi.calculateMonthlyCost(services);
+
     const generateRecommendation = async () => {
         setIsGeneratingAi(true);
-        // Simulate API call
+        // Simulate API call - could be connected to AI endpoint
         setTimeout(() => {
-            setAiRecommendation("Recommendation: Based on the high TNP score (82), consider increasing Personal Support hours to 4x weekly to assist with ADLs.");
+            setAiRecommendation("Recommendation: Based on the patient's TNP assessment and clinical flags, the metadata engine has auto-configured services. Consider reviewing Personal Support hours based on ADL needs.");
             setIsGeneratingAi(false);
         }, 1500);
     };
 
-    const handlePublish = async () => {
+    // Step 2 -> Step 3: Build draft plan
+    const handleProceedToReview = async () => {
+        if (!selectedBundle) return;
+
         try {
-            // Map frontend service codes to backend expectations
-            const serviceCodeMap = {
-                'RN/RPN': 'nursing',
-                'PSW': 'psw',
-                'OT': 'rehab',
-                'PT': 'rehab',
-                'SW': 'sw'
-            };
+            setPublishing(true);
 
-            // Mock provider IDs for now
-            const providerMap = {
-                'CarePartners': 1,
-                'VHA Home HealthCare': 2,
-                'Paramed': 3,
-                'SE Health': 4
-            };
+            // Build the care plan draft
+            const formattedServices = careBundleBuilderApi.formatServicesForApi(services);
+            const response = await careBundleBuilderApi.buildPlan(
+                patientId,
+                selectedBundle.id,
+                formattedServices
+            );
 
-            const assignments = {};
-            services.filter(s => s.currentFrequency > 0).forEach(s => {
-                const key = serviceCodeMap[s.code] || s.code.toLowerCase();
-                assignments[key] = {
-                    type: 'external', // Default to external for now
-                    partner: { id: providerMap[s.provider] || 1 },
-                    freq: s.currentFrequency
-                };
-            });
-
-            await axios.post('/api/v2/care-plans', {
-                patient_id: patientId,
-                bundle_id: selectedBundle?.code?.toLowerCase() || 'complex',
-                assignments: assignments
-            });
-
-            // Show success message or redirect
-            alert('Care Plan Published Successfully!');
-            navigate('/dashboard');
+            setCarePlanId(response.data.id);
+            setStep(3);
         } catch (error) {
-            console.error('Failed to publish plan', error);
-            alert('Failed to publish plan. Please try again.');
+            console.error('Failed to build care plan', error);
+            alert('Failed to create care plan. Please try again.');
+        } finally {
+            setPublishing(false);
+        }
+    };
+
+    // Step 3: Publish plan and transition patient to active
+    const handlePublish = async () => {
+        if (!carePlanId) {
+            // If no draft plan exists, create and publish in one go
+            try {
+                setPublishing(true);
+
+                const formattedServices = careBundleBuilderApi.formatServicesForApi(services);
+                const buildResponse = await careBundleBuilderApi.buildPlan(
+                    patientId,
+                    selectedBundle.id,
+                    formattedServices
+                );
+
+                const publishResponse = await careBundleBuilderApi.publishPlan(
+                    patientId,
+                    buildResponse.data.id
+                );
+
+                setPublishSuccess(true);
+                setTransitionMessage(publishResponse.message);
+
+                // Redirect after success message
+                setTimeout(() => {
+                    navigate(`/patients/${patientId}`);
+                }, 2000);
+            } catch (error) {
+                console.error('Failed to publish plan', error);
+                alert('Failed to publish plan. Please try again.');
+            } finally {
+                setPublishing(false);
+            }
+        } else {
+            // Publish existing draft
+            try {
+                setPublishing(true);
+
+                const publishResponse = await careBundleBuilderApi.publishPlan(patientId, carePlanId);
+
+                setPublishSuccess(true);
+                setTransitionMessage(publishResponse.message);
+
+                // Redirect after success message
+                setTimeout(() => {
+                    navigate(`/patients/${patientId}`);
+                }, 2000);
+            } catch (error) {
+                console.error('Failed to publish plan', error);
+                alert('Failed to publish plan. Please try again.');
+            } finally {
+                setPublishing(false);
+            }
         }
     };
 
@@ -162,25 +261,17 @@ const CareBundleWizard = () => {
                 <header className="h-16 bg-white border-b border-slate-200 flex justify-between items-center px-8 shrink-0">
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">Care Delivery Plan (Schedule 3)</h2>
-                        <span className="text-sm text-slate-500">Episode ID: #{patient?.id || '---'}</span>
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <span>Episode ID: #{patient?.id || '---'}</span>
+                            {patient?.is_in_queue && (
+                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                                    In Queue
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="flex gap-3">
-                        {step === 2 ? (
-                            <>
-                                <button
-                                    onClick={() => setStep(1)}
-                                    className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 bg-white shadow-sm flex items-center gap-2"
-                                >
-                                    <ArrowLeft className="w-4 h-4" /> Back to Bundles
-                                </button>
-                                <button
-                                    onClick={handlePublish}
-                                    className="px-4 py-2 bg-blue-700 text-white rounded-md font-medium hover:bg-blue-800 shadow-sm flex items-center gap-2"
-                                >
-                                    Next: Review & Publish <ArrowRight className="w-4 h-4" />
-                                </button>
-                            </>
-                        ) : (
+                        {step === 1 && (
                             <button
                                 onClick={() => setStep(2)}
                                 disabled={!selectedBundle}
@@ -189,17 +280,79 @@ const CareBundleWizard = () => {
                                 Next: Customize Services <ArrowRight className="w-4 h-4" />
                             </button>
                         )}
+                        {step === 2 && (
+                            <>
+                                <button
+                                    onClick={() => setStep(1)}
+                                    className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 bg-white shadow-sm flex items-center gap-2"
+                                >
+                                    <ArrowLeft className="w-4 h-4" /> Back to Bundles
+                                </button>
+                                <button
+                                    onClick={handleProceedToReview}
+                                    disabled={publishing}
+                                    className="px-4 py-2 bg-blue-700 text-white rounded-md font-medium hover:bg-blue-800 shadow-sm flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {publishing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Next: Review & Publish <ArrowRight className="w-4 h-4" />
+                                        </>
+                                    )}
+                                </button>
+                            </>
+                        )}
+                        {step === 3 && !publishSuccess && (
+                            <>
+                                <button
+                                    onClick={() => setStep(2)}
+                                    className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 bg-white shadow-sm flex items-center gap-2"
+                                >
+                                    <ArrowLeft className="w-4 h-4" /> Back to Services
+                                </button>
+                                <button
+                                    onClick={handlePublish}
+                                    disabled={publishing}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 shadow-sm flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {publishing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Publishing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Check className="w-4 h-4" /> Publish & Activate Patient
+                                        </>
+                                    )}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </header>
 
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-8">
-
                     <div className="flex flex-col xl:flex-row gap-8">
 
                         {/* Left Column: Patient Summary */}
                         <div className="xl:w-1/4 w-full shrink-0">
                             <PatientSummaryCard patient={patient} />
+
+                            {/* Queue Status Card */}
+                            {patient?.is_in_queue && (
+                                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex items-center gap-2 text-yellow-700 font-medium mb-2">
+                                        <Users className="w-4 h-4" />
+                                        Patient In Queue
+                                    </div>
+                                    <p className="text-sm text-yellow-600">
+                                        This patient is currently in the intake queue. Publishing this care bundle will transition them to an active patient profile.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Middle Column: Main Form */}
@@ -208,11 +361,15 @@ const CareBundleWizard = () => {
                             <div className="mb-8 flex items-center justify-between relative max-w-2xl mx-auto">
                                 <div className="absolute left-0 top-1/2 w-full h-0.5 bg-slate-200 -z-10"></div>
                                 <div className={`flex flex-col items-center bg-white px-4 ${step >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>1</div>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
+                                        {step > 1 ? <Check className="w-4 h-4" /> : '1'}
+                                    </div>
                                     <span className="text-sm font-medium">Select Bundle</span>
                                 </div>
                                 <div className={`flex flex-col items-center bg-white px-4 ${step >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>2</div>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
+                                        {step > 2 ? <Check className="w-4 h-4" /> : '2'}
+                                    </div>
                                     <span className="text-sm font-medium">Customize Services</span>
                                 </div>
                                 <div className={`flex flex-col items-center bg-white px-4 ${step >= 3 ? 'text-blue-600' : 'text-slate-400'}`}>
@@ -221,41 +378,68 @@ const CareBundleWizard = () => {
                                 </div>
                             </div>
 
+                            {/* Step 1: Bundle Selection */}
                             {step === 1 && (
                                 <div className="space-y-6">
                                     <div className="mb-6">
                                         <h1 className="text-xl font-bold text-slate-900 mb-2">Step 1: Select Care Bundle</h1>
-                                        <p className="text-sm text-slate-600">Based on the patient's TNP score and clinical flags, we recommend the following care bundles.</p>
+                                        <p className="text-sm text-slate-600">
+                                            Based on the patient's TNP score and clinical flags, bundles have been pre-configured by the metadata engine.
+                                        </p>
+                                        {recommendedBundle && (
+                                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+                                                <Star className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <span className="font-medium text-green-800">Recommended: {recommendedBundle.name}</span>
+                                                    <p className="text-sm text-green-700 mt-0.5">{recommendedBundle.reason}</p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {bundles.map(bundle => (
                                             <div
                                                 key={bundle.id}
-                                                onClick={() => setSelectedBundle(bundle)}
+                                                onClick={() => handleBundleSelect(bundle)}
                                                 className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === bundle.id
-                                                    ? `border-${bundle.colorTheme}-600 bg-${bundle.colorTheme}-50`
+                                                    ? 'border-blue-600 bg-blue-50'
                                                     : 'border-slate-200 bg-white hover:border-slate-300'
                                                     }`}
                                             >
                                                 <div className="flex justify-between items-start mb-4">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold bg-${bundle.colorTheme}-100 text-${bundle.colorTheme}-700`}>
-                                                        {bundle.band}
-                                                    </span>
-                                                    {selectedBundle?.id === bundle.id && <Check className={`w-5 h-5 text-${bundle.colorTheme}-600`} />}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                            bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
+                                                            bundle.colorTheme === 'purple' ? 'bg-purple-100 text-purple-700' :
+                                                            bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
+                                                            'bg-blue-100 text-blue-700'
+                                                        }`}>
+                                                            {bundle.band}
+                                                        </span>
+                                                        {bundle.isRecommended && (
+                                                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                                        )}
+                                                    </div>
+                                                    {selectedBundle?.id === bundle.id && <Check className="w-5 h-5 text-blue-600" />}
                                                 </div>
                                                 <h3 className="text-lg font-bold text-slate-900 mb-2">{bundle.name}</h3>
                                                 <p className="text-sm text-slate-600 mb-4 line-clamp-3">{bundle.description}</p>
-                                                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                                    <DollarSign className="w-4 h-4 text-slate-400" />
-                                                    Est. ${bundle.price}/mo
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                                        <DollarSign className="w-4 h-4 text-slate-400" />
+                                                        Est. ${bundle.estimatedMonthlyCost || bundle.price || 0}/mo
+                                                    </div>
+                                                    {bundle.serviceCount && (
+                                                        <span className="text-xs text-slate-500">{bundle.serviceCount} services</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
 
                                         {/* Custom Bundle Option */}
                                         <div
-                                            onClick={() => setSelectedBundle({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.' })}
+                                            onClick={() => handleBundleSelect({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.', services: INITIAL_SERVICES })}
                                             className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === 'custom'
                                                 ? 'border-slate-600 bg-slate-50'
                                                 : 'border-slate-200 bg-white hover:border-slate-300'
@@ -278,11 +462,14 @@ const CareBundleWizard = () => {
                                 </div>
                             )}
 
+                            {/* Step 2: Service Configuration */}
                             {step === 2 && (
                                 <>
                                     <div className="mb-6">
                                         <h1 className="text-xl font-bold text-slate-900 mb-2">Step 2: Customize Services</h1>
-                                        <p className="text-sm text-slate-600">Adjust the frequency and duration of services within the selected bundle based on clinical judgment. Services are auto-filled based on clinical rules.</p>
+                                        <p className="text-sm text-slate-600">
+                                            Services have been auto-configured based on the patient's TNP and clinical flags. Adjust frequency and duration as needed.
+                                        </p>
                                     </div>
 
                                     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
@@ -328,18 +515,93 @@ const CareBundleWizard = () => {
                                     </div>
                                 </>
                             )}
+
+                            {/* Step 3: Review & Publish */}
+                            {step === 3 && (
+                                <div className="space-y-6">
+                                    {publishSuccess ? (
+                                        <div className="text-center py-12">
+                                            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                                            <h2 className="text-2xl font-bold text-slate-900 mb-2">Care Plan Published!</h2>
+                                            <p className="text-slate-600 mb-4">{transitionMessage}</p>
+                                            <p className="text-sm text-slate-500">Redirecting to patient profile...</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="mb-6">
+                                                <h1 className="text-xl font-bold text-slate-900 mb-2">Step 3: Review & Publish</h1>
+                                                <p className="text-sm text-slate-600">
+                                                    Review the care plan summary below. Publishing will activate services and transition the patient from the queue to their active profile.
+                                                </p>
+                                            </div>
+
+                                            {/* Transition Warning */}
+                                            {patient?.is_in_queue && (
+                                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+                                                    <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <h3 className="font-medium text-blue-800">Queue Transition</h3>
+                                                        <p className="text-sm text-blue-700 mt-1">
+                                                            Publishing this care plan will transition the patient from the intake queue to their active patient profile. All configured services will be activated.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Summary */}
+                                            <div className="bg-white border border-slate-200 rounded-lg p-6">
+                                                <h3 className="font-bold text-slate-900 mb-4">Care Plan Summary</h3>
+
+                                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                                    <div className="p-4 bg-slate-50 rounded-lg">
+                                                        <div className="text-sm text-slate-500">Selected Bundle</div>
+                                                        <div className="font-medium text-slate-900">{selectedBundle?.name || 'Custom'}</div>
+                                                    </div>
+                                                    <div className="p-4 bg-slate-50 rounded-lg">
+                                                        <div className="text-sm text-slate-500">Estimated Monthly Cost</div>
+                                                        <div className="font-medium text-slate-900">${monthlyCost.toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+
+                                                <h4 className="font-medium text-slate-900 mb-3">Active Services</h4>
+                                                <div className="space-y-2">
+                                                    {services.filter(s => (s.currentFrequency || 0) > 0).map(service => (
+                                                        <div key={service.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                                                            <div>
+                                                                <span className="font-medium text-slate-800">{service.name}</span>
+                                                                <span className="text-slate-500 text-sm ml-2">
+                                                                    {service.currentFrequency}x/week for {service.currentDuration} weeks
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-slate-600">
+                                                                ${(service.costPerVisit * service.currentFrequency * 4).toLocaleString()}/mo
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {services.filter(s => (s.currentFrequency || 0) > 0).length === 0 && (
+                                                    <p className="text-slate-500 text-sm italic">No services selected. Please go back and configure services.</p>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Right Column: Summary & Recommendation */}
-                        <div className="xl:w-80 w-full shrink-0">
-                            <BundleSummary
-                                services={services}
-                                totalCost={totalCost}
-                                isGeneratingAi={isGeneratingAi}
-                                aiRecommendation={aiRecommendation}
-                                onGenerateAi={generateRecommendation}
-                            />
-                        </div>
+                        {step !== 3 && (
+                            <div className="xl:w-80 w-full shrink-0">
+                                <BundleSummary
+                                    services={services}
+                                    totalCost={totalCost}
+                                    isGeneratingAi={isGeneratingAi}
+                                    aiRecommendation={aiRecommendation}
+                                    onGenerateAi={generateRecommendation}
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>

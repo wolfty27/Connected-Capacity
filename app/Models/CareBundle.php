@@ -33,4 +33,21 @@ class CareBundle extends Model
     {
         return $this->hasMany(CarePlan::class);
     }
+
+    /**
+     * Get the configuration rules for this bundle.
+     * Rules are used by the metadata engine to auto-configure services.
+     */
+    public function configurationRules()
+    {
+        return $this->hasMany(BundleConfigurationRule::class)->orderBy('priority');
+    }
+
+    /**
+     * Get active configuration rules.
+     */
+    public function activeRules()
+    {
+        return $this->configurationRules()->where('is_active', true);
+    }
 }

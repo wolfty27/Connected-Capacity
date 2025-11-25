@@ -40,4 +40,32 @@ class ServiceType extends Model
     {
         return $this->hasMany(ServiceAssignment::class);
     }
+
+    /**
+     * Get the metadata entries for this service type.
+     */
+    public function metadata()
+    {
+        return $this->hasMany(ServiceMetadata::class);
+    }
+
+    /**
+     * Get a specific metadata value.
+     */
+    public function getMeta(string $key, $default = null)
+    {
+        $meta = $this->metadata()->where('key', $key)->first();
+        return $meta ? $meta->typed_value : $default;
+    }
+
+    /**
+     * Set a metadata value.
+     */
+    public function setMeta(string $key, $value, string $valueType = 'string'): ServiceMetadata
+    {
+        return ServiceMetadata::updateOrCreate(
+            ['service_type_id' => $this->id, 'key' => $key],
+            ['value' => (string) $value, 'value_type' => $valueType]
+        );
+    }
 }
