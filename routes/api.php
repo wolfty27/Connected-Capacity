@@ -134,9 +134,24 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/patients/{patient}/assessments', [\App\Http\Controllers\Api\V2\InterraiController::class, 'patientAssessments']);
         Route::post('/patients/{patient}/assessments', [\App\Http\Controllers\Api\V2\InterraiController::class, 'store']);
 
+        // IR-003: External assessment and IAR linking
+        Route::post('/patients/{patient}/assessments/external', [\App\Http\Controllers\Api\V2\InterraiController::class, 'storeExternal']);
+        Route::post('/patients/{patient}/link-external', [\App\Http\Controllers\Api\V2\InterraiController::class, 'linkExternal']);
+
+        // IR-005: Reassessment triggers
+        Route::post('/patients/{patient}/request-reassessment', [\App\Http\Controllers\Api\V2\InterraiController::class, 'requestReassessment']);
+        Route::get('/reassessment-triggers', [\App\Http\Controllers\Api\V2\InterraiController::class, 'reassessmentTriggers']);
+        Route::post('/reassessment-triggers/{trigger}/resolve', [\App\Http\Controllers\Api\V2\InterraiController::class, 'resolveReassessmentTrigger']);
+        Route::get('/reassessment-trigger-options', [\App\Http\Controllers\Api\V2\InterraiController::class, 'reassessmentTriggerOptions']);
+
         // Assessment details and management
         Route::get('/assessments/{assessment}', [\App\Http\Controllers\Api\V2\InterraiController::class, 'show']);
         Route::post('/assessments/{assessment}/retry-iar', [\App\Http\Controllers\Api\V2\InterraiController::class, 'retryIarUpload']);
+
+        // IR-004: Document endpoints
+        Route::post('/assessments/{assessment}/documents', [\App\Http\Controllers\Api\V2\InterraiController::class, 'uploadDocument']);
+        Route::get('/assessments/{assessment}/documents', [\App\Http\Controllers\Api\V2\InterraiController::class, 'listDocuments']);
+        Route::delete('/assessments/{assessment}/documents/{document}', [\App\Http\Controllers\Api\V2\InterraiController::class, 'deleteDocument']);
 
         // Form schema and utilities
         Route::get('/form-schema', [\App\Http\Controllers\Api\V2\InterraiController::class, 'formSchema']);
@@ -144,5 +159,17 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // IAR upload monitoring
         Route::get('/pending-iar-uploads', [\App\Http\Controllers\Api\V2\InterraiController::class, 'pendingIarUploads']);
         Route::get('/failed-iar-uploads', [\App\Http\Controllers\Api\V2\InterraiController::class, 'failedIarUploads']);
+    });
+
+    // IR-006: Admin InterRAI Dashboard API
+    Route::prefix('v2/admin/interrai')->group(function () {
+        Route::get('/dashboard-stats', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'stats']);
+        Route::get('/stale-assessments', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'staleAssessments']);
+        Route::get('/missing-assessments', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'missingAssessments']);
+        Route::get('/failed-uploads', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'failedUploads']);
+        Route::post('/bulk-retry-iar', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'bulkRetryIar']);
+        Route::post('/sync-statuses', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'syncStatuses']);
+        Route::get('/pending-triggers', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'pendingTriggers']);
+        Route::get('/compliance-report', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'complianceReport']);
     });
 });

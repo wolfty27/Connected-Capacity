@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V2;
 use App\Http\Controllers\Controller;
 use App\Jobs\UploadInterraiToIarJob;
 use App\Models\InterraiAssessment;
+use App\Models\InterraiDocument;
 use App\Models\Patient;
+use App\Models\ReassessmentTrigger;
 use App\Services\InterraiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -397,6 +399,319 @@ class InterraiController extends Controller
             ]),
             'meta' => [
                 'total' => $failed->count(),
+            ],
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IR-003: External Assessment Endpoints
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Create an assessment marked as completed externally.
+     *
+     * POST /api/v2/interrai/patients/{patient}/assessments/external
+     */
+    public function storeExternal(Request $request, Patient $patient): JsonResponse
+    {
+        $validated = $request->validate([
+            'assessment_type' => ['nullable', Rule::in([
+                InterraiAssessment::TYPE_HC,
+                InterraiAssessment::TYPE_CHA,
+                InterraiAssessment::TYPE_CONTACT,
+            ])],
+            'assessment_date' => ['required', 'date', 'before_or_equal:today'],
+            'assessor_role' => ['nullable', 'string', 'max:100'],
+
+            // Required scores for external entry
+            'maple_score' => ['required', Rule::in(['1', '2', '3', '4', '5'])],
+            'adl_hierarchy' => ['required', 'integer', 'min:0', 'max:6'],
+            'cognitive_performance_scale' => ['required', 'integer', 'min:0', 'max:6'],
+            'chess_score' => ['nullable', 'integer', 'min:0', 'max:5'],
+
+            // Optional scores
+            'rai_cha_score' => ['nullable', 'string', 'max:10'],
+            'iadl_difficulty' => ['nullable', 'integer', 'min:0', 'max:6'],
+            'depression_rating_scale' => ['nullable', 'integer', 'min:0', 'max:14'],
+            'pain_scale' => ['nullable', 'integer', 'min:0', 'max:4'],
+            'method_for_locomotion' => ['nullable', 'string', 'max:50'],
+            'falls_in_last_90_days' => ['nullable', 'boolean'],
+            'wandering_flag' => ['nullable', 'boolean'],
+
+            // Already in IAR?
+            'already_in_iar' => ['nullable', 'boolean'],
+            'external_iar_id' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $assessment = $this->interraiService->createExternalAssessment(
+            patient: $patient,
+            data: $validated,
+            enteredBy: Auth::user(),
+        );
+
+        // If external IAR ID provided, link it
+        if (!empty($validated['external_iar_id'])) {
+            $this->interraiService->linkExternalIar(
+                $assessment,
+                $validated['external_iar_id'],
+                Auth::user()
+            );
+        }
+
+        // Queue for IAR upload if not already there
+        if ($assessment->iar_upload_status === InterraiAssessment::IAR_PENDING) {
+            UploadInterraiToIarJob::dispatch($assessment);
+        }
+
+        Log::info('External InterRAI assessment created via API', [
+            'assessment_id' => $assessment->id,
+            'patient_id' => $patient->id,
+            'user_id' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'message' => 'External assessment recorded successfully',
+            'data' => $assessment->toSummaryArray(),
+        ], 201);
+    }
+
+    /**
+     * Link an external IAR document ID to a patient.
+     *
+     * POST /api/v2/interrai/patients/{patient}/link-external
+     */
+    public function linkExternal(Request $request, Patient $patient): JsonResponse
+    {
+        $validated = $request->validate([
+            'iar_document_id' => ['required', 'string', 'max:100'],
+            'assessment_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        // Get or create an assessment to link to
+        $assessment = $patient->latestInterraiAssessment;
+
+        if (!$assessment) {
+            return response()->json([
+                'message' => 'No assessment found. Please create an assessment first.',
+            ], 400);
+        }
+
+        $document = $this->interraiService->linkExternalIar(
+            $assessment,
+            $validated['iar_document_id'],
+            Auth::user()
+        );
+
+        return response()->json([
+            'message' => 'IAR document ID linked successfully',
+            'data' => [
+                'document_id' => $document->id,
+                'assessment_id' => $assessment->id,
+                'iar_document_id' => $validated['iar_document_id'],
+            ],
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IR-004: Document Endpoints
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Upload a document to an assessment.
+     *
+     * POST /api/v2/interrai/assessments/{assessment}/documents
+     */
+    public function uploadDocument(Request $request, InterraiAssessment $assessment): JsonResponse
+    {
+        $validated = $request->validate([
+            'document' => [
+                'required',
+                'file',
+                'max:' . (InterraiDocument::MAX_FILE_SIZE / 1024), // KB
+                'mimes:pdf,jpeg,jpg,png,gif',
+            ],
+            'document_type' => ['nullable', Rule::in([
+                InterraiDocument::TYPE_PDF,
+                InterraiDocument::TYPE_ATTACHMENT,
+            ])],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $document = $this->interraiService->attachDocument(
+            assessment: $assessment,
+            data: [
+                'document_type' => $validated['document_type'] ?? InterraiDocument::TYPE_PDF,
+                'metadata' => ['notes' => $validated['notes'] ?? null],
+            ],
+            file: $request->file('document'),
+            uploadedBy: Auth::user()
+        );
+
+        return response()->json([
+            'message' => 'Document uploaded successfully',
+            'data' => $document->toApiArray(),
+        ], 201);
+    }
+
+    /**
+     * List documents for an assessment.
+     *
+     * GET /api/v2/interrai/assessments/{assessment}/documents
+     */
+    public function listDocuments(InterraiAssessment $assessment): JsonResponse
+    {
+        $documents = $assessment->documents()
+            ->with('uploader')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'data' => $documents->map(fn ($d) => $d->toApiArray()),
+            'meta' => [
+                'total' => $documents->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a document.
+     *
+     * DELETE /api/v2/interrai/assessments/{assessment}/documents/{document}
+     */
+    public function deleteDocument(InterraiAssessment $assessment, InterraiDocument $document): JsonResponse
+    {
+        if ($document->interrai_assessment_id !== $assessment->id) {
+            return response()->json(['message' => 'Document not found'], 404);
+        }
+
+        // Delete file from storage
+        $document->deleteFile();
+
+        // Soft delete the record
+        $document->delete();
+
+        Log::info('InterRAI document deleted', [
+            'document_id' => $document->id,
+            'assessment_id' => $assessment->id,
+            'deleted_by' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Document deleted successfully',
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IR-005: Reassessment Trigger Endpoints
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Request a reassessment for a patient.
+     *
+     * POST /api/v2/interrai/patients/{patient}/request-reassessment
+     */
+    public function requestReassessment(Request $request, Patient $patient): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', Rule::in([
+                ReassessmentTrigger::REASON_CONDITION_CHANGE,
+                ReassessmentTrigger::REASON_MANUAL_REQUEST,
+                ReassessmentTrigger::REASON_CLINICAL_EVENT,
+            ])],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'priority' => ['nullable', Rule::in([
+                ReassessmentTrigger::PRIORITY_LOW,
+                ReassessmentTrigger::PRIORITY_MEDIUM,
+                ReassessmentTrigger::PRIORITY_HIGH,
+                ReassessmentTrigger::PRIORITY_URGENT,
+            ])],
+        ]);
+
+        $trigger = $this->interraiService->requestReassessment(
+            patient: $patient,
+            reason: $validated['reason'],
+            notes: $validated['notes'] ?? null,
+            priority: $validated['priority'] ?? ReassessmentTrigger::PRIORITY_MEDIUM,
+            triggeredBy: Auth::user()
+        );
+
+        return response()->json([
+            'message' => 'Reassessment request created',
+            'data' => $trigger->toApiArray(),
+        ], 201);
+    }
+
+    /**
+     * Get pending reassessment triggers.
+     *
+     * GET /api/v2/interrai/reassessment-triggers
+     */
+    public function reassessmentTriggers(Request $request): JsonResponse
+    {
+        $limit = min($request->integer('limit', 50), 200);
+        $priority = $request->input('priority');
+
+        $triggers = $this->interraiService->getReassessmentTriggers($limit, $priority);
+
+        return response()->json([
+            'data' => $triggers->map(fn ($t) => $t->toApiArray()),
+            'meta' => [
+                'total' => $triggers->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Resolve a reassessment trigger.
+     *
+     * POST /api/v2/interrai/reassessment-triggers/{trigger}/resolve
+     */
+    public function resolveReassessmentTrigger(Request $request, ReassessmentTrigger $trigger): JsonResponse
+    {
+        if ($trigger->isResolved()) {
+            return response()->json([
+                'message' => 'Trigger already resolved',
+            ], 400);
+        }
+
+        $validated = $request->validate([
+            'assessment_id' => ['required', 'exists:interrai_assessments,id'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $assessment = InterraiAssessment::findOrFail($validated['assessment_id']);
+
+        $this->interraiService->resolveReassessmentTrigger(
+            trigger: $trigger,
+            assessment: $assessment,
+            resolvedBy: Auth::user(),
+            notes: $validated['notes'] ?? null
+        );
+
+        return response()->json([
+            'message' => 'Reassessment trigger resolved',
+            'data' => $trigger->fresh()->toApiArray(),
+        ]);
+    }
+
+    /**
+     * Get reassessment trigger options for forms.
+     *
+     * GET /api/v2/interrai/reassessment-trigger-options
+     */
+    public function reassessmentTriggerOptions(): JsonResponse
+    {
+        return response()->json([
+            'data' => [
+                'reasons' => ReassessmentTrigger::getReasonOptions(),
+                'priorities' => ReassessmentTrigger::getPriorityOptions(),
             ],
         ]);
     }

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Application;
+use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,6 +19,24 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.routes' => \App\Http\Middleware\AdminRoutes::class,
             'authenticated.routes' => \App\Http\Middleware\AuthenticatedRoutes::class,
         ]);
+    })
+    ->withSchedule(function (Schedule $schedule) {
+        // IR-009: InterRAI compliance scheduled jobs
+        $schedule->job(new \App\Jobs\DetectStaleAssessmentsJob())
+            ->dailyAt('06:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        $schedule->job(new \App\Jobs\SyncInterraiStatusJob())
+            ->hourly()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Process pending IAR uploads every 15 minutes
+        $schedule->job(new \App\Jobs\UploadInterraiToIarJob(null))
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
     })
     ->withExceptions(function (Illuminate\Foundation\Configuration\Exceptions $exceptions) {
         //

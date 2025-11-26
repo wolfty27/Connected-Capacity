@@ -134,6 +134,19 @@ class InterraiAssessment extends Model
         return $this->belongsTo(User::class, 'assessor_id');
     }
 
+    public function documents()
+    {
+        return $this->hasMany(InterraiDocument::class);
+    }
+
+    /**
+     * Get reassessment triggers resolved by this assessment.
+     */
+    public function resolvedTriggers()
+    {
+        return $this->hasMany(ReassessmentTrigger::class, 'resolution_assessment_id');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Scopes

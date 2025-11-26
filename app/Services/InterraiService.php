@@ -3,10 +3,14 @@
 namespace App\Services;
 
 use App\Models\InterraiAssessment;
+use App\Models\InterraiDocument;
 use App\Models\Patient;
+use App\Models\ReassessmentTrigger;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 /**
@@ -354,6 +358,357 @@ class InterraiService
         }
 
         return $results;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IR-003: External Assessment & Document Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Create an assessment marked as completed externally (e.g., by OHaH).
+     *
+     * IR-003-01: Allows coordinators to record assessments completed
+     * outside the system and manually enter key scores.
+     */
+    public function createExternalAssessment(
+        Patient $patient,
+        array $data,
+        ?User $enteredBy = null
+    ): InterraiAssessment {
+        return DB::transaction(function () use ($patient, $data, $enteredBy) {
+            $assessment = InterraiAssessment::create([
+                'patient_id' => $patient->id,
+                'assessment_type' => $data['assessment_type'] ?? InterraiAssessment::TYPE_HC,
+                'assessment_date' => $this->parseDate($data['assessment_date'] ?? now()),
+                'assessor_id' => $enteredBy?->id,
+                'assessor_role' => $data['assessor_role'] ?? 'External Assessor',
+                'source' => InterraiAssessment::SOURCE_OHAH,
+
+                // Clinical scores (manually entered)
+                'maple_score' => $data['maple_score'] ?? null,
+                'rai_cha_score' => $data['rai_cha_score'] ?? null,
+                'adl_hierarchy' => $this->parseInteger($data['adl_hierarchy'] ?? null),
+                'iadl_difficulty' => $this->parseInteger($data['iadl_difficulty'] ?? null),
+                'cognitive_performance_scale' => $this->parseInteger($data['cognitive_performance_scale'] ?? null),
+                'depression_rating_scale' => $this->parseInteger($data['depression_rating_scale'] ?? null),
+                'pain_scale' => $this->parseInteger($data['pain_scale'] ?? null),
+                'chess_score' => $this->parseInteger($data['chess_score'] ?? null),
+                'method_for_locomotion' => $data['method_for_locomotion'] ?? null,
+                'falls_in_last_90_days' => $this->parseBoolean($data['falls_in_last_90_days'] ?? false),
+                'wandering_flag' => $this->parseBoolean($data['wandering_flag'] ?? false),
+
+                'caps_triggered' => $data['caps_triggered'] ?? null,
+                'primary_diagnosis_icd10' => $data['primary_diagnosis_icd10'] ?? null,
+                'secondary_diagnoses' => $data['secondary_diagnoses'] ?? null,
+
+                // External assessments may already be in IAR
+                'iar_upload_status' => $data['already_in_iar'] ?? false
+                    ? InterraiAssessment::IAR_NOT_REQUIRED
+                    : InterraiAssessment::IAR_PENDING,
+                'chris_sync_status' => InterraiAssessment::CHRIS_PENDING,
+
+                'raw_assessment_data' => $data,
+            ]);
+
+            $this->updatePatientScores($patient, $assessment);
+            $this->syncPatientInterraiStatus($patient);
+
+            // Resolve any pending reassessment triggers
+            $this->resolvePatientTriggers($patient, $assessment, $enteredBy);
+
+            Log::info('External InterRAI assessment created', [
+                'patient_id' => $patient->id,
+                'assessment_id' => $assessment->id,
+                'entered_by' => $enteredBy?->id,
+            ]);
+
+            return $assessment;
+        });
+    }
+
+    /**
+     * Attach a document to an assessment.
+     *
+     * IR-004-02: Handles file uploads and external IAR ID linking.
+     */
+    public function attachDocument(
+        InterraiAssessment $assessment,
+        array $data,
+        ?UploadedFile $file = null,
+        ?User $uploadedBy = null
+    ): InterraiDocument {
+        return DB::transaction(function () use ($assessment, $data, $file, $uploadedBy) {
+            $documentData = [
+                'interrai_assessment_id' => $assessment->id,
+                'document_type' => $data['document_type'] ?? InterraiDocument::TYPE_ATTACHMENT,
+                'uploaded_by' => $uploadedBy?->id,
+                'uploaded_at' => now(),
+                'metadata' => $data['metadata'] ?? null,
+            ];
+
+            // Handle external IAR ID linking
+            if (($data['document_type'] ?? null) === InterraiDocument::TYPE_EXTERNAL_IAR) {
+                $documentData['external_iar_id'] = $data['external_iar_id'];
+
+                // Mark assessment as not requiring upload if linked to existing IAR
+                $assessment->update([
+                    'iar_upload_status' => InterraiAssessment::IAR_NOT_REQUIRED,
+                    'iar_confirmation_id' => $data['external_iar_id'],
+                ]);
+            }
+
+            // Handle file upload
+            if ($file) {
+                $storagePath = InterraiDocument::getStoragePath($assessment->patient_id);
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $path = $file->storeAs($storagePath, $filename, 'local');
+
+                $documentData['file_path'] = $path;
+                $documentData['original_filename'] = $file->getClientOriginalName();
+                $documentData['mime_type'] = $file->getMimeType();
+                $documentData['file_size'] = $file->getSize();
+                $documentData['document_type'] = InterraiDocument::TYPE_PDF;
+            }
+
+            $document = InterraiDocument::create($documentData);
+
+            Log::info('Document attached to InterRAI assessment', [
+                'assessment_id' => $assessment->id,
+                'document_id' => $document->id,
+                'type' => $document->document_type,
+            ]);
+
+            return $document;
+        });
+    }
+
+    /**
+     * Link an external IAR document ID to an assessment.
+     *
+     * IR-003-02: Quick action to link an already-uploaded IAR record.
+     */
+    public function linkExternalIar(
+        InterraiAssessment $assessment,
+        string $iarDocumentId,
+        ?User $linkedBy = null
+    ): InterraiDocument {
+        return $this->attachDocument($assessment, [
+            'document_type' => InterraiDocument::TYPE_EXTERNAL_IAR,
+            'external_iar_id' => $iarDocumentId,
+            'metadata' => [
+                'linked_at' => now()->toIso8601String(),
+                'linked_by' => $linkedBy?->name,
+            ],
+        ], null, $linkedBy);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IR-005: Reassessment Trigger Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Request a reassessment for a patient.
+     *
+     * IR-005-02: Creates a trigger record for tracking.
+     */
+    public function requestReassessment(
+        Patient $patient,
+        string $reason,
+        ?string $notes = null,
+        string $priority = ReassessmentTrigger::PRIORITY_MEDIUM,
+        ?User $triggeredBy = null
+    ): ReassessmentTrigger {
+        $trigger = ReassessmentTrigger::create([
+            'patient_id' => $patient->id,
+            'triggered_by' => $triggeredBy?->id,
+            'trigger_reason' => $reason,
+            'reason_notes' => $notes,
+            'priority' => $priority,
+        ]);
+
+        Log::info('Reassessment requested', [
+            'patient_id' => $patient->id,
+            'trigger_id' => $trigger->id,
+            'reason' => $reason,
+            'priority' => $priority,
+        ]);
+
+        return $trigger;
+    }
+
+    /**
+     * Resolve a reassessment trigger with a new assessment.
+     *
+     * IR-005-04: Mark trigger as resolved when new assessment is created.
+     */
+    public function resolveReassessmentTrigger(
+        ReassessmentTrigger $trigger,
+        InterraiAssessment $assessment,
+        ?User $resolvedBy = null,
+        ?string $notes = null
+    ): ReassessmentTrigger {
+        $trigger->resolve($assessment, $resolvedBy, $notes);
+
+        Log::info('Reassessment trigger resolved', [
+            'trigger_id' => $trigger->id,
+            'assessment_id' => $assessment->id,
+            'resolved_by' => $resolvedBy?->id,
+        ]);
+
+        return $trigger;
+    }
+
+    /**
+     * Resolve all pending triggers for a patient.
+     */
+    public function resolvePatientTriggers(
+        Patient $patient,
+        InterraiAssessment $assessment,
+        ?User $resolvedBy = null
+    ): int {
+        $triggers = $patient->reassessmentTriggers()->pending()->get();
+        $count = 0;
+
+        foreach ($triggers as $trigger) {
+            $this->resolveReassessmentTrigger(
+                $trigger,
+                $assessment,
+                $resolvedBy,
+                'Resolved by new assessment'
+            );
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Get pending reassessment triggers.
+     */
+    public function getReassessmentTriggers(
+        int $limit = 100,
+        ?string $priority = null
+    ): \Illuminate\Database\Eloquent\Collection {
+        $query = ReassessmentTrigger::pending()
+            ->with(['patient', 'triggeredByUser'])
+            ->orderByRaw("FIELD(priority, 'urgent', 'high', 'medium', 'low')")
+            ->orderBy('created_at', 'asc');
+
+        if ($priority) {
+            $query->where('priority', $priority);
+        }
+
+        return $query->limit($limit)->get();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IR-006: Dashboard & Status Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Sync patient's cached InterRAI status.
+     */
+    public function syncPatientInterraiStatus(Patient $patient): string
+    {
+        $status = $patient->computeInterraiStatus();
+
+        $patient->update([
+            'interrai_status' => $status,
+            'interrai_status_updated_at' => now(),
+        ]);
+
+        return $status;
+    }
+
+    /**
+     * Sync InterRAI status for all patients in queue.
+     */
+    public function syncAllPatientStatuses(): array
+    {
+        $patients = Patient::where('is_in_queue', true)->get();
+        $results = ['updated' => 0, 'current' => 0, 'stale' => 0, 'missing' => 0];
+
+        foreach ($patients as $patient) {
+            $status = $this->syncPatientInterraiStatus($patient);
+            $results['updated']++;
+            $results[$status] = ($results[$status] ?? 0) + 1;
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get dashboard statistics for admin view.
+     *
+     * IR-006-02: KPI cards data.
+     */
+    public function getDashboardStats(): array
+    {
+        $pendingIar = InterraiAssessment::pendingIarUpload()->count();
+        $failedUploads = InterraiAssessment::where('iar_upload_status', InterraiAssessment::IAR_FAILED)->count();
+
+        $staleAssessments = Patient::where('is_in_queue', true)
+            ->where('interrai_status', Patient::INTERRAI_STATUS_STALE)
+            ->count();
+
+        $missingAssessments = Patient::where('is_in_queue', true)
+            ->where('interrai_status', Patient::INTERRAI_STATUS_MISSING)
+            ->count();
+
+        $pendingTriggers = ReassessmentTrigger::pending()->count();
+        $urgentTriggers = ReassessmentTrigger::pending()
+            ->whereIn('priority', [ReassessmentTrigger::PRIORITY_HIGH, ReassessmentTrigger::PRIORITY_URGENT])
+            ->count();
+
+        return [
+            'pending_iar' => $pendingIar,
+            'failed_uploads' => $failedUploads,
+            'stale_assessments' => $staleAssessments,
+            'missing_assessments' => $missingAssessments,
+            'pending_triggers' => $pendingTriggers,
+            'urgent_triggers' => $urgentTriggers,
+            'last_updated' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Get failed IAR uploads with patient details.
+     */
+    public function getFailedIarUploads(int $limit = 100): \Illuminate\Database\Eloquent\Collection
+    {
+        return InterraiAssessment::where('iar_upload_status', InterraiAssessment::IAR_FAILED)
+            ->with('patient')
+            ->orderBy('updated_at', 'desc')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Bulk retry failed IAR uploads.
+     */
+    public function bulkRetryFailedUploads(): array
+    {
+        $failed = $this->getFailedIarUploads();
+        $queued = 0;
+
+        foreach ($failed as $assessment) {
+            $assessment->update(['iar_upload_status' => InterraiAssessment::IAR_PENDING]);
+            \App\Jobs\UploadInterraiToIarJob::dispatch($assessment);
+            $queued++;
+        }
+
+        Log::info('Bulk IAR retry initiated', ['count' => $queued]);
+
+        return [
+            'queued' => $queued,
+            'message' => "{$queued} assessments queued for IAR upload retry",
+        ];
     }
 
     /**
