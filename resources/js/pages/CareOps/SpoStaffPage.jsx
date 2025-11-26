@@ -274,21 +274,25 @@ const SpoStaffPage = () => {
                 <Select
                     value={filter.status}
                     onChange={(e) => setFilter(prev => ({ ...prev, status: e.target.value }))}
-                >
-                    <option value="">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="on_leave">On Leave</option>
-                </Select>
+                    options={[
+                        { value: '', label: 'All Status' },
+                        { value: 'active', label: 'Active' },
+                        { value: 'inactive', label: 'Inactive' },
+                        { value: 'on_leave', label: 'On Leave' },
+                    ]}
+                    placeholder="Filter by status"
+                />
                 <Select
                     value={filter.employment_type}
                     onChange={(e) => setFilter(prev => ({ ...prev, employment_type: e.target.value }))}
-                >
-                    <option value="">All Types</option>
-                    <option value="full_time">Full-Time</option>
-                    <option value="part_time">Part-Time</option>
-                    <option value="casual">Casual</option>
-                </Select>
+                    options={[
+                        { value: '', label: 'All Types' },
+                        { value: 'full_time', label: 'Full-Time' },
+                        { value: 'part_time', label: 'Part-Time' },
+                        { value: 'casual', label: 'Casual' },
+                    ]}
+                    placeholder="Filter by type"
+                />
                 <Button variant="secondary" onClick={() => setFilter({ status: '', employment_type: '', search: '' })}>
                     Clear
                 </Button>

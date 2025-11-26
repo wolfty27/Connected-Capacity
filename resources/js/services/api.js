@@ -9,7 +9,7 @@ import axios from 'axios';
  * - JSON headers
  */
 const api = axios.create({
-    baseURL: '/',
+    baseURL: '/api',
     withCredentials: true,
     headers: {
         'X-Requested-With': 'XMLHttpRequest',
