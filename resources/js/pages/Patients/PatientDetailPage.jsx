@@ -430,7 +430,7 @@ const PatientDetailPage = () => {
                                     <p className="text-sm text-amber-700 mt-1">{interraiData?.message}</p>
                                     <Button
                                         className="mt-3"
-                                        onClick={() => navigate(`/interrai/complete/${id}`)}
+                                        onClick={() => navigate(`/interrai/assess/${id}`)}
                                     >
                                         Complete InterRAI HC Assessment
                                     </Button>
@@ -550,7 +550,7 @@ const PatientDetailPage = () => {
                                 <p className="text-sm text-slate-400 mt-1">Complete an assessment to view clinical scores</p>
                                 <Button
                                     className="mt-4"
-                                    onClick={() => navigate(`/interrai/complete/${id}`)}
+                                    onClick={() => navigate(`/interrai/assess/${id}`)}
                                 >
                                     Start InterRAI HC Assessment
                                 </Button>

@@ -31,6 +31,7 @@ import SspoMarketplacePage from '../pages/CarePlanning/SspoMarketplacePage';
 import ShadowBillingPage from '../pages/Finance/ShadowBillingPage';
 import SuppliesPage from '../pages/Logistics/SuppliesPage';
 import SspoDashboardPage from '../pages/SSPO/SspoDashboardPage';
+import InterraiCompletionWizard from '../pages/InterRAI/InterraiCompletionWizard';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -78,6 +79,7 @@ const AppRoutes = () => {
                         <Route path="/care-dashboard" element={<CareDashboardPage />} />
                         <Route path="/patients" element={<PatientsList />} />
                         <Route path="/patients/:id" element={<PatientDetailPage />} />
+                        <Route path="/interrai/assess/:patientId" element={<InterraiCompletionWizard />} />
                         <Route path="/referrals/create" element={<CreateReferral />} />
                         <Route path="/organization/profile" element={<ProfilePage />} />
                         <Route path="/assignments/:id" element={<CareAssignmentDetailPage />} />
