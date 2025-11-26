@@ -30,15 +30,24 @@ class StaffController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
+        $isAdmin = $user->isMaster() || $user->role === User::ROLE_ADMIN;
         $organizationId = $request->input('organization_id', $user->organization_id);
 
-        // Only allow access to own org unless master
-        if (!$user->isMaster() && $organizationId != $user->organization_id) {
+        // Only allow access to own org unless admin/master
+        if (!$isAdmin && $organizationId != $user->organization_id) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $query = User::where('organization_id', $organizationId)
-            ->whereIn('role', [User::ROLE_FIELD_STAFF, User::ROLE_SPO_COORDINATOR, User::ROLE_SSPO_COORDINATOR]);
+        $query = User::whereIn('role', [User::ROLE_FIELD_STAFF, User::ROLE_SPO_COORDINATOR, User::ROLE_SSPO_COORDINATOR]);
+
+        // Filter by organization if specified, or show all for admin without org
+        if ($organizationId) {
+            $query->where('organization_id', $organizationId);
+        } elseif (!$isAdmin) {
+            // Non-admin without org sees nothing
+            $query->where('organization_id', 0);
+        }
+        // Admin without org sees all staff
 
         // Filters
         if ($request->filled('status')) {
