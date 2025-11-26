@@ -31,6 +31,8 @@ import SspoMarketplacePage from '../pages/CarePlanning/SspoMarketplacePage';
 import ShadowBillingPage from '../pages/Finance/ShadowBillingPage';
 import SuppliesPage from '../pages/Logistics/SuppliesPage';
 import SspoDashboardPage from '../pages/SSPO/SspoDashboardPage';
+import InterraiCompletionWizard from '../pages/InterRAI/InterraiCompletionWizard';
+import InterraiDashboardPage from '../pages/InterRAI/InterraiDashboardPage';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -96,6 +98,11 @@ const AppRoutes = () => {
                         <Route path="/qip" element={<UnderConstruction title="QIP Manager" />} />
                         <Route path="/billing" element={<ShadowBillingPage />} />
                         <Route path="/supplies" element={<SuppliesPage />} />
+
+                        {/* InterRAI Assessment Routes (IR-006) */}
+                        <Route path="/interrai/complete/:patientId" element={<InterraiCompletionWizard />} />
+                        <Route path="/interrai/dashboard" element={<InterraiDashboardPage />} />
+                        <Route path="/admin/assessments" element={<InterraiDashboardPage />} />
                     </Route>
 
                     <Route element={<RoleRoute roles={['FIELD_STAFF', 'SPO_ADMIN']} />}>
