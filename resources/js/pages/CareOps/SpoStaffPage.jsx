@@ -409,7 +409,6 @@ const AddStaffModal = ({ isOpen, onClose, onSuccess }) => {
         organization_role: '',
         employment_type: 'full_time',
         max_weekly_hours: 40,
-        hire_date: '',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -463,17 +462,17 @@ const AddStaffModal = ({ isOpen, onClose, onSuccess }) => {
                 />
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">System Role</label>
-                        <Select
-                            value={formData.role}
-                            onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                        >
-                            <option value="FIELD_STAFF">Field Staff</option>
-                            <option value="SPO_COORDINATOR">SPO Coordinator</option>
-                            <option value="SSPO_COORDINATOR">SSPO Coordinator</option>
-                        </Select>
-                    </div>
+                    <Select
+                        label="System Role"
+                        value={formData.role}
+                        onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                        options={[
+                            { value: 'FIELD_STAFF', label: 'Field Staff' },
+                            { value: 'SPO_COORDINATOR', label: 'SPO Coordinator' },
+                            { value: 'SSPO_COORDINATOR', label: 'SSPO Coordinator' },
+                        ]}
+                        placeholder="Select a role"
+                    />
                     <Input
                         label="Organization Role"
                         placeholder="e.g., RN, PSW, OT"
@@ -483,17 +482,17 @@ const AddStaffModal = ({ isOpen, onClose, onSuccess }) => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Employment Type</label>
-                        <Select
-                            value={formData.employment_type}
-                            onChange={(e) => setFormData(prev => ({ ...prev, employment_type: e.target.value }))}
-                        >
-                            <option value="full_time">Full-Time</option>
-                            <option value="part_time">Part-Time</option>
-                            <option value="casual">Casual</option>
-                        </Select>
-                    </div>
+                    <Select
+                        label="Employment Type"
+                        value={formData.employment_type}
+                        onChange={(e) => setFormData(prev => ({ ...prev, employment_type: e.target.value }))}
+                        options={[
+                            { value: 'full_time', label: 'Full-Time' },
+                            { value: 'part_time', label: 'Part-Time' },
+                            { value: 'casual', label: 'Casual' },
+                        ]}
+                        placeholder="Select type"
+                    />
                     <Input
                         label="Max Weekly Hours"
                         type="number"
@@ -501,13 +500,6 @@ const AddStaffModal = ({ isOpen, onClose, onSuccess }) => {
                         onChange={(e) => setFormData(prev => ({ ...prev, max_weekly_hours: parseInt(e.target.value) }))}
                     />
                 </div>
-
-                <Input
-                    label="Hire Date"
-                    type="date"
-                    value={formData.hire_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, hire_date: e.target.value }))}
-                />
 
                 <div className="flex gap-3 pt-4">
                     <Button type="button" variant="secondary" onClick={onClose} className="flex-1">

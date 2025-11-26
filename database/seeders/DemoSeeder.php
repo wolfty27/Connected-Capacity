@@ -41,12 +41,108 @@ class DemoSeeder extends Seeder
         ]);
         Hospital::firstOrCreate(['user_id' => $hospitalUser->id]);
 
-        // 4. Field Staff
-        User::updateOrCreate(['email' => 'field@example.com'], [
-            'name' => 'Field Staff',
+        // 4. SPO Coordinator
+        User::updateOrCreate(['email' => 'coordinator@sehc.com'], [
+            'name' => 'Sarah Mitchell',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_SPO_COORDINATOR,
+            'organization_id' => $spo->id,
+            'organization_role' => 'Care Coordinator',
+            'employment_type' => 'full_time',
+            'max_weekly_hours' => 40,
+            'staff_status' => 'active',
+        ]);
+
+        // 5. Field Staff - Full Time
+        User::updateOrCreate(['email' => 'maria.santos@sehc.com'], [
+            'name' => 'Maria Santos',
             'password' => Hash::make('password'),
             'role' => User::ROLE_FIELD_STAFF,
             'organization_id' => $spo->id,
+            'organization_role' => 'RN',
+            'employment_type' => 'full_time',
+            'max_weekly_hours' => 40,
+            'staff_status' => 'active',
+        ]);
+
+        User::updateOrCreate(['email' => 'james.chen@sehc.com'], [
+            'name' => 'James Chen',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'organization_id' => $spo->id,
+            'organization_role' => 'PSW',
+            'employment_type' => 'full_time',
+            'max_weekly_hours' => 40,
+            'staff_status' => 'active',
+        ]);
+
+        User::updateOrCreate(['email' => 'aisha.patel@sehc.com'], [
+            'name' => 'Aisha Patel',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'organization_id' => $spo->id,
+            'organization_role' => 'OT',
+            'employment_type' => 'full_time',
+            'max_weekly_hours' => 40,
+            'staff_status' => 'active',
+        ]);
+
+        // 6. Field Staff - Part Time
+        User::updateOrCreate(['email' => 'david.wilson@sehc.com'], [
+            'name' => 'David Wilson',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'organization_id' => $spo->id,
+            'organization_role' => 'RPN',
+            'employment_type' => 'part_time',
+            'max_weekly_hours' => 24,
+            'staff_status' => 'active',
+        ]);
+
+        User::updateOrCreate(['email' => 'lisa.nguyen@sehc.com'], [
+            'name' => 'Lisa Nguyen',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'organization_id' => $spo->id,
+            'organization_role' => 'PSW',
+            'employment_type' => 'part_time',
+            'max_weekly_hours' => 20,
+            'staff_status' => 'active',
+        ]);
+
+        // 7. Field Staff - Casual
+        User::updateOrCreate(['email' => 'michael.brown@sehc.com'], [
+            'name' => 'Michael Brown',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'organization_id' => $spo->id,
+            'organization_role' => 'PSW',
+            'employment_type' => 'casual',
+            'max_weekly_hours' => 16,
+            'staff_status' => 'active',
+        ]);
+
+        User::updateOrCreate(['email' => 'emma.taylor@sehc.com'], [
+            'name' => 'Emma Taylor',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'organization_id' => $spo->id,
+            'organization_role' => 'RN',
+            'employment_type' => 'casual',
+            'max_weekly_hours' => 12,
+            'staff_status' => 'active',
+        ]);
+
+        // 8. Staff on leave
+        User::updateOrCreate(['email' => 'robert.lee@sehc.com'], [
+            'name' => 'Robert Lee',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'organization_id' => $spo->id,
+            'organization_role' => 'PT',
+            'employment_type' => 'full_time',
+            'max_weekly_hours' => 40,
+            'staff_status' => 'on_leave',
         ]);
     }
 }
