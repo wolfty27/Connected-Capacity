@@ -38,6 +38,15 @@ class StaffController extends Controller
             $organizationId = $user->organization_id;
         }
 
+        // Debug logging
+        \Log::info('Staff index request', [
+            'user_id' => $user->id,
+            'user_role' => $user->role,
+            'user_org_id' => $user->organization_id,
+            'is_admin' => $isAdmin,
+            'org_id_filter' => $organizationId,
+        ]);
+
         // Only allow access to own org unless admin/master
         if (!$isAdmin && $organizationId != $user->organization_id) {
             return response()->json(['error' => 'Unauthorized'], 403);
@@ -53,6 +62,9 @@ class StaffController extends Controller
             $query->where('organization_id', 0);
         }
         // Admin without org sees all staff
+
+        // Debug: log query
+        \Log::info('Staff query', ['sql' => $query->toSql(), 'bindings' => $query->getBindings()]);
 
         // Filters
         if ($request->filled('status')) {
