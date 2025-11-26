@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const fetchUser = async () => {
             try {
-                const response = await api.get('/api/user');
+                const response = await api.get('/user');
                 setUser(response.data);
             } catch (error) {
                 // If 401, user is not authenticated, which is expected for guests
@@ -28,14 +28,31 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (credentials) => {
-        await api.get('/sanctum/csrf-cookie');
-        await api.post('/login', credentials);
-        const response = await api.get('/api/user');
+        // CSRF cookie and login are at root, not under /api
+        await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+        await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'include',
+            body: JSON.stringify(credentials),
+        });
+        const response = await api.get('/user');
         setUser(response.data);
     };
 
     const logout = async () => {
-        await api.post('/logout');
+        await fetch('/logout', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'include',
+        });
         setUser(null);
     };
 
