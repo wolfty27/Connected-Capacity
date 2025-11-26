@@ -24,19 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // IR-009: InterRAI compliance scheduled jobs
         $schedule->job(new \App\Jobs\DetectStaleAssessmentsJob())
             ->dailyAt('06:00')
-            ->withoutOverlapping()
-            ->runInBackground();
+            ->withoutOverlapping();
 
         $schedule->job(new \App\Jobs\SyncInterraiStatusJob())
             ->hourly()
-            ->withoutOverlapping()
-            ->runInBackground();
-
-        // Process pending IAR uploads every 15 minutes
-        $schedule->job(new \App\Jobs\UploadInterraiToIarJob(null))
-            ->everyFifteenMinutes()
-            ->withoutOverlapping()
-            ->runInBackground();
+            ->withoutOverlapping();
     })
     ->withExceptions(function (Illuminate\Foundation\Configuration\Exceptions $exceptions) {
         //
