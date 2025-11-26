@@ -1,0 +1,224 @@
+[
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/vendor\/daterangepicker\/daterangepicker.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162719
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/vendor\/admin-resources\/jquery.vectormap\/jquery-jvectormap-1.2.2.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162722
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/css\/icons.min.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162724
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/css\/app-modern.min.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162726
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/js\/hyper-config.js - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162729
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/login 0:0 Uncaught SyntaxError: \"undefined\" is not valid JSON",
+        "source": "javascript",
+        "timestamp": 1763702162847
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/images\/favicon.ico - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162853
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/vendor\/daterangepicker\/daterangepicker.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162964
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/vendor\/admin-resources\/jquery.vectormap\/jquery-jvectormap-1.2.2.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162966
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/css\/icons.min.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162968
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/css\/app-modern.min.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162971
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/js\/hyper-config.js - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702162973
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/cc2 0:0 Uncaught SyntaxError: \"undefined\" is not valid JSON",
+        "source": "javascript",
+        "timestamp": 1763702162992
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162993
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162993
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162993
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162993
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162993
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162993
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162997
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162997
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702162998
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/vendor\/daterangepicker\/daterangepicker.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702163140
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/vendor\/admin-resources\/jquery.vectormap\/jquery-jvectormap-1.2.2.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702163142
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/css\/icons.min.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702163145
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/css\/app-modern.min.css - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702163147
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/public\/assets\/js\/hyper-config.js - Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "source": "network",
+        "timestamp": 1763702163150
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/cc2 0:0 Uncaught SyntaxError: \"undefined\" is not valid JSON",
+        "source": "javascript",
+        "timestamp": 1763702163163
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163163
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163164
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163164
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163164
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163164
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163164
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163270
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163270
+    },
+    {
+        "level": "SEVERE",
+        "message": "http:\/\/127.0.0.1:8000\/assets\/vendor\/apexcharts\/apexcharts.min.js 13:37374 Uncaught Error: Element not found",
+        "source": "javascript",
+        "timestamp": 1763702163271
+    }
+]
