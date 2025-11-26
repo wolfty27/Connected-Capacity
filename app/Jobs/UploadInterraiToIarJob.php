@@ -134,14 +134,18 @@ class UploadInterraiToIarJob implements ShouldQueue
             ],
             'client' => [
                 'health_card_number' => $patient->health_card_number ?? null,
-                'date_of_birth' => $patient->date_of_birth?->format('Y-m-d'),
+                'date_of_birth' => $patient->date_of_birth instanceof \DateTimeInterface
+                    ? $patient->date_of_birth->format('Y-m-d')
+                    : $patient->date_of_birth,
                 'first_name' => $patient->first_name,
                 'last_name' => $patient->last_name,
                 'gender' => $patient->gender,
             ],
             'assessment' => [
                 'type' => $this->mapAssessmentType($this->assessment->assessment_type),
-                'assessment_date' => $this->assessment->assessment_date->format('Y-m-d'),
+                'assessment_date' => $this->assessment->assessment_date instanceof \DateTimeInterface
+                    ? $this->assessment->assessment_date->format('Y-m-d')
+                    : $this->assessment->assessment_date,
                 'assessor_id' => $this->assessment->assessor_id,
                 'assessor_role' => $this->assessment->assessor_role,
                 'source_system' => 'connected_capacity',

@@ -85,10 +85,14 @@ class CareBundleBuilderService
 
     /**
      * Build patient context for rule evaluation.
+     *
+     * IR-008-01: Enhanced to include InterRAI assessment scores for
+     * bundle eligibility and service intensity recommendations.
      */
     protected function buildPatientContext(Patient $patient): array
     {
         $tnp = $patient->transitionNeedsProfile;
+        $interrai = $patient->latestInterraiAssessment;
 
         return [
             'patient' => [
@@ -96,6 +100,7 @@ class CareBundleBuilderService
                 'status' => $patient->status,
                 'maple_score' => $patient->maple_score,
                 'rai_cha_score' => $patient->rai_cha_score,
+                'interrai_status' => $patient->interrai_status,
                 'risk_flags' => $patient->risk_flags ?? [],
             ],
             'tnp' => $tnp ? [
@@ -103,12 +108,121 @@ class CareBundleBuilderService
                 'narrative_summary' => $tnp->narrative_summary ?? null,
                 'status' => $tnp->status ?? null,
             ] : null,
+            // InterRAI assessment data for bundle configuration
+            'interrai' => $interrai ? [
+                'assessment_date' => $interrai->assessment_date->toIso8601String(),
+                'is_stale' => $interrai->isStale(),
+                'days_until_stale' => $interrai->days_until_stale,
+                'maple_score' => $interrai->maple_score,
+                'maple_description' => $interrai->maple_description,
+                'cps' => $interrai->cognitive_performance_scale,
+                'cps_description' => $interrai->cps_description,
+                'adl_hierarchy' => $interrai->adl_hierarchy,
+                'adl_description' => $interrai->adl_description,
+                'iadl_difficulty' => $interrai->iadl_difficulty,
+                'chess_score' => $interrai->chess_score,
+                'drs' => $interrai->depression_rating_scale,
+                'pain_scale' => $interrai->pain_scale,
+                'falls_risk' => $interrai->falls_in_last_90_days,
+                'wandering_risk' => $interrai->wandering_flag,
+                'high_risk_flags' => $interrai->high_risk_flags,
+                'caps_triggered' => $interrai->caps_triggered ?? [],
+            ] : null,
             'clinical_flags' => $tnp->clinical_flags ?? [],
-            'has_cognitive_flag' => $this->hasFlag($tnp, 'Cognitive'),
+            // Enhanced flag detection using InterRAI data
+            'has_cognitive_flag' => $this->hasCognitiveNeeds($tnp, $interrai),
             'has_wound_flag' => $this->hasFlag($tnp, 'Wound'),
             'has_palliative_flag' => $this->hasFlag($tnp, 'Palliative'),
             'has_respiratory_flag' => $this->hasFlag($tnp, 'Respiratory'),
+            'has_fall_risk' => $interrai?->falls_in_last_90_days ?? false,
+            'has_pain_needs' => ($interrai?->pain_scale ?? 0) >= 2,
+            'has_depression_risk' => ($interrai?->depression_rating_scale ?? 0) >= 3,
+            'has_health_instability' => ($interrai?->chess_score ?? 0) >= 3,
+            // Calculated service intensity recommendations
+            'recommended_psw_hours' => $this->calculateRecommendedPswHours($interrai),
+            'service_intensity_level' => $this->determineServiceIntensity($interrai),
         ];
+    }
+
+    /**
+     * Check if patient has cognitive needs based on TNP and InterRAI.
+     *
+     * IR-008-02: Uses CPS score from InterRAI to enhance detection.
+     */
+    protected function hasCognitiveNeeds(?TransitionNeedsProfile $tnp, $interrai): bool
+    {
+        // Check TNP clinical flags first
+        if ($this->hasFlag($tnp, 'Cognitive') || $this->hasFlag($tnp, 'Dementia')) {
+            return true;
+        }
+
+        // Check InterRAI CPS score (3+ indicates moderate impairment)
+        if ($interrai && $interrai->cognitive_performance_scale >= 3) {
+            return true;
+        }
+
+        // Check for wandering flag
+        if ($interrai && $interrai->wandering_flag) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Calculate recommended PSW hours based on ADL hierarchy.
+     *
+     * IR-008-01: Uses ADL score to recommend personal support hours.
+     */
+    protected function calculateRecommendedPswHours($interrai): float
+    {
+        if (!$interrai) {
+            return 0;
+        }
+
+        // ADL hierarchy to recommended weekly PSW hours mapping
+        return match ($interrai->adl_hierarchy) {
+            0 => 0,      // Independent - no PSW needed
+            1 => 3.5,    // Supervision - minimal support
+            2 => 7,      // Limited assistance - 1 hour/day
+            3 => 14,     // Extensive assistance (1) - 2 hours/day
+            4 => 21,     // Extensive assistance (2) - 3 hours/day
+            5 => 28,     // Dependent - 4 hours/day
+            6 => 35,     // Total dependence - 5 hours/day
+            default => 7,
+        };
+    }
+
+    /**
+     * Determine service intensity level based on MAPLe and CHESS.
+     *
+     * IR-008-01: Combines MAPLe priority with CHESS health instability.
+     */
+    protected function determineServiceIntensity($interrai): string
+    {
+        if (!$interrai) {
+            return 'standard';
+        }
+
+        $maple = (int) $interrai->maple_score;
+        $chess = $interrai->chess_score ?? 0;
+
+        // Very High MAPLe or High CHESS = intensive
+        if ($maple >= 5 || $chess >= 4) {
+            return 'intensive';
+        }
+
+        // High MAPLe or Moderate CHESS = enhanced
+        if ($maple >= 4 || $chess >= 3) {
+            return 'enhanced';
+        }
+
+        // Moderate MAPLe = moderate
+        if ($maple >= 3) {
+            return 'moderate';
+        }
+
+        return 'standard';
     }
 
     /**
@@ -263,10 +377,15 @@ class CareBundleBuilderService
 
     /**
      * Determine if a bundle is recommended for the patient context.
+     *
+     * IR-008-02: Enhanced to use InterRAI scores for recommendations.
      */
     protected function isBundleRecommended(CareBundle $bundle, array $context): bool
     {
-        // Cognitive flag -> DEM-SUP
+        $interrai = $context['interrai'] ?? null;
+        $intensity = $context['service_intensity_level'] ?? 'standard';
+
+        // Cognitive flag or CPS >= 3 -> DEM-SUP
         if ($context['has_cognitive_flag'] && $bundle->code === 'DEM-SUP') {
             return true;
         }
@@ -281,7 +400,22 @@ class CareBundleBuilderService
             return true;
         }
 
-        // Default to STD-MED
+        // High health instability (CHESS >= 3) -> COMPLEX
+        if ($context['has_health_instability'] && $bundle->code === 'COMPLEX') {
+            return true;
+        }
+
+        // Intensive service level (MAPLe 5 or CHESS 4+) -> COMPLEX
+        if ($intensity === 'intensive' && $bundle->code === 'COMPLEX') {
+            return true;
+        }
+
+        // Enhanced service level (MAPLe 4 or CHESS 3) -> STD-MED or COMPLEX
+        if ($intensity === 'enhanced' && in_array($bundle->code, ['STD-MED', 'COMPLEX'])) {
+            return $bundle->code === 'STD-MED'; // Prefer STD-MED unless other flags
+        }
+
+        // Default to STD-MED for standard/moderate intensity
         if (!$context['has_cognitive_flag'] && !$context['has_wound_flag'] && !$context['has_palliative_flag']) {
             return $bundle->code === 'STD-MED';
         }
@@ -291,10 +425,17 @@ class CareBundleBuilderService
 
     /**
      * Get recommendation reason.
+     *
+     * IR-008-02: Enhanced with InterRAI-based reasoning.
      */
     protected function getRecommendationReason(CareBundle $bundle, array $context): string
     {
+        $interrai = $context['interrai'] ?? null;
+
         if ($context['has_cognitive_flag'] && $bundle->code === 'DEM-SUP') {
+            if ($interrai && $interrai['cps'] >= 3) {
+                return "CPS score of {$interrai['cps']} indicates {$interrai['cps_description']} - dementia support bundle recommended";
+            }
             return 'Patient has cognitive/dementia-related clinical flags';
         }
 
@@ -304,6 +445,18 @@ class CareBundleBuilderService
 
         if ($context['has_palliative_flag'] && $bundle->code === 'PALLIATIVE') {
             return 'Patient has palliative care needs';
+        }
+
+        if ($context['has_health_instability'] && $bundle->code === 'COMPLEX') {
+            $chess = $interrai['chess_score'] ?? 'elevated';
+            return "CHESS score of {$chess} indicates health instability - complex care bundle recommended";
+        }
+
+        if ($interrai) {
+            $maple = $interrai['maple_score'] ?? null;
+            if ($maple) {
+                return "MAPLe score {$maple} ({$interrai['maple_description']}) - {$context['service_intensity_level']} service intensity";
+            }
         }
 
         return 'Recommended based on patient assessment';

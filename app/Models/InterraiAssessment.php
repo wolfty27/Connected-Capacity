@@ -74,6 +74,29 @@ class InterraiAssessment extends Model
         'chris_sync_status',
         'chris_sync_timestamp',
         'raw_assessment_data',
+        // New versioning and workflow fields
+        'version',
+        'is_current',
+        'previous_assessment_id',
+        'reassessment_reason',
+        'workflow_status',
+        'sections_completed',
+        'raw_items',
+        'object_instance_id',
+        'started_at',
+        'submitted_at',
+        'time_spent_minutes',
+        'reviewed_by',
+        'reviewed_at',
+        'review_notes',
+        'iadl_capacity',
+        'communication_scale',
+        'social_engagement',
+        'self_reliance',
+        'maple_description',
+        'adl_description',
+        'cps_description',
+        'notes',
     ];
 
     protected $casts = [
@@ -91,6 +114,19 @@ class InterraiAssessment extends Model
         'depression_rating_scale' => 'integer',
         'pain_scale' => 'integer',
         'chess_score' => 'integer',
+        // New casts
+        'version' => 'integer',
+        'is_current' => 'boolean',
+        'sections_completed' => 'array',
+        'raw_items' => 'array',
+        'started_at' => 'datetime',
+        'submitted_at' => 'datetime',
+        'reviewed_at' => 'datetime',
+        'time_spent_minutes' => 'integer',
+        'iadl_capacity' => 'integer',
+        'communication_scale' => 'integer',
+        'social_engagement' => 'integer',
+        'self_reliance' => 'integer',
     ];
 
     // Assessment types
@@ -132,6 +168,34 @@ class InterraiAssessment extends Model
     public function assessor()
     {
         return $this->belongsTo(User::class, 'assessor_id');
+    }
+
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function previousAssessment()
+    {
+        return $this->belongsTo(InterraiAssessment::class, 'previous_assessment_id');
+    }
+
+    public function nextAssessment()
+    {
+        return $this->hasOne(InterraiAssessment::class, 'previous_assessment_id');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(InterraiDocument::class);
+    }
+
+    /**
+     * Get reassessment triggers resolved by this assessment.
+     */
+    public function resolvedTriggers()
+    {
+        return $this->hasMany(ReassessmentTrigger::class, 'resolution_assessment_id');
     }
 
     /*

@@ -21,6 +21,8 @@ class Patient extends Model
         'triage_summary',
         'maple_score',
         'rai_cha_score',
+        'interrai_status',
+        'interrai_status_updated_at',
         'risk_flags',
         'primary_coordinator_id',
         'is_in_queue',
@@ -34,7 +36,15 @@ class Patient extends Model
         'risk_flags' => 'array',
         'is_in_queue' => 'boolean',
         'activated_at' => 'datetime',
+        'interrai_status_updated_at' => 'datetime',
     ];
+
+    // InterRAI status values
+    public const INTERRAI_STATUS_CURRENT = 'current';
+    public const INTERRAI_STATUS_STALE = 'stale';
+    public const INTERRAI_STATUS_MISSING = 'missing';
+    public const INTERRAI_STATUS_PENDING_UPLOAD = 'pending_upload';
+    public const INTERRAI_STATUS_UPLOAD_FAILED = 'upload_failed';
 
     public function user()
     {
@@ -85,6 +95,69 @@ class Patient extends Model
     public function needsInterraiAssessment(): bool
     {
         return !$this->hasCurrentInterraiAssessment();
+    }
+
+    /**
+     * Get reassessment triggers for this patient.
+     */
+    public function reassessmentTriggers()
+    {
+        return $this->hasMany(ReassessmentTrigger::class);
+    }
+
+    /**
+     * Get pending reassessment triggers.
+     */
+    public function pendingReassessmentTriggers()
+    {
+        return $this->reassessmentTriggers()->pending();
+    }
+
+    /**
+     * Check if patient has pending reassessment requests.
+     */
+    public function hasPendingReassessment(): bool
+    {
+        return $this->reassessmentTriggers()->pending()->exists();
+    }
+
+    /**
+     * Get the computed InterRAI status based on latest assessment.
+     */
+    public function computeInterraiStatus(): string
+    {
+        $latest = $this->latestInterraiAssessment;
+
+        if (!$latest) {
+            return self::INTERRAI_STATUS_MISSING;
+        }
+
+        if ($latest->iar_upload_status === InterraiAssessment::IAR_FAILED) {
+            return self::INTERRAI_STATUS_UPLOAD_FAILED;
+        }
+
+        if ($latest->iar_upload_status === InterraiAssessment::IAR_PENDING) {
+            return self::INTERRAI_STATUS_PENDING_UPLOAD;
+        }
+
+        if ($latest->isStale()) {
+            return self::INTERRAI_STATUS_STALE;
+        }
+
+        return self::INTERRAI_STATUS_CURRENT;
+    }
+
+    /**
+     * Update the cached interrai_status field.
+     */
+    public function syncInterraiStatus(): self
+    {
+        $this->update([
+            'interrai_status' => $this->computeInterraiStatus(),
+            'interrai_status_updated_at' => now(),
+        ]);
+
+        return $this;
     }
 
     public function carePlans()
