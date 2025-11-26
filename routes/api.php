@@ -1,0 +1,225 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| is assigned the "api" middleware group. Enjoy building your API!
+|
+*/
+
+// Define API Rate Limiter
+RateLimiter::for('api', function (Request $request) {
+    return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
+});
+
+// Public routes (no auth required)
+Route::post('/client-errors', [\App\Http\Controllers\Api\ClientErrorController::class, 'store'])
+    ->middleware('throttle:10,1'); // Rate limit: 10 per minute
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::get('/v2/dashboard', [\App\Http\Controllers\Api\V2\DashboardController::class, 'index']);
+    Route::get('/v2/dashboards/spo', [\App\Http\Controllers\Api\V2\SpoDashboardController::class, 'index']);
+    Route::get('/v2/staffing/fte', [\App\Http\Controllers\Api\V2\CareOps\FteComplianceController::class, 'current']);
+    Route::post('/v2/staffing/fte-project', [\App\Http\Controllers\Api\V2\CareOps\FteComplianceController::class, 'project']);
+    Route::post('/v2/assignments/sspo-estimate', [\App\Http\Controllers\Api\V2\CareOps\AssignmentEstimationController::class, 'estimate']);
+    Route::post('/v2/finance/shadow-billing', [\App\Http\Controllers\Api\V2\Finance\ShadowBillingController::class, 'generate']);
+    Route::post('/v2/ai/forecast', [\App\Http\Controllers\Api\V2\AiForecastController::class, 'forecast']);
+
+    Route::get('/patients/{patient}/tnp', [\App\Http\Controllers\Api\V2\TnpController::class, 'show']);
+    Route::post('/patients/{patient}/tnp', [\App\Http\Controllers\Api\V2\TnpController::class, 'store']);
+    Route::put('/tnp/{tnp}', [\App\Http\Controllers\Api\V2\TnpController::class, 'update']);
+    Route::post('/tnp/{tnp}/analyze', [\App\Http\Controllers\Api\V2\TnpController::class, 'analyze']);
+
+    Route::get('/care-assignments', [\App\Http\Controllers\Api\V2\CareOpsController::class, 'index']);
+    Route::get('/care-assignments/{assignment}', [\App\Http\Controllers\Api\V2\CareOpsController::class, 'show']);
+    Route::post('/care-assignments', [\App\Http\Controllers\Api\V2\CareOpsController::class, 'store']);
+    Route::put('/care-assignments/{assignment}', [\App\Http\Controllers\Api\V2\CareOpsController::class, 'update']);
+
+    Route::apiResource('v2/care-plans', \App\Http\Controllers\Api\V2\CarePlanController::class);
+    Route::get('v2/bundle-templates', [\App\Http\Controllers\Api\V2\BundleTemplateController::class, 'index']);
+    Route::get('v2/bundle-templates/{id}', [\App\Http\Controllers\Api\V2\BundleTemplateController::class, 'show']);
+
+    Route::apiResource('patients', \App\Http\Controllers\Api\PatientController::class);
+
+    Route::get('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'show']);
+    Route::put('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'update']);
+
+    // Patient Queue Management (Workday-style workflow)
+    Route::prefix('v2/patient-queue')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'store']);
+        Route::get('/ready-for-bundle', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'readyForBundle']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'update']);
+        Route::post('/{id}/transition', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'transition']);
+        Route::get('/{id}/transitions', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'transitions']);
+        Route::post('/{id}/start-bundle', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'startBundleBuilding']);
+    });
+
+    // Care Bundle Builder (Metadata-driven)
+    Route::prefix('v2/care-builder')->group(function () {
+        Route::get('/{patientId}/bundles', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getBundles']);
+        Route::get('/{patientId}/bundles/{bundleId}', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getBundle']);
+        Route::post('/{patientId}/bundles/preview', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'previewBundle']);
+        Route::post('/{patientId}/plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'buildPlan']);
+        Route::get('/{patientId}/plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getPlanHistory']);
+        Route::post('/{patientId}/plans/{carePlanId}/publish', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'publishPlan']);
+    });
+
+    // Service Types API (SC-002)
+    Route::prefix('v2/service-types')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'index']);
+        Route::get('/by-category', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'byCategory']);
+        Route::get('/categories', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'categories']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'show']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'store']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'destroy']);
+        Route::post('/{id}/toggle-active', [\App\Http\Controllers\Api\V2\ServiceTypeController::class, 'toggleActive']);
+    });
+
+    // SSPO Assignment Acceptance API (SSPO-002)
+    Route::prefix('v2/assignments')->group(function () {
+        Route::get('/pending-sspo', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'pendingAcceptance']);
+        Route::post('/{id}/accept', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'accept']);
+        Route::post('/{id}/decline', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'decline']);
+        Route::get('/{id}/sspo-status', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'sspoStatus']);
+        Route::get('/sspo-metrics', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'metrics']);
+    });
+
+    // SLA Compliance Dashboard API (SLA-005)
+    Route::prefix('v2/sla')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'dashboard']);
+        Route::get('/status', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'status']);
+        Route::get('/hpg-response', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'hpgResponse']);
+        Route::get('/missed-care', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'missedCare']);
+        Route::get('/missed-assignments', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'missedAssignments']);
+        Route::get('/sspo-performance', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'sspoPerformance']);
+        Route::get('/intake-metrics', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'intakeMetrics']);
+        Route::get('/pending-interrai', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'pendingInterrai']);
+        Route::post('/check', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'runCheck']);
+        Route::post('/huddle-report', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'generateHuddleReport']);
+    });
+
+    // SSPO Performance Metrics API (SSPO-004)
+    Route::prefix('v2/sspo')->group(function () {
+        Route::get('/rankings', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'rankings']);
+        Route::get('/{id}/performance', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'show']);
+        Route::get('/{id}/dashboard', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'dashboard']);
+        Route::get('/{id}/acceptance', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'acceptance']);
+        Route::get('/{id}/response-time', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'responseTime']);
+        Route::get('/{id}/trend', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'trend']);
+        Route::get('/{id}/service-types', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'serviceTypes']);
+        Route::get('/{id}/decline-reasons', [\App\Http\Controllers\Api\V2\SspoPerformanceController::class, 'declineReasons']);
+    });
+
+    // InterRAI Assessment API (IR-006)
+    Route::prefix('v2/interrai')->group(function () {
+        // Patient assessment needs
+        Route::get('/patients-needing-assessment', [\App\Http\Controllers\Api\V2\InterraiController::class, 'patientsNeedingAssessment']);
+        Route::get('/patients/{patient}/status', [\App\Http\Controllers\Api\V2\InterraiController::class, 'patientStatus']);
+        Route::get('/patients/{patient}/assessments', [\App\Http\Controllers\Api\V2\InterraiController::class, 'patientAssessments']);
+        Route::post('/patients/{patient}/assessments', [\App\Http\Controllers\Api\V2\InterraiController::class, 'store']);
+
+        // IR-003: External assessment and IAR linking
+        Route::post('/patients/{patient}/assessments/external', [\App\Http\Controllers\Api\V2\InterraiController::class, 'storeExternal']);
+        Route::post('/patients/{patient}/link-external', [\App\Http\Controllers\Api\V2\InterraiController::class, 'linkExternal']);
+
+        // IR-005: Reassessment triggers
+        Route::post('/patients/{patient}/request-reassessment', [\App\Http\Controllers\Api\V2\InterraiController::class, 'requestReassessment']);
+        Route::get('/reassessment-triggers', [\App\Http\Controllers\Api\V2\InterraiController::class, 'reassessmentTriggers']);
+        Route::post('/reassessment-triggers/{trigger}/resolve', [\App\Http\Controllers\Api\V2\InterraiController::class, 'resolveReassessmentTrigger']);
+        Route::get('/reassessment-trigger-options', [\App\Http\Controllers\Api\V2\InterraiController::class, 'reassessmentTriggerOptions']);
+
+        // IR-006: Full assessment workflow
+        Route::post('/patients/{patient}/assessments/start', [\App\Http\Controllers\Api\V2\InterraiController::class, 'startAssessment']);
+
+        // Assessment details and management
+        Route::get('/assessments/{assessment}', [\App\Http\Controllers\Api\V2\InterraiController::class, 'show']);
+        Route::patch('/assessments/{assessment}/progress', [\App\Http\Controllers\Api\V2\InterraiController::class, 'saveProgress']);
+        Route::post('/assessments/{assessment}/calculate-scores', [\App\Http\Controllers\Api\V2\InterraiController::class, 'calculateScores']);
+        Route::post('/assessments/{assessment}/complete', [\App\Http\Controllers\Api\V2\InterraiController::class, 'completeAssessment']);
+        Route::post('/assessments/{assessment}/retry-iar', [\App\Http\Controllers\Api\V2\InterraiController::class, 'retryIarUpload']);
+
+        // IR-004: Document endpoints
+        Route::post('/assessments/{assessment}/documents', [\App\Http\Controllers\Api\V2\InterraiController::class, 'uploadDocument']);
+        Route::get('/assessments/{assessment}/documents', [\App\Http\Controllers\Api\V2\InterraiController::class, 'listDocuments']);
+        Route::delete('/assessments/{assessment}/documents/{document}', [\App\Http\Controllers\Api\V2\InterraiController::class, 'deleteDocument']);
+
+        // Form schema and utilities
+        Route::get('/form-schema', [\App\Http\Controllers\Api\V2\InterraiController::class, 'formSchema']);
+        Route::get('/full-form-schema', [\App\Http\Controllers\Api\V2\InterraiController::class, 'fullFormSchema']);
+
+        // IAR upload monitoring
+        Route::get('/pending-iar-uploads', [\App\Http\Controllers\Api\V2\InterraiController::class, 'pendingIarUploads']);
+        Route::get('/failed-iar-uploads', [\App\Http\Controllers\Api\V2\InterraiController::class, 'failedIarUploads']);
+    });
+
+    // IR-006: Admin InterRAI Dashboard API
+    Route::prefix('v2/admin/interrai')->group(function () {
+        Route::get('/dashboard-stats', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'stats']);
+        Route::get('/stale-assessments', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'staleAssessments']);
+        Route::get('/missing-assessments', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'missingAssessments']);
+        Route::get('/failed-uploads', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'failedUploads']);
+        Route::post('/bulk-retry-iar', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'bulkRetryIar']);
+        Route::post('/sync-statuses', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'syncStatuses']);
+        Route::get('/pending-triggers', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'pendingTriggers']);
+        Route::get('/compliance-report', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'complianceReport']);
+    });
+
+    // SSPO Capability Management API (STAFF-019, STAFF-020, STAFF-021)
+    Route::prefix('v2/sspo-capabilities')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'store']);
+        Route::get('/coverage', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'serviceTypeCoverage']);
+        Route::get('/rankings/{serviceTypeId}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'rankings']);
+        Route::post('/find-matches', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'findMatches']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'destroy']);
+    });
+
+    // Staff Management API (STAFF-008)
+    Route::prefix('v2/staff')->group(function () {
+        // Staff CRUD
+        Route::get('/', [\App\Http\Controllers\Api\V2\StaffController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\StaffController::class, 'store']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\StaffController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\StaffController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\V2\StaffController::class, 'destroy']);
+
+        // Skills management
+        Route::get('/skills/catalog', [\App\Http\Controllers\Api\V2\StaffController::class, 'listSkills']);
+        Route::get('/{staffId}/skills', [\App\Http\Controllers\Api\V2\StaffController::class, 'getStaffSkills']);
+        Route::post('/{staffId}/skills', [\App\Http\Controllers\Api\V2\StaffController::class, 'assignSkill']);
+        Route::delete('/{staffId}/skills/{skillId}', [\App\Http\Controllers\Api\V2\StaffController::class, 'removeSkill']);
+
+        // Availability management
+        Route::get('/{staffId}/availability', [\App\Http\Controllers\Api\V2\StaffController::class, 'getAvailability']);
+        Route::put('/{staffId}/availability', [\App\Http\Controllers\Api\V2\StaffController::class, 'setAvailability']);
+
+        // Unavailability (time-off) management
+        Route::get('/{staffId}/unavailabilities', [\App\Http\Controllers\Api\V2\StaffController::class, 'getUnavailabilities']);
+        Route::post('/{staffId}/time-off', [\App\Http\Controllers\Api\V2\StaffController::class, 'requestTimeOff']);
+        Route::post('/time-off/{unavailabilityId}/process', [\App\Http\Controllers\Api\V2\StaffController::class, 'processTimeOffRequest']);
+
+        // FTE Compliance & Analytics
+        Route::get('/analytics/fte-compliance', [\App\Http\Controllers\Api\V2\StaffController::class, 'getFteCompliance']);
+        Route::get('/analytics/fte-trend', [\App\Http\Controllers\Api\V2\StaffController::class, 'getFteComplianceTrend']);
+        Route::get('/analytics/utilization', [\App\Http\Controllers\Api\V2\StaffController::class, 'getStaffUtilization']);
+        Route::post('/analytics/hire-projection', [\App\Http\Controllers\Api\V2\StaffController::class, 'getHireProjection']);
+    });
+});
