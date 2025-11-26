@@ -179,4 +179,35 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/pending-triggers', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'pendingTriggers']);
         Route::get('/compliance-report', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'complianceReport']);
     });
+
+    // Staff Management API (STAFF-008)
+    Route::prefix('v2/staff')->group(function () {
+        // Staff CRUD
+        Route::get('/', [\App\Http\Controllers\Api\V2\StaffController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\StaffController::class, 'store']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\StaffController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\StaffController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\V2\StaffController::class, 'destroy']);
+
+        // Skills management
+        Route::get('/skills/catalog', [\App\Http\Controllers\Api\V2\StaffController::class, 'listSkills']);
+        Route::get('/{staffId}/skills', [\App\Http\Controllers\Api\V2\StaffController::class, 'getStaffSkills']);
+        Route::post('/{staffId}/skills', [\App\Http\Controllers\Api\V2\StaffController::class, 'assignSkill']);
+        Route::delete('/{staffId}/skills/{skillId}', [\App\Http\Controllers\Api\V2\StaffController::class, 'removeSkill']);
+
+        // Availability management
+        Route::get('/{staffId}/availability', [\App\Http\Controllers\Api\V2\StaffController::class, 'getAvailability']);
+        Route::put('/{staffId}/availability', [\App\Http\Controllers\Api\V2\StaffController::class, 'setAvailability']);
+
+        // Unavailability (time-off) management
+        Route::get('/{staffId}/unavailabilities', [\App\Http\Controllers\Api\V2\StaffController::class, 'getUnavailabilities']);
+        Route::post('/{staffId}/time-off', [\App\Http\Controllers\Api\V2\StaffController::class, 'requestTimeOff']);
+        Route::post('/time-off/{unavailabilityId}/process', [\App\Http\Controllers\Api\V2\StaffController::class, 'processTimeOffRequest']);
+
+        // FTE Compliance & Analytics
+        Route::get('/analytics/fte-compliance', [\App\Http\Controllers\Api\V2\StaffController::class, 'getFteCompliance']);
+        Route::get('/analytics/fte-trend', [\App\Http\Controllers\Api\V2\StaffController::class, 'getFteComplianceTrend']);
+        Route::get('/analytics/utilization', [\App\Http\Controllers\Api\V2\StaffController::class, 'getStaffUtilization']);
+        Route::post('/analytics/hire-projection', [\App\Http\Controllers\Api\V2\StaffController::class, 'getHireProjection']);
+    });
 });

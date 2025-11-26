@@ -47,6 +47,46 @@ class ServiceType extends Model
     }
 
     /**
+     * Required skills for this service type (STAFF-011)
+     */
+    public function skills()
+    {
+        return $this->belongsToMany(Skill::class, 'service_type_skills')
+            ->withPivot(['is_required', 'minimum_proficiency'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get required skills only
+     */
+    public function requiredSkills()
+    {
+        return $this->skills()->wherePivot('is_required', true);
+    }
+
+    /**
+     * Check if a user has all required skills for this service type
+     */
+    public function userHasRequiredSkills(User $user): bool
+    {
+        $requiredSkillIds = $this->requiredSkills()->pluck('skills.id');
+
+        if ($requiredSkillIds->isEmpty()) {
+            return true;
+        }
+
+        $userSkillIds = $user->skills()
+            ->whereIn('skills.id', $requiredSkillIds)
+            ->where(function ($q) {
+                $q->whereNull('staff_skills.expires_at')
+                  ->orWhere('staff_skills.expires_at', '>', now());
+            })
+            ->pluck('skills.id');
+
+        return $requiredSkillIds->diff($userSkillIds)->isEmpty();
+    }
+
+    /**
      * Get the metadata entries for this service type.
      */
     public function metadata()
