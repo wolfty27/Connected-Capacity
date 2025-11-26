@@ -33,7 +33,7 @@ class SpoDashboardController extends Controller
 
         // If no risks found (likely due to empty DB), mock one for demo purposes
         if ($risks['missed_count'] === 0 && $risks['jeopardy_count'] === 0) {
-             $risks['risks'] = [
+            $risks['risks'] = [
                 [
                     'risk_level' => 'CRITICAL',
                     'breach_duration' => '15m ago',
@@ -48,8 +48,8 @@ class SpoDashboardController extends Controller
                     'care_assignment' => ['assigned_user' => ['name' => 'PSW Team A']],
                     'reason' => 'Late Start Risk'
                 ]
-             ];
-             $risks['missed_count'] = 1;
+            ];
+            $risks['missed_count'] = 1;
         }
 
         $data = [
@@ -70,24 +70,7 @@ class SpoDashboardController extends Controller
             ],
             'jeopardy_board' => $risks['risks'],
             'intake_queue' => $intakeQueue,
-            'partners' => [
-                [
-                    'id' => 1,
-                    'name' => 'Mindfulness Care Partners',
-                    'referrals_active' => 12,
-                    'referrals_pending' => 4,
-                    'visit_completion_rate' => 98,
-                    'capacity_status' => 'High'
-                ],
-                [
-                    'id' => 2,
-                    'name' => 'Active Rehab Solutions',
-                    'referrals_active' => 8,
-                    'referrals_pending' => 1,
-                    'visit_completion_rate' => 92,
-                    'capacity_status' => 'Moderate'
-                ]
-            ],
+            'partners' => (new \App\Services\CareOpsMetricsService())->getPartnerPerformance(1),
             'quality' => [
                 'patient_satisfaction' => 4.8,
                 'incident_rate' => 0.5

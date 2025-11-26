@@ -18,9 +18,10 @@ const AssignmentConfigurator = ({ serviceLine, onConfirm, onCancel }) => {
 
     // Mock SSPOs (In real app, filter by capability matching serviceLine)
     const sspoList = [
-        { id: 6, name: 'Alexis Lodge', type: 'SSPO', capabilities: ['Dementia'] },
-        { id: 7, name: 'Wellhaus', type: 'SSPO', capabilities: ['Digital'] },
-        { id: 9, name: 'Grace Hospital', type: 'SSPO', capabilities: ['RPM', 'Rehab'] },
+        { id: 6, name: 'Alexis Lodge', type: 'SSPO', capabilities: ['Dementia', 'Respite'] },
+        { id: 7, name: 'Wellhaus', type: 'SSPO', capabilities: ['Digital', 'Virtual Care'] },
+        { id: 8, name: 'Toronto Grace', type: 'SSPO', capabilities: ['RPM', 'Complex Care'] },
+        { id: 9, name: 'Reconnect', type: 'SSPO', capabilities: ['Mental Health', 'Addictions'] },
     ];
 
     const handleStaffSelect = async (staff) => {
@@ -60,15 +61,15 @@ const AssignmentConfigurator = ({ serviceLine, onConfirm, onCancel }) => {
     return (
         <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-lg mt-2">
             <h3 className="font-bold text-slate-800 mb-4">Configure Assignment: {serviceLine}</h3>
-            
+
             <div className="flex gap-4 mb-4 border-b border-slate-100 pb-2">
-                <button 
+                <button
                     onClick={() => setMode('internal')}
                     className={`pb-2 text-sm font-bold ${mode === 'internal' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-slate-500'}`}
                 >
                     Internal Staff (SPO)
                 </button>
-                <button 
+                <button
                     onClick={() => setMode('sspo')}
                     className={`pb-2 text-sm font-bold ${mode === 'sspo' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-slate-500'}`}
                 >
@@ -81,8 +82,8 @@ const AssignmentConfigurator = ({ serviceLine, onConfirm, onCancel }) => {
                     <p className="text-sm text-slate-500">Select a staff member. Priority: Full-Time.</p>
                     <div className="grid grid-cols-1 gap-2">
                         {staffList.map(staff => (
-                            <div 
-                                key={staff.id} 
+                            <div
+                                key={staff.id}
                                 onClick={() => handleStaffSelect(staff)}
                                 className={`p-3 border rounded cursor-pointer flex justify-between items-center ${selectedStaff?.id === staff.id ? 'border-teal-500 bg-teal-50' : 'border-slate-200 hover:bg-slate-50'}`}
                             >
@@ -117,8 +118,8 @@ const AssignmentConfigurator = ({ serviceLine, onConfirm, onCancel }) => {
                     <p className="text-sm text-slate-500">Select a partner organization.</p>
                     <div className="grid grid-cols-1 gap-2">
                         {sspoList.map(sspo => (
-                            <div 
-                                key={sspo.id} 
+                            <div
+                                key={sspo.id}
                                 onClick={() => handleSspoSelect(sspo)}
                                 className={`p-3 border rounded cursor-pointer flex justify-between items-center ${selectedSspo?.id === sspo.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
                             >

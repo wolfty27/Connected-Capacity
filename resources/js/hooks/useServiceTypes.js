@@ -34,6 +34,10 @@ const useServiceTypes = (options = {}) => {
                 api.get('/api/v2/service-types/categories'),
             ]);
 
+            console.log('API Params:', params.toString());
+            console.log('Raw API Response:', typesRes.data);
+            console.log('Raw API Data Length:', typesRes.data?.data?.length);
+
             // Transform API data to match expected format for CareBundleWizard
             const transformedTypes = (typesRes.data.data || []).map((st) => {
                 // Debug log for first few items

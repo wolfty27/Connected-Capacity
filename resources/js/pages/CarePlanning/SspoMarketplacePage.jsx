@@ -11,42 +11,42 @@ const SspoMarketplacePage = () => {
     const [partners, setPartners] = useState([
         {
             id: 'SSPO-001',
-            name: 'Active Rehab Solutions',
-            services: ['Occupational Therapy', 'Physiotherapy'],
+            name: 'Alexis Lodge',
+            services: ['Dementia Care', 'Assisted Living', 'Respite Care'],
             capacity: 'High',
-            rating: 4.5,
-            contact: 'info@activerehab.com'
+            rating: 4.9,
+            contact: 'intake@alexislodge.ca'
         },
         {
             id: 'SSPO-002',
-            name: 'Mindfulness Care Partners',
-            services: ['Social Work', 'Counselling'],
-            capacity: 'Moderate',
-            rating: 4.2,
-            contact: 'contact@mindfulnesscare.com'
+            name: 'Wellhaus',
+            services: ['Digital Health', 'Virtual Care', 'Remote Monitoring'],
+            capacity: 'High',
+            rating: 4.8,
+            contact: 'partners@wellhaushealth.com'
         },
         {
             id: 'SSPO-003',
-            name: 'Rapid Response Nursing',
-            services: ['Nursing (RN/RPN)'],
-            capacity: 'Low',
-            rating: 3.9,
-            contact: 'admin@rrnursing.com'
+            name: 'Toronto Grace Health Centre',
+            services: ['Complex Continuing Care', 'RPM', 'Palliative Care'],
+            capacity: 'Moderate',
+            rating: 4.7,
+            contact: 'admissions@torontograce.org'
         },
         {
             id: 'SSPO-004',
-            name: 'Community Support Services Inc.',
-            services: ['Meal Delivery', 'Transportation'],
-            capacity: 'High',
-            rating: 4.7,
-            contact: 'support@css.com'
+            name: 'Reconnect Community Health Services',
+            services: ['Mental Health', 'Addictions', 'Community Support'],
+            capacity: 'Moderate',
+            rating: 4.6,
+            contact: 'referrals@reconnect.on.ca'
         },
     ]);
 
     const columns = [
         { header: 'Partner Name', accessor: 'name' },
-        { 
-            header: 'Services Offered', 
+        {
+            header: 'Services Offered',
             accessor: (row) => (
                 <div className="flex flex-wrap gap-1">
                     {row.services.map((service, index) => (
@@ -57,8 +57,8 @@ const SspoMarketplacePage = () => {
                 </div>
             )
         },
-        { 
-            header: 'Capacity Status', 
+        {
+            header: 'Capacity Status',
             accessor: (row) => {
                 const colors = {
                     'High': 'bg-emerald-100 text-emerald-800',

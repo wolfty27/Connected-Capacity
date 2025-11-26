@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import Card from '../../components/UI/Card';
 import Spinner from '../../components/UI/Spinner';
 import Button from '../../components/UI/Button';
+import BundleSummary from '../../components/care/BundleSummary';
+import { X } from 'lucide-react';
 
 /**
  * PatientDetailPage - Central hub for patient care management
@@ -24,6 +27,7 @@ const PatientDetailPage = () => {
     const [interraiData, setInterraiData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview'); // overview | tnp | interrai
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
 
     const fetchData = useCallback(async () => {
         try {
@@ -89,9 +93,21 @@ const PatientDetailPage = () => {
     if (loading) return <div className="p-12 flex justify-center"><Spinner /></div>;
     if (!patient) return <div className="p-12 text-center">Patient not found.</div>;
 
-    const activePlans = carePlans.filter(p => p.status === 'active' || p.status === 'approved');
+    // Sort plans by ID descending (newest first)
+    const sortedPlans = [...carePlans].sort((a, b) => b.id - a.id);
+    const currentPlan = sortedPlans.find(p => p.status === 'active' || p.status === 'approved');
+    const historyPlans = sortedPlans.filter(p => p.id !== currentPlan?.id);
+
     const latestAssessment = interraiData?.latest_assessment;
-    const hasActivePlan = activePlans.length > 0;
+    const hasActivePlan = !!currentPlan;
+
+    // Map API services to BundleSummary format
+    const summaryServices = currentPlan?.services?.map(s => ({
+        ...s,
+        currentFrequency: s.frequency || 3, // Fallback if not in API
+        defaultFrequency: 1, // Treat as core for display
+        currentDuration: s.duration || 12 // Fallback
+    })) || [];
 
     return (
         <div className="space-y-6">
@@ -102,14 +118,12 @@ const PatientDetailPage = () => {
                     <p className="text-slate-500">Patient ID: {patient.id}</p>
                 </div>
                 <div className="flex gap-3">
-                    {!hasActivePlan && (
-                        <Button
-                            className="bg-teal-600 hover:bg-teal-700 text-white"
-                            onClick={() => navigate(`/care-bundles/create/${id}`)}
-                        >
-                            Create Care Bundle
-                        </Button>
-                    )}
+                    <Button
+                        className="bg-teal-600 hover:bg-teal-700 text-white"
+                        onClick={() => navigate(`/care-bundles/create/${id}`)}
+                    >
+                        {hasActivePlan ? 'Modify Care Plan' : 'Create Care Bundle'}
+                    </Button>
                 </div>
             </div>
 
@@ -125,8 +139,8 @@ const PatientDetailPage = () => {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
-                                    ? 'border-teal-500 text-teal-600'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                                ? 'border-teal-500 text-teal-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                                 }`}
                         >
                             {tab.label}
@@ -167,8 +181,8 @@ const PatientDetailPage = () => {
                                 </span>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-sm font-medium ${patient.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
-                                    patient.status === 'Available' ? 'bg-emerald-100 text-emerald-800' :
-                                        'bg-slate-100 text-slate-800'
+                                patient.status === 'Available' ? 'bg-emerald-100 text-emerald-800' :
+                                    'bg-slate-100 text-slate-800'
                                 }`}>
                                 {patient.status}
                             </span>
@@ -203,55 +217,53 @@ const PatientDetailPage = () => {
 
                     {/* Right Column: Care Context */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Active Care Plans */}
+                        {/* Current Care Plan */}
                         <Card
-                            title="Care Context"
+                            title="Current Care Plan"
                             action={
                                 hasActivePlan ? (
-                                    <Button variant="link" onClick={() => navigate(`/care-bundles/create/${id}`)}>
-                                        Modify Plan
-                                    </Button>
+                                    <div className="flex gap-3">
+                                        <Button variant="outline" onClick={() => setShowDetailsModal(true)}>
+                                            View Details
+                                        </Button>
+                                        <Button variant="link" onClick={() => navigate(`/care-bundles/create/${id}`)}>
+                                            Modify Plan
+                                        </Button>
+                                    </div>
                                 ) : null
                             }
                         >
                             {hasActivePlan ? (
                                 <div className="space-y-4">
-                                    {activePlans.map((plan) => (
-                                        <div key={plan.id} className="p-4 bg-slate-50 rounded-lg">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <h4 className="font-semibold text-slate-900">
-                                                        {plan.bundle?.name || plan.bundle_name || 'Care Plan'}
-                                                    </h4>
-                                                    <p className="text-sm text-slate-500">
-                                                        Started: {plan.start_date?.split('T')[0] || 'N/A'}
-                                                    </p>
-                                                </div>
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(plan.status)}`}>
-                                                    {plan.status?.replace('_', ' ')}
-                                                </span>
+                                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <h4 className="font-semibold text-slate-900">
+                                                    {currentPlan.bundle?.name || currentPlan.bundle_name || 'Care Plan'}
+                                                </h4>
+                                                <p className="text-sm text-slate-500">
+                                                    Started: {currentPlan.start_date?.split('T')[0] || 'N/A'}
+                                                </p>
                                             </div>
-
-                                            {/* Services Summary */}
-                                            {plan.services && plan.services.length > 0 && (
-                                                <div className="mt-3 pt-3 border-t border-slate-200">
-                                                    <p className="text-xs text-slate-500 uppercase mb-2">Active Services</p>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {plan.services.slice(0, 5).map((service, idx) => (
-                                                            <span key={idx} className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-700">
-                                                                {service.name || service.service_type?.name}
-                                                            </span>
-                                                        ))}
-                                                        {plan.services.length > 5 && (
-                                                            <span className="px-2 py-1 text-xs text-slate-500">
-                                                                +{plan.services.length - 5} more
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(currentPlan.status)}`}>
+                                                {currentPlan.status?.replace('_', ' ')}
+                                            </span>
                                         </div>
-                                    ))}
+
+                                        {/* Services Summary */}
+                                        {currentPlan.services && currentPlan.services.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-slate-200">
+                                                <p className="text-xs text-slate-500 uppercase mb-2">Active Services</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {currentPlan.services.map((service, idx) => (
+                                                        <span key={idx} className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-700">
+                                                            {service.name || service.service_type?.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="text-center py-6">
@@ -269,6 +281,33 @@ const PatientDetailPage = () => {
                                 </div>
                             )}
                         </Card>
+
+                        {/* Plan History */}
+                        {historyPlans.length > 0 && (
+                            <Card title="Plan History">
+                                <div className="space-y-3">
+                                    {historyPlans.map((plan) => (
+                                        <div key={plan.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                            <div>
+                                                <div className="font-medium text-slate-900 text-sm">
+                                                    {plan.bundle?.name || plan.bundle_name || 'Care Plan'}
+                                                </div>
+                                                <div className="text-xs text-slate-500">
+                                                    {plan.start_date?.split('T')[0]} — {plan.status === 'active' ? 'Present' : 'Ended'}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${plan.status === 'active' ? 'bg-slate-200 text-slate-600' : // Older active plans shown as inactive/replaced
+                                                    'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                    {plan.status === 'active' ? 'Revised' : plan.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        )}
 
                         {/* Quick Stats */}
                         {latestAssessment && (
@@ -346,8 +385,8 @@ const PatientDetailPage = () => {
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="text-sm text-slate-500">Status:</span>
                                         <span className={`px-2 py-1 rounded text-xs font-medium ${tnp.ai_summary_status === 'completed'
-                                                ? 'bg-emerald-100 text-emerald-800'
-                                                : 'bg-amber-100 text-amber-800'
+                                            ? 'bg-emerald-100 text-emerald-800'
+                                            : 'bg-amber-100 text-amber-800'
                                             }`}>
                                             {tnp.ai_summary_status}
                                         </span>
@@ -476,10 +515,10 @@ const PatientDetailPage = () => {
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm font-medium text-slate-700">IAR Upload</span>
                                             <span className={`px-2 py-1 text-xs rounded-full font-medium ${latestAssessment.iar_status === 'uploaded'
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : latestAssessment.iar_status === 'failed'
-                                                        ? 'bg-rose-100 text-rose-800'
-                                                        : 'bg-amber-100 text-amber-800'
+                                                ? 'bg-emerald-100 text-emerald-800'
+                                                : latestAssessment.iar_status === 'failed'
+                                                    ? 'bg-rose-100 text-rose-800'
+                                                    : 'bg-amber-100 text-amber-800'
                                                 }`}>
                                                 {latestAssessment.iar_status || 'pending'}
                                             </span>
@@ -489,10 +528,10 @@ const PatientDetailPage = () => {
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm font-medium text-slate-700">CHRIS Sync</span>
                                             <span className={`px-2 py-1 text-xs rounded-full font-medium ${latestAssessment.chris_status === 'synced'
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : latestAssessment.chris_status === 'failed'
-                                                        ? 'bg-rose-100 text-rose-800'
-                                                        : 'bg-amber-100 text-amber-800'
+                                                ? 'bg-emerald-100 text-emerald-800'
+                                                : latestAssessment.chris_status === 'failed'
+                                                    ? 'bg-rose-100 text-rose-800'
+                                                    : 'bg-amber-100 text-amber-800'
                                                 }`}>
                                                 {latestAssessment.chris_status || 'pending'}
                                             </span>
@@ -519,6 +558,35 @@ const PatientDetailPage = () => {
                         </Card>
                     )}
                 </div>
+            )}
+            {/* Details Modal */}
+            {showDetailsModal && createPortal(
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center p-6 border-b border-slate-100">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900">Care Plan Details</h2>
+                                <p className="text-sm text-slate-500">
+                                    {currentPlan?.bundle?.name || 'Custom Bundle'} • Started {currentPlan?.start_date?.split('T')[0]}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowDetailsModal(false)}
+                                className="p-2 hover:bg-slate-100 rounded-full text-slate-500"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <BundleSummary
+                                services={summaryServices}
+                                bundleName={currentPlan?.bundle?.name}
+                                totalCost={currentPlan?.total_cost || 0}
+                            />
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

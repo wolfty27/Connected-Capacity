@@ -12,7 +12,8 @@ import {
     Loader2,
     CheckCircle2,
     Users,
-    Star
+    Star,
+    Plus
 } from 'lucide-react';
 import PatientSummaryCard from '../../components/care/PatientSummaryCard';
 import ServiceCard from '../../components/care/ServiceCard';
@@ -46,20 +47,51 @@ const CareBundleWizard = () => {
     const [selectedBundle, setSelectedBundle] = useState(null);
     const [recommendedBundle, setRecommendedBundle] = useState(null);
 
-    // Step 2 State - Service Configuration (initialized from API)
+    // Step 2 & 3 State - Service Configuration
     const [services, setServices] = useState([]);
     const [expandedSection, setExpandedSection] = useState('CLINICAL');
     const [aiRecommendation, setAiRecommendation] = useState(null);
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [globalDuration, setGlobalDuration] = useState(12);
+    const [showAdditionalServices, setShowAdditionalServices] = useState(false);
 
     // Initialize services from API when available
+    // Initialize services from API types when available and wizard data is loaded
     useEffect(() => {
-        if (apiServiceTypes.length > 0 && services.length === 0) {
-            console.log('Setting services from apiServiceTypes');
-            setServices(apiServiceTypes);
+        if (!loading && apiServiceTypes.length > 0 && services.length === 0) {
+            console.log('Initializing services with selected bundle:', selectedBundle?.name);
+
+            if (selectedBundle) {
+                // Merge bundle services with all available services
+                const servicesWithConfig = apiServiceTypes.map(s => {
+                    const bundleService = selectedBundle.services?.find(b =>
+                        b.id == s.id ||
+                        (b.code && s.code && b.code === s.code) ||
+                        (b.name && s.name && b.name === s.name)
+                    );
+                    const isCore = !!bundleService;
+
+                    return {
+                        ...s,
+                        is_core: isCore,
+                        currentFrequency: isCore ? (bundleService.pivot?.frequency || bundleService.frequency || bundleService.currentFrequency || 1) : 0,
+                        currentDuration: isCore ? (bundleService.pivot?.duration || bundleService.duration || bundleService.currentDuration || 12) : 12,
+                        defaultFrequency: isCore ? (bundleService.pivot?.frequency || bundleService.frequency || bundleService.currentFrequency || 1) : 0,
+                    };
+                });
+                setServices(servicesWithConfig);
+            } else {
+                // Default initialization if no bundle selected
+                setServices(apiServiceTypes.map(s => ({
+                    ...s,
+                    is_core: false,
+                    currentFrequency: 0,
+                    currentDuration: 12,
+                    defaultFrequency: 0
+                })));
+            }
         }
-    }, [apiServiceTypes, services.length]);
+    }, [loading, apiServiceTypes, selectedBundle, services.length]);
 
 
 
@@ -109,11 +141,8 @@ const CareBundleWizard = () => {
                         setSelectedBundle(recommended);
                         // Pre-populate services from recommended bundle
                         if (recommended.services) {
-                            const normalizedServices = recommended.services.map(s => ({
-                                ...s,
-                                category: mapCategory(s.category || s.category_code)
-                            }));
-                            setServices(normalizedServices);
+                            // Don't set services here, let useEffect handle the merge with apiServiceTypes
+                            // This ensures we have the full list of services (22) not just the bundle ones (7)
                         }
                     }
                 } else if (configuredBundles.length > 0) {
@@ -154,12 +183,37 @@ const CareBundleWizard = () => {
     // When bundle selection changes, update services
     const handleBundleSelect = (bundle) => {
         setSelectedBundle(bundle);
-        if (bundle.services && bundle.services.length > 0) {
-            const normalizedServices = bundle.services.map(s => ({
+
+        // Merge bundle services with all available services
+        // We need to map ALL available services, marking those in the bundle as isCore
+        const servicesWithConfig = apiServiceTypes.map(s => {
+            // Check if this service exists in the selected bundle
+            // Use loose comparison for IDs, check code, and fallback to name matching
+            const bundleService = bundle.services?.find(b =>
+                b.id == s.id ||
+                (b.code && s.code && b.code === s.code) ||
+                (b.name && s.name && b.name === s.name)
+            );
+            const isCore = !!bundleService;
+
+            return {
                 ...s,
-                category: mapCategory(s.category || s.category_code)
-            }));
-            setServices(normalizedServices);
+                is_core: isCore,
+                // If it's in the bundle, use its frequency/duration, otherwise default to 0 (hidden)
+                currentFrequency: isCore ? (bundleService.pivot?.frequency || bundleService.frequency || bundleService.currentFrequency || 1) : 0,
+                currentDuration: isCore ? (bundleService.pivot?.duration || bundleService.duration || bundleService.currentDuration || 12) : 12,
+                // Keep track of original bundle values for reset if needed
+                defaultFrequency: isCore ? (bundleService.pivot?.frequency || bundleService.frequency || bundleService.currentFrequency || 1) : 0,
+            };
+        });
+
+        setServices(servicesWithConfig);
+        setGlobalDuration(12);
+        setShowAdditionalServices(false);
+
+        // If we are on step 1, move to step 2
+        if (step === 1) {
+            setStep(2);
         }
     };
 
@@ -221,7 +275,8 @@ const CareBundleWizard = () => {
             );
 
             setCarePlanId(response.data.id);
-            setStep(3);
+            setCarePlanId(response.data.id);
+            setStep(4);
         } catch (error) {
             console.error('Failed to build care plan', error);
             const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Unknown error';
@@ -301,6 +356,65 @@ const CareBundleWizard = () => {
         </button>
     );
 
+    const ServiceList = ({ filterFn }) => {
+        return (
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                {/* CLINICAL SECTION */}
+                <AccordionHeader title="CLINICAL SERVICES" sectionKey="CLINICAL" />
+                {expandedSection === 'CLINICAL' && (
+                    <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                        {services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL') && filterFn(s)).length > 0 ? (
+                            services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL') && filterFn(s)).map(service => (
+                                <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                            ))
+                        ) : (
+                            <div className="text-slate-500 text-sm">No clinical services available in this section.</div>
+                        )}
+                    </div>
+                )}
+
+                <AccordionHeader title="PERSONAL SUPPORT & DAILY LIVING" sectionKey="PERSONAL_SUPPORT" />
+                {expandedSection === 'PERSONAL_SUPPORT' && (
+                    <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                        {services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL') && filterFn(s)).length > 0 ? (
+                            services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL') && filterFn(s)).map(service => (
+                                <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                            ))
+                        ) : (
+                            <div className="text-slate-500 text-sm">No personal support services available in this section.</div>
+                        )}
+                    </div>
+                )}
+
+                <AccordionHeader title="SAFETY, MONITORING & TECHNOLOGY" sectionKey="SAFETY_TECH" />
+                {expandedSection === 'SAFETY_TECH' && (
+                    <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                        {services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH')) && filterFn(s)).length > 0 ? (
+                            services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH')) && filterFn(s)).map(service => (
+                                <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                            ))
+                        ) : (
+                            <div className="text-slate-500 text-sm">No safety/monitoring services available in this section.</div>
+                        )}
+                    </div>
+                )}
+
+                <AccordionHeader title="LOGISTICS & ACCESS SERVICES" sectionKey="LOGISTICS" />
+                {expandedSection === 'LOGISTICS' && (
+                    <div className="p-4 bg-white space-y-4 border-b border-slate-200">
+                        {services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS') && filterFn(s)).length > 0 ? (
+                            services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS') && filterFn(s)).map(service => (
+                                <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
+                            ))
+                        ) : (
+                            <div className="text-slate-500 text-sm">No logistics services available in this section.</div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     if (loading || servicesLoading) return <div className="p-8 text-center text-slate-500">Loading Care Delivery Plan...</div>;
 
     if (servicesError) {
@@ -340,7 +454,7 @@ const CareBundleWizard = () => {
                                 disabled={!selectedBundle}
                                 className="px-4 py-2 bg-blue-700 text-white rounded-md font-medium hover:bg-blue-800 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Next: Customize Services <ArrowRight className="w-4 h-4" />
+                                Next: Customize Bundle <ArrowRight className="w-4 h-4" />
                             </button>
                         )}
                         {step === 2 && (
@@ -350,6 +464,22 @@ const CareBundleWizard = () => {
                                     className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 bg-white shadow-sm flex items-center gap-2"
                                 >
                                     <ArrowLeft className="w-4 h-4" /> Back to Bundles
+                                </button>
+                                <button
+                                    onClick={() => setStep(3)}
+                                    className="px-4 py-2 bg-blue-700 text-white rounded-md font-medium hover:bg-blue-800 shadow-sm flex items-center gap-2"
+                                >
+                                    Next: Add Additional Services <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                        {step === 3 && (
+                            <>
+                                <button
+                                    onClick={() => setStep(2)}
+                                    className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 bg-white shadow-sm flex items-center gap-2"
+                                >
+                                    <ArrowLeft className="w-4 h-4" /> Back to Customization
                                 </button>
                                 <button
                                     onClick={handleProceedToReview}
@@ -368,10 +498,10 @@ const CareBundleWizard = () => {
                                 </button>
                             </>
                         )}
-                        {step === 3 && !publishSuccess && (
+                        {step === 4 && !publishSuccess && (
                             <>
                                 <button
-                                    onClick={() => setStep(2)}
+                                    onClick={() => setStep(3)}
                                     className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 bg-white shadow-sm flex items-center gap-2"
                                 >
                                     <ArrowLeft className="w-4 h-4" /> Back to Services
@@ -400,7 +530,7 @@ const CareBundleWizard = () => {
                 <div className="flex-1 flex overflow-hidden">
 
                     {/* Left Column: Patient Summary (Independent Scroll) */}
-                    <div className="w-1/4 min-w-[320px] shrink-0 overflow-y-auto border-r border-slate-200 bg-slate-50/50 p-6">
+                    <div className="w-1/4 min-w-[300px] shrink-0 overflow-y-auto border-r border-slate-200 bg-slate-50/50 p-6">
                         <PatientSummaryCard patient={patient} />
 
                         {/* Queue Status Card */}
@@ -420,23 +550,40 @@ const CareBundleWizard = () => {
                     {/* Middle Column: Main Form (Independent Scroll) */}
                     <div className="flex-1 overflow-y-auto p-8 bg-white">
                         {/* Stepper Indicator */}
-                        <div className="mb-8 flex items-center justify-between relative max-w-2xl mx-auto">
-                            <div className="absolute left-0 top-1/2 w-full h-0.5 bg-slate-200 -z-10"></div>
-                            <div className={`flex flex-col items-center bg-white px-4 ${step >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
-                                    {step > 1 ? <Check className="w-4 h-4" /> : '1'}
+                        <div className="mb-8 relative max-w-3xl mx-auto">
+                            <div className="absolute left-0 top-1/2 w-full h-0.5 bg-slate-200 -z-10 -translate-y-1/2"></div>
+                            <div className="flex justify-between w-full">
+                                {/* Step 1 */}
+                                <div className={`flex flex-col items-center bg-white px-2 ${step >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 transition-colors ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                        {step > 1 ? <Check className="w-5 h-5" /> : '1'}
+                                    </div>
+                                    <span className="text-sm font-medium whitespace-nowrap">Select Bundle</span>
                                 </div>
-                                <span className="text-sm font-medium">Select Bundle</span>
-                            </div>
-                            <div className={`flex flex-col items-center bg-white px-4 ${step >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>
-                                    {step > 2 ? <Check className="w-4 h-4" /> : '2'}
+
+                                {/* Step 2 */}
+                                <div className={`flex flex-col items-center bg-white px-2 ${step >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 transition-colors ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                        {step > 2 ? <Check className="w-5 h-5" /> : '2'}
+                                    </div>
+                                    <span className="text-sm font-medium whitespace-nowrap">Customize</span>
                                 </div>
-                                <span className="text-sm font-medium">Customize Services</span>
-                            </div>
-                            <div className={`flex flex-col items-center bg-white px-4 ${step >= 3 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}>3</div>
-                                <span className="text-sm font-medium">Review & Publish</span>
+
+                                {/* Step 3 */}
+                                <div className={`flex flex-col items-center bg-white px-2 ${step >= 3 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 transition-colors ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                        {step > 3 ? <Check className="w-5 h-5" /> : '3'}
+                                    </div>
+                                    <span className="text-sm font-medium whitespace-nowrap">Add Services</span>
+                                </div>
+
+                                {/* Step 4 */}
+                                <div className={`flex flex-col items-center bg-white px-2 ${step >= 4 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 transition-colors ${step >= 4 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                        4
+                                    </div>
+                                    <span className="text-sm font-medium whitespace-nowrap">Review</span>
+                                </div>
                             </div>
                         </div>
 
@@ -524,32 +671,32 @@ const CareBundleWizard = () => {
                             </div>
                         )}
 
-                        {/* Step 2: Service Configuration */}
+                        {/* Step 2: Customize Bundle */}
                         {step === 2 && (
-                            <>
-                                <div className="mb-6">
-                                    <h1 className="text-xl font-bold text-slate-900 mb-2">Step 2: Customize Services</h1>
+                            <div className="space-y-6">
+                                <div>
+                                    <h1 className="text-xl font-bold text-slate-900 mb-2">Step 2: Customize {selectedBundle?.name}</h1>
                                     <p className="text-sm text-slate-600">
                                         Services have been auto-configured based on the patient's TNP and clinical flags. Adjust frequency and duration as needed.
                                     </p>
                                 </div>
 
                                 {/* Global Duration Slider */}
-                                <div className="mb-6 p-5 bg-blue-50 border border-blue-100 rounded-lg">
-                                    <div className="flex items-start gap-3 mb-4">
+                                <div className="p-6 bg-blue-50 rounded-lg border border-blue-100">
+                                    <div className="flex items-start gap-4 mb-4">
                                         <div className="p-2 bg-blue-100 rounded-full text-blue-600">
                                             <AlertCircle className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-slate-900">Plan Duration</h3>
-                                            <p className="text-sm text-slate-600 mt-1">
+                                            <h3 className="font-bold text-slate-900 text-sm">Plan Duration</h3>
+                                            <p className="text-xs text-slate-600 mt-1">
                                                 Set the default duration for the entire care plan. You can still adjust individual services below if they require a different timeline.
                                             </p>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-4">
-                                        <span className="text-sm font-medium text-slate-700 w-24">Global Duration:</span>
+                                        <span className="text-sm font-medium text-slate-700 w-20">Global Duration:</span>
                                         <input
                                             type="range"
                                             min="1"
@@ -562,65 +709,40 @@ const CareBundleWizard = () => {
                                     </div>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-                                    {/* CLINICAL SECTION */}
-                                    <AccordionHeader title="CLINICAL SERVICES" sectionKey="CLINICAL" />
-                                    {expandedSection === 'CLINICAL' && (
-                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                            {services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).length > 0 ? (
-                                                services.filter(s => s.category && s.category.toUpperCase().includes('CLINICAL')).map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))
-                                            ) : (
-                                                <div className="text-slate-500 text-sm">No clinical services available.</div>
-                                            )}
-                                        </div>
-                                    )}
+                                {/* Service List - Only Core Services */}
+                                <ServiceList filterFn={(s) => s.defaultFrequency > 0} />
+                            </div>
+                        )}
 
-                                    <AccordionHeader title="PERSONAL SUPPORT & DAILY LIVING" sectionKey="PERSONAL_SUPPORT" />
-                                    {expandedSection === 'PERSONAL_SUPPORT' && (
-                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                            {services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).length > 0 ? (
-                                                services.filter(s => s.category && s.category.toUpperCase().includes('PERSONAL')).map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))
-                                            ) : (
-                                                <div className="text-slate-500 text-sm">No personal support services available.</div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <AccordionHeader title="SAFETY, MONITORING & TECHNOLOGY" sectionKey="SAFETY_TECH" />
-                                    {expandedSection === 'SAFETY_TECH' && (
-                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                            {services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).length > 0 ? (
-                                                services.filter(s => s.category && (s.category.toUpperCase().includes('SAFETY') || s.category.toUpperCase().includes('TECH'))).map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))
-                                            ) : (
-                                                <div className="text-slate-500 text-sm">No safety/monitoring services available.</div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <AccordionHeader title="LOGISTICS & ACCESS SERVICES" sectionKey="LOGISTICS" />
-                                    {expandedSection === 'LOGISTICS' && (
-                                        <div className="p-4 bg-white space-y-4 border-b border-slate-200">
-                                            {services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).length > 0 ? (
-                                                services.filter(s => s.category && s.category.toUpperCase().includes('LOGISTICS')).map(service => (
-                                                    <ServiceCard key={service.id} service={service} onUpdate={handleUpdateService} />
-                                                ))
-                                            ) : (
-                                                <div className="text-slate-500 text-sm">No logistics services available.</div>
-                                            )}
-                                        </div>
-                                    )}
+                        {/* Step 3: Add Additional Services */}
+                        {step === 3 && (
+                            <>
+                                <div className="mb-6">
+                                    <h1 className="text-xl font-bold text-slate-900 mb-2">Step 3: Add Additional Services</h1>
+                                    <p className="text-sm text-slate-600">
+                                        Add any other services that were not included in the pre-built bundle.
+                                    </p>
                                 </div>
+
+                                {!showAdditionalServices ? (
+                                    <div className="flex justify-center py-12 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50">
+                                        <button
+                                            onClick={() => setShowAdditionalServices(true)}
+                                            className="px-6 py-3 bg-white border border-blue-200 text-blue-700 font-bold rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center gap-2"
+                                        >
+                                            <Plus className="w-5 h-5" />
+                                            Add Services To Bundle
+                                        </button>
+                                    </div>
+                                ) : (
+                                    /* Show only Non-Core services */
+                                    <ServiceList filterFn={(s) => s.defaultFrequency === 0} />
+                                )}
                             </>
                         )}
 
-                        {/* Step 3: Review & Publish */}
-                        {step === 3 && (
+                        {/* Step 4: Review & Publish */}
+                        {step === 4 && (
                             <div className="space-y-6">
                                 {publishSuccess ? (
                                     <div className="text-center py-12">
@@ -632,7 +754,7 @@ const CareBundleWizard = () => {
                                 ) : (
                                     <>
                                         <div className="mb-6">
-                                            <h1 className="text-xl font-bold text-slate-900 mb-2">Step 3: Review & Publish</h1>
+                                            <h1 className="text-xl font-bold text-slate-900 mb-2">Step 4: Review & Publish</h1>
                                             <p className="text-sm text-slate-600">
                                                 Review the care plan summary below. Publishing will activate services and transition the patient from the queue to their active profile.
                                             </p>
@@ -655,13 +777,22 @@ const CareBundleWizard = () => {
                                         <div className="bg-white border border-slate-200 rounded-lg p-6">
                                             <h3 className="font-bold text-slate-900 mb-4">Care Plan Summary</h3>
 
-                                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                            <div className="grid grid-cols-3 gap-4 mb-6">
                                                 <div className="p-4 bg-slate-50 rounded-lg">
                                                     <div className="text-sm text-slate-500">Selected Bundle</div>
-                                                    <div className="font-medium text-slate-900">{selectedBundle?.name || 'Custom'}</div>
+                                                    <div className="font-medium text-slate-900">
+                                                        {selectedBundle?.name || 'Custom'}
+                                                        <span className="text-slate-500 font-normal text-xs ml-1">
+                                                            ({services.some(s => s.defaultFrequency === 0 && s.currentFrequency > 0) ? 'Customized' : 'Base'})
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div className="p-4 bg-slate-50 rounded-lg">
-                                                    <div className="text-sm text-slate-500">Estimated Monthly Cost</div>
+                                                    <div className="text-sm text-slate-500">Est. Weekly Cost</div>
+                                                    <div className="font-medium text-slate-900">${weeklyCost.toLocaleString()}</div>
+                                                </div>
+                                                <div className="p-4 bg-slate-50 rounded-lg">
+                                                    <div className="text-sm text-slate-500">Est. Monthly Cost</div>
                                                     <div className="font-medium text-slate-900">${monthlyCost.toLocaleString()}</div>
                                                 </div>
                                             </div>
@@ -694,7 +825,7 @@ const CareBundleWizard = () => {
                     </div>
 
                     {/* Right Column: Summary & Recommendation (Independent Scroll) */}
-                    {step !== 3 && (
+                    {step !== 4 && (
                         <div className="w-80 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-6">
                             <BundleSummary
                                 services={services}
@@ -702,6 +833,7 @@ const CareBundleWizard = () => {
                                 isGeneratingAi={isGeneratingAi}
                                 aiRecommendation={aiRecommendation}
                                 onGenerateAi={generateRecommendation}
+                                bundleName={`${selectedBundle?.name || 'Bundle'} ${services.some(s => s.defaultFrequency === 0 && s.currentFrequency > 0) ? '(Customized)' : '(Base)'}`}
                             />
                         </div>
                     )}

@@ -43,7 +43,7 @@ const ServiceCard = ({ service, onUpdate }) => {
                             <span className="font-bold text-sm">{service.code}</span>
                         </div>
                         <div>
-                            <h4 className="text-sm font-bold text-slate-900">{service.name} ({service.code})</h4>
+                            <h4 className="text-sm font-bold text-slate-900">{service.name}</h4>
                             <p className="text-sm text-slate-600 mt-1">{service.description}</p>
                         </div>
                     </div>

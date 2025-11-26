@@ -36,7 +36,8 @@ const LoginModal = ({ isOpen, onClose }) => {
             navigate('/dashboard');
         } catch (err) {
             console.error(err);
-            setError('Invalid credentials. Please try again.');
+            const errorMessage = err.response?.data?.message || err.response?.data?.errors?.email?.[0] || err.message || 'Invalid credentials. Please try again.';
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }

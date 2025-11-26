@@ -19,5 +19,15 @@ class MasterUserSeeder extends Seeder
                 'organization_id' => null,
             ]
         );
+
+        User::updateOrCreate(
+            ['email' => 'admin@sehealth.com'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('password'),
+                'role' => 'admin',
+                'organization_id' => null,
+            ]
+        );
     }
 }

@@ -94,15 +94,6 @@ class CareOpsMetricsService
         return [
             [
                 'id' => 1,
-                'name' => 'Reconnect Health',
-                'specialty' => 'Mental Health / Addictions',
-                'active_assignments' => 24,
-                'acceptance_rate' => 98,
-                'missed_visit_rate' => 0,
-                'status' => 'good'
-            ],
-            [
-                'id' => 2,
                 'name' => 'Alexis Lodge',
                 'specialty' => 'Dementia Care',
                 'active_assignments' => 18,
@@ -111,13 +102,31 @@ class CareOpsMetricsService
                 'status' => 'good'
             ],
             [
+                'id' => 2,
+                'name' => 'Wellhaus',
+                'specialty' => 'Digital Health / Virtual Care',
+                'active_assignments' => 42,
+                'acceptance_rate' => 98,
+                'missed_visit_rate' => 0,
+                'status' => 'good'
+            ],
+            [
                 'id' => 3,
-                'name' => 'Grace Health (RPM)',
-                'specialty' => 'Remote Monitoring',
+                'name' => 'Toronto Grace Health Centre',
+                'specialty' => 'RPM / Complex Care',
                 'active_assignments' => 56,
-                'acceptance_rate' => 85,
-                'missed_visit_rate' => 2.5,
+                'acceptance_rate' => 92,
+                'missed_visit_rate' => 1.5,
                 'status' => 'warning'
+            ],
+            [
+                'id' => 4,
+                'name' => 'Reconnect Community Health Services',
+                'specialty' => 'Mental Health & Addictions',
+                'active_assignments' => 24,
+                'acceptance_rate' => 95,
+                'missed_visit_rate' => 0.5,
+                'status' => 'good'
             ]
         ];
     }
