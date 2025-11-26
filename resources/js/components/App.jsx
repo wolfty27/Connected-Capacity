@@ -33,6 +33,7 @@ import SuppliesPage from '../pages/Logistics/SuppliesPage';
 import SspoDashboardPage from '../pages/SSPO/SspoDashboardPage';
 import InterraiCompletionWizard from '../pages/InterRAI/InterraiCompletionWizard';
 import InterraiDashboardPage from '../pages/InterRAI/InterraiDashboardPage';
+import InterraiAssessmentForm from '../pages/InterRAI/InterraiAssessmentForm';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -101,6 +102,8 @@ const AppRoutes = () => {
 
                         {/* InterRAI Assessment Routes (IR-006) */}
                         <Route path="/interrai/complete/:patientId" element={<InterraiCompletionWizard />} />
+                        <Route path="/interrai/assess/:patientId" element={<InterraiAssessmentForm />} />
+                        <Route path="/interrai/assess/:patientId/:assessmentId" element={<InterraiAssessmentForm />} />
                         <Route path="/interrai/dashboard" element={<InterraiDashboardPage />} />
                         <Route path="/admin/assessments" element={<InterraiDashboardPage />} />
                     </Route>

@@ -58,6 +58,42 @@ const interraiApi = {
     },
 
     /**
+     * Start a new InterRAI HC assessment
+     */
+    async startAssessment(patientId, reassessmentReason = null) {
+        const response = await api.post(`/api/v2/interrai/patients/${patientId}/assessments/start`, {
+            reassessment_reason: reassessmentReason,
+        });
+        return response.data;
+    },
+
+    /**
+     * Save assessment progress (auto-save)
+     */
+    async saveAssessmentProgress(assessmentId, data) {
+        const response = await api.patch(`/api/v2/interrai/assessments/${assessmentId}/progress`, data);
+        return response.data;
+    },
+
+    /**
+     * Calculate scores from raw items
+     */
+    async calculateScores(assessmentId, rawItems) {
+        const response = await api.post(`/api/v2/interrai/assessments/${assessmentId}/calculate-scores`, {
+            raw_items: rawItems,
+        });
+        return response.data;
+    },
+
+    /**
+     * Complete and finalize assessment
+     */
+    async completeAssessment(assessmentId, data) {
+        const response = await api.post(`/api/v2/interrai/assessments/${assessmentId}/complete`, data);
+        return response.data;
+    },
+
+    /**
      * Create externally-completed assessment
      */
     async createExternalAssessment(patientId, data) {
@@ -83,6 +119,14 @@ const interraiApi = {
      */
     async getFormSchema() {
         const response = await api.get('/api/v2/interrai/form-schema');
+        return response.data;
+    },
+
+    /**
+     * Get full assessment form schema with all sections
+     */
+    async getFullFormSchema() {
+        const response = await api.get('/api/v2/interrai/full-form-schema');
         return response.data;
     },
 

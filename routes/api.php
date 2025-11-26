@@ -144,8 +144,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/reassessment-triggers/{trigger}/resolve', [\App\Http\Controllers\Api\V2\InterraiController::class, 'resolveReassessmentTrigger']);
         Route::get('/reassessment-trigger-options', [\App\Http\Controllers\Api\V2\InterraiController::class, 'reassessmentTriggerOptions']);
 
+        // IR-006: Full assessment workflow
+        Route::post('/patients/{patient}/assessments/start', [\App\Http\Controllers\Api\V2\InterraiController::class, 'startAssessment']);
+
         // Assessment details and management
         Route::get('/assessments/{assessment}', [\App\Http\Controllers\Api\V2\InterraiController::class, 'show']);
+        Route::patch('/assessments/{assessment}/progress', [\App\Http\Controllers\Api\V2\InterraiController::class, 'saveProgress']);
+        Route::post('/assessments/{assessment}/calculate-scores', [\App\Http\Controllers\Api\V2\InterraiController::class, 'calculateScores']);
+        Route::post('/assessments/{assessment}/complete', [\App\Http\Controllers\Api\V2\InterraiController::class, 'completeAssessment']);
         Route::post('/assessments/{assessment}/retry-iar', [\App\Http\Controllers\Api\V2\InterraiController::class, 'retryIarUpload']);
 
         // IR-004: Document endpoints
@@ -155,6 +161,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
         // Form schema and utilities
         Route::get('/form-schema', [\App\Http\Controllers\Api\V2\InterraiController::class, 'formSchema']);
+        Route::get('/full-form-schema', [\App\Http\Controllers\Api\V2\InterraiController::class, 'fullFormSchema']);
 
         // IAR upload monitoring
         Route::get('/pending-iar-uploads', [\App\Http\Controllers\Api\V2\InterraiController::class, 'pendingIarUploads']);
