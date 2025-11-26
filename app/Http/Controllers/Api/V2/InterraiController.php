@@ -803,6 +803,7 @@ class InterraiController extends Controller
         return response()->json([
             'message' => 'Assessment started successfully',
             'data' => [
+                'id' => $assessment->id,
                 'assessment_id' => $assessment->id,
                 'patient_id' => $patient->id,
                 'version' => $version,
