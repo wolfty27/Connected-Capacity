@@ -53,156 +53,121 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'preferred_service_areas',
                 'name' => 'Preferred Service Areas',
+                'display_name' => 'Preferred Service Areas',
                 'data_type' => 'json',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'preferences',
-                'config' => [
-                    'description' => 'Geographic areas the staff member prefers to work in',
-                    'ui_component' => 'multi-select',
-                ],
             ],
             [
                 'code' => 'language_proficiencies',
                 'name' => 'Language Proficiencies',
+                'display_name' => 'Language Proficiencies',
                 'data_type' => 'json',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'capabilities',
-                'config' => [
-                    'description' => 'Languages spoken by the staff member',
-                    'options' => [
-                        ['value' => 'en', 'label' => 'English'],
-                        ['value' => 'fr', 'label' => 'French'],
-                        ['value' => 'zh', 'label' => 'Mandarin'],
-                        ['value' => 'yue', 'label' => 'Cantonese'],
-                        ['value' => 'pa', 'label' => 'Punjabi'],
-                        ['value' => 'hi', 'label' => 'Hindi'],
-                        ['value' => 'es', 'label' => 'Spanish'],
-                        ['value' => 'pt', 'label' => 'Portuguese'],
-                        ['value' => 'it', 'label' => 'Italian'],
-                        ['value' => 'ar', 'label' => 'Arabic'],
-                        ['value' => 'tl', 'label' => 'Filipino/Tagalog'],
-                    ],
-                    'ui_component' => 'multi-select',
+                'options' => [
+                    ['value' => 'en', 'label' => 'English'],
+                    ['value' => 'fr', 'label' => 'French'],
+                    ['value' => 'zh', 'label' => 'Mandarin'],
+                    ['value' => 'yue', 'label' => 'Cantonese'],
+                    ['value' => 'pa', 'label' => 'Punjabi'],
+                    ['value' => 'hi', 'label' => 'Hindi'],
+                    ['value' => 'es', 'label' => 'Spanish'],
+                    ['value' => 'pt', 'label' => 'Portuguese'],
+                    ['value' => 'it', 'label' => 'Italian'],
+                    ['value' => 'ar', 'label' => 'Arabic'],
+                    ['value' => 'tl', 'label' => 'Filipino/Tagalog'],
                 ],
             ],
             [
                 'code' => 'transportation_method',
                 'name' => 'Transportation Method',
+                'display_name' => 'Transportation Method',
                 'data_type' => 'string',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'logistics',
-                'config' => [
-                    'description' => 'How the staff member travels to visits',
-                    'options' => [
-                        ['value' => 'car', 'label' => 'Personal Vehicle'],
-                        ['value' => 'public_transit', 'label' => 'Public Transit'],
-                        ['value' => 'bicycle', 'label' => 'Bicycle'],
-                        ['value' => 'walking', 'label' => 'Walking'],
-                    ],
-                    'ui_component' => 'select',
+                'options' => [
+                    ['value' => 'car', 'label' => 'Personal Vehicle'],
+                    ['value' => 'public_transit', 'label' => 'Public Transit'],
+                    ['value' => 'bicycle', 'label' => 'Bicycle'],
+                    ['value' => 'walking', 'label' => 'Walking'],
                 ],
             ],
             [
                 'code' => 'max_travel_distance_km',
                 'name' => 'Maximum Travel Distance (km)',
+                'display_name' => 'Max Travel Distance',
                 'data_type' => 'integer',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'logistics',
-                'config' => [
-                    'description' => 'Maximum distance willing to travel for visits',
-                    'default_value' => 25,
-                    'min' => 1,
-                    'max' => 100,
-                    'ui_component' => 'number-input',
-                ],
+                'default_value' => '25',
             ],
             [
                 'code' => 'emergency_contact_name',
                 'name' => 'Emergency Contact Name',
+                'display_name' => 'Emergency Contact',
                 'data_type' => 'string',
                 'is_required' => false,
                 'is_searchable' => false,
                 'group' => 'personal',
-                'config' => [
-                    'description' => 'Emergency contact person',
-                    'ui_component' => 'text-input',
-                ],
             ],
             [
                 'code' => 'emergency_contact_phone',
                 'name' => 'Emergency Contact Phone',
+                'display_name' => 'Emergency Phone',
                 'data_type' => 'string',
                 'is_required' => false,
                 'is_searchable' => false,
                 'group' => 'personal',
-                'config' => [
-                    'description' => 'Emergency contact phone number',
-                    'ui_component' => 'phone-input',
-                ],
             ],
             [
                 'code' => 'license_number',
                 'name' => 'Professional License Number',
+                'display_name' => 'License Number',
                 'data_type' => 'string',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'credentials',
-                'config' => [
-                    'description' => 'Nursing or professional license number',
-                    'ui_component' => 'text-input',
-                ],
             ],
             [
                 'code' => 'license_expiry',
                 'name' => 'License Expiry Date',
+                'display_name' => 'License Expiry',
                 'data_type' => 'date',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'credentials',
-                'config' => [
-                    'description' => 'Date when professional license expires',
-                    'ui_component' => 'date-picker',
-                ],
             ],
             [
                 'code' => 'specialty_areas',
                 'name' => 'Specialty Areas',
+                'display_name' => 'Specialty Areas',
                 'data_type' => 'json',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'capabilities',
-                'config' => [
-                    'description' => 'Areas of clinical specialty',
-                    'options' => [
-                        ['value' => 'wound_care', 'label' => 'Wound Care'],
-                        ['value' => 'palliative', 'label' => 'Palliative Care'],
-                        ['value' => 'dementia', 'label' => 'Dementia Care'],
-                        ['value' => 'pediatric', 'label' => 'Pediatric'],
-                        ['value' => 'mental_health', 'label' => 'Mental Health'],
-                        ['value' => 'diabetes', 'label' => 'Diabetes Management'],
-                        ['value' => 'respiratory', 'label' => 'Respiratory Care'],
-                    ],
-                    'ui_component' => 'multi-select',
+                'options' => [
+                    ['value' => 'wound_care', 'label' => 'Wound Care'],
+                    ['value' => 'palliative', 'label' => 'Palliative Care'],
+                    ['value' => 'dementia', 'label' => 'Dementia Care'],
+                    ['value' => 'pediatric', 'label' => 'Pediatric'],
+                    ['value' => 'mental_health', 'label' => 'Mental Health'],
+                    ['value' => 'diabetes', 'label' => 'Diabetes Management'],
+                    ['value' => 'respiratory', 'label' => 'Respiratory Care'],
                 ],
             ],
             [
                 'code' => 'performance_rating',
                 'name' => 'Performance Rating',
+                'display_name' => 'Performance Rating',
                 'data_type' => 'decimal',
                 'is_required' => false,
                 'is_searchable' => true,
                 'group' => 'performance',
-                'config' => [
-                    'description' => 'Overall performance rating (1-5)',
-                    'min' => 1,
-                    'max' => 5,
-                    'decimal_places' => 1,
-                    'ui_component' => 'rating',
-                ],
             ],
         ];
 
@@ -214,8 +179,7 @@ class StaffMetadataSeeder extends Seeder
                 ],
                 array_merge($attrData, [
                     'object_definition_id' => $staffDef->id,
-                    'display_order' => $index + 1,
-                    'is_active' => true,
+                    'sort_order' => $index + 1,
                 ])
             );
         }
@@ -230,12 +194,10 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'DEMENTIA_SKILL_REQUIRED',
                 'name' => 'Dementia Skill Required for DEM-SUP Bundle',
-                'description' => 'Staff assigned to dementia support bundles must have dementia care certification',
                 'rule_type' => 'validation',
                 'trigger_event' => 'assignment.create',
                 'conditions' => [
-                    'bundle.code' => ['$in' => ['DEM-SUP', 'DEM-INT']],
-                    'assignment.assigned_user_id' => ['$exists' => true],
+                    ['field' => 'bundle.code', 'operator' => 'in', 'value' => ['DEM-SUP', 'DEM-INT']],
                 ],
                 'actions' => [
                     [
@@ -251,12 +213,10 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'PALLIATIVE_SKILL_REQUIRED',
                 'name' => 'Palliative Skill Required for PALL-SUP Bundle',
-                'description' => 'Staff assigned to palliative support bundles must have palliative care certification',
                 'rule_type' => 'validation',
                 'trigger_event' => 'assignment.create',
                 'conditions' => [
-                    'bundle.code' => ['$in' => ['PALL-SUP', 'PALL-INT']],
-                    'assignment.assigned_user_id' => ['$exists' => true],
+                    ['field' => 'bundle.code', 'operator' => 'in', 'value' => ['PALL-SUP', 'PALL-INT']],
                 ],
                 'actions' => [
                     [
@@ -272,12 +232,10 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'MH_SKILL_REQUIRED',
                 'name' => 'Mental Health Skill Required for MH Bundle',
-                'description' => 'Staff assigned to mental health bundles must have mental health first aid certification',
                 'rule_type' => 'validation',
                 'trigger_event' => 'assignment.create',
                 'conditions' => [
-                    'bundle.code' => ['$in' => ['MH-SUP', 'MH-INT']],
-                    'assignment.assigned_user_id' => ['$exists' => true],
+                    ['field' => 'bundle.code', 'operator' => 'in', 'value' => ['MH-SUP', 'MH-INT']],
                 ],
                 'actions' => [
                     [
@@ -293,7 +251,6 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'FTE_80_COMPLIANCE',
                 'name' => '80% FTE Compliance Check',
-                'description' => 'Alert when SPO FTE ratio falls below 80% target',
                 'rule_type' => 'calculation',
                 'trigger_event' => 'weekly.huddle',
                 'conditions' => [],
@@ -319,12 +276,10 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'SKILL_EXPIRY_WARNING',
                 'name' => 'Skill Expiry Warning',
-                'description' => 'Alert coordinators when staff skills are expiring within 30 days',
                 'rule_type' => 'trigger',
                 'trigger_event' => 'daily.check',
                 'conditions' => [
-                    'staff_skills.expires_at' => ['$lte' => '${today + 30 days}'],
-                    'staff_skills.expires_at' => ['$gt' => '${today}'],
+                    ['field' => 'staff_skills.expires_at', 'operator' => 'less_than', 'value' => '${today + 30 days}'],
                 ],
                 'actions' => [
                     [
@@ -341,12 +296,11 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'AVAILABILITY_CONFLICT',
                 'name' => 'Availability Conflict Check',
-                'description' => 'Prevent assignment when staff is unavailable',
                 'rule_type' => 'validation',
                 'trigger_event' => 'assignment.create',
                 'conditions' => [
-                    'assignment.assigned_user_id' => ['$exists' => true],
-                    'assignment.scheduled_start' => ['$exists' => true],
+                    ['field' => 'assignment.assigned_user_id', 'operator' => 'is_not_empty', 'value' => null],
+                    ['field' => 'assignment.scheduled_start', 'operator' => 'is_not_empty', 'value' => null],
                 ],
                 'actions' => [
                     [
@@ -363,11 +317,10 @@ class StaffMetadataSeeder extends Seeder
             [
                 'code' => 'CAPACITY_OVERLOAD',
                 'name' => 'Capacity Overload Warning',
-                'description' => 'Warn when staff is assigned beyond their weekly capacity',
                 'rule_type' => 'validation',
                 'trigger_event' => 'assignment.create',
                 'conditions' => [
-                    'assignment.assigned_user_id' => ['$exists' => true],
+                    ['field' => 'assignment.assigned_user_id', 'operator' => 'is_not_empty', 'value' => null],
                 ],
                 'actions' => [
                     [
