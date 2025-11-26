@@ -31,6 +31,7 @@ import SspoMarketplacePage from '../pages/CarePlanning/SspoMarketplacePage';
 import ShadowBillingPage from '../pages/Finance/ShadowBillingPage';
 import SuppliesPage from '../pages/Logistics/SuppliesPage';
 import SspoDashboardPage from '../pages/SSPO/SspoDashboardPage';
+import SspoCapabilityPage from '../pages/CareOps/SspoCapabilityPage';
 import InterraiCompletionWizard from '../pages/InterRAI/InterraiCompletionWizard';
 import InterraiDashboardPage from '../pages/InterRAI/InterraiDashboardPage';
 import InterraiAssessmentForm from '../pages/InterRAI/InterraiAssessmentForm';
@@ -91,6 +92,7 @@ const AppRoutes = () => {
                         <Route path="/care-bundles/create/:patientId" element={<CareBundleWizard />} />
                         <Route path="/staff" element={<SpoStaffPage />} />
                         <Route path="/sspo-marketplace" element={<SspoMarketplacePage />} />
+                        <Route path="/sspo-capabilities" element={<SspoCapabilityPage />} />
                         <Route path="/weekly-huddle" element={<WeeklyHuddlePage />} />
 
                         {/* Compliance & Reporting */}

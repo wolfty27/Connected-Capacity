@@ -180,6 +180,18 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/compliance-report', [\App\Http\Controllers\Api\V2\Admin\InterraiDashboardController::class, 'complianceReport']);
     });
 
+    // SSPO Capability Management API (STAFF-019, STAFF-020, STAFF-021)
+    Route::prefix('v2/sspo-capabilities')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'store']);
+        Route::get('/coverage', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'serviceTypeCoverage']);
+        Route::get('/rankings/{serviceTypeId}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'rankings']);
+        Route::post('/find-matches', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'findMatches']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'destroy']);
+    });
+
     // Staff Management API (STAFF-008)
     Route::prefix('v2/staff')->group(function () {
         // Staff CRUD
