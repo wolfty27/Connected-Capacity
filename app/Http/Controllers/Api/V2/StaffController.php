@@ -30,8 +30,13 @@ class StaffController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $isAdmin = $user->isMaster() || $user->role === User::ROLE_ADMIN;
-        $organizationId = $request->input('organization_id', $user->organization_id);
+        $isAdmin = $user->isMaster() || $user->role === User::ROLE_ADMIN || $user->role === User::ROLE_SPO_ADMIN;
+
+        // Get organization_id - treat empty string as null
+        $organizationId = $request->input('organization_id');
+        if (empty($organizationId)) {
+            $organizationId = $user->organization_id;
+        }
 
         // Only allow access to own org unless admin/master
         if (!$isAdmin && $organizationId != $user->organization_id) {
@@ -41,7 +46,7 @@ class StaffController extends Controller
         $query = User::whereIn('role', [User::ROLE_FIELD_STAFF, User::ROLE_SPO_COORDINATOR, User::ROLE_SSPO_COORDINATOR]);
 
         // Filter by organization if specified, or show all for admin without org
-        if ($organizationId) {
+        if (!empty($organizationId)) {
             $query->where('organization_id', $organizationId);
         } elseif (!$isAdmin) {
             // Non-admin without org sees nothing
@@ -635,6 +640,24 @@ class StaffController extends Controller
      */
     protected function transformStaffMember(User $staff, bool $detailed = false): array
     {
+        // Safely get computed properties with fallbacks
+        $currentWeeklyHours = 0;
+        $availableHours = 0;
+        $utilizationRate = 0;
+        $skillsCount = 0;
+        $expiringSkillsCount = 0;
+
+        try {
+            $currentWeeklyHours = round($staff->current_weekly_hours ?? 0, 1);
+            $availableHours = round($staff->available_hours ?? 0, 1);
+            $utilizationRate = round($staff->fte_utilization ?? 0, 1);
+            $skillsCount = $staff->relationLoaded('skills') ? $staff->skills->count() : 0;
+            $expiringSkillsCount = method_exists($staff, 'getExpiringSkills') ? $staff->getExpiringSkills(30)->count() : 0;
+        } catch (\Exception $e) {
+            // Log error but continue
+            \Log::warning('Error computing staff metrics', ['staff_id' => $staff->id, 'error' => $e->getMessage()]);
+        }
+
         $data = [
             'id' => $staff->id,
             'name' => $staff->name,
@@ -651,15 +674,15 @@ class StaffController extends Controller
             'external_id' => $staff->external_id,
             'phone_number' => $staff->phone_number,
 
-            // Computed properties
-            'current_weekly_hours' => round($staff->current_weekly_hours, 1),
-            'available_hours' => round($staff->available_hours, 1),
-            'utilization_rate' => round($staff->fte_utilization, 1),
-            'is_on_leave' => $staff->isOnLeave(),
+            // Computed properties (with safe fallbacks)
+            'current_weekly_hours' => $currentWeeklyHours,
+            'available_hours' => $availableHours,
+            'utilization_rate' => $utilizationRate,
+            'is_on_leave' => $staff->staff_status === 'on_leave',
 
             // Skills summary
-            'skills_count' => $staff->skills->count(),
-            'expiring_skills_count' => $staff->getExpiringSkills(30)->count(),
+            'skills_count' => $skillsCount,
+            'expiring_skills_count' => $expiringSkillsCount,
         ];
 
         if ($detailed) {
