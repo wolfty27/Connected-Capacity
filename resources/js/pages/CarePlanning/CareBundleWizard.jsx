@@ -67,23 +67,28 @@ const CareBundleWizard = () => {
             if (isModifying && existingPlan?.services?.length > 0) {
                 console.log('Loading existing care plan services for modification:', existingPlan.services);
                 const servicesWithConfig = apiServiceTypes.map(s => {
-                    // Find this service in the existing plan
+                    // Find this service in the existing plan - try multiple matching strategies
                     const existingService = existingPlan.services.find(es =>
-                        es.service_type_id == s.id ||
+                        String(es.service_type_id) === String(s.id) ||
                         (es.code && s.code && es.code === s.code) ||
-                        (es.name && s.name && es.name === s.name)
+                        (es.name && s.name && es.name.toLowerCase() === s.name.toLowerCase())
                     );
                     const isInExistingPlan = !!existingService;
+
+                    // Get frequency, defaulting to 1 for existing plan services
+                    const freq = isInExistingPlan ? (existingService.frequency || 1) : 0;
+                    const dur = isInExistingPlan ? (existingService.duration || 12) : 12;
 
                     return {
                         ...s,
                         is_core: isInExistingPlan,
-                        currentFrequency: isInExistingPlan ? (existingService.frequency || 1) : 0,
-                        currentDuration: isInExistingPlan ? (existingService.duration || 12) : 12,
-                        defaultFrequency: isInExistingPlan ? (existingService.frequency || 1) : 0,
+                        currentFrequency: freq,
+                        currentDuration: dur,
+                        // Services in existing plan should always have defaultFrequency > 0 to show in Step 2
+                        defaultFrequency: isInExistingPlan ? Math.max(freq, 1) : 0,
                         // Store original values for comparison display
-                        originalFrequency: isInExistingPlan ? (existingService.frequency || 1) : 0,
-                        originalDuration: isInExistingPlan ? (existingService.duration || 12) : 0,
+                        originalFrequency: freq,
+                        originalDuration: dur,
                         originalCost: isInExistingPlan ? (existingService.cost_per_visit || s.costPerVisit || 0) : 0,
                     };
                 });

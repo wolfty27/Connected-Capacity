@@ -102,10 +102,11 @@ const PatientDetailPage = () => {
     const hasActivePlan = !!currentPlan;
 
     // Map API services to BundleSummary format
+    // All services in the current plan are considered "core" (defaultFrequency > 0)
     const summaryServices = currentPlan?.services?.map(s => ({
         ...s,
         currentFrequency: s.frequency || 1,
-        defaultFrequency: s.frequency > 0 ? 1 : 0, // Treat as core if has frequency
+        defaultFrequency: 1, // All existing plan services are core services
         currentDuration: s.duration || 12,
         costPerVisit: s.cost_per_visit || 0,
     })) || [];
