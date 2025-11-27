@@ -30,8 +30,8 @@ const SspoAssignmentsPage = () => {
         try {
             setLoading(true);
             const [assignmentsRes, metricsRes] = await Promise.all([
-                api.get('/api/v2/assignments/pending-sspo'),
-                api.get('/api/v2/assignments/sspo-metrics'),
+                api.get('/v2/assignments/pending-sspo'),
+                api.get('/v2/assignments/sspo-metrics'),
             ]);
             setAssignments(assignmentsRes.data.data || []);
             setMetrics(metricsRes.data.data || {});
@@ -49,7 +49,7 @@ const SspoAssignmentsPage = () => {
     const handleAccept = async (assignment) => {
         try {
             setActionLoading(true);
-            await api.post(`/api/v2/assignments/${assignment.id}/accept`);
+            await api.post(`/v2/assignments/${assignment.id}/accept`);
             await fetchData();
         } catch (error) {
             console.error('Failed to accept assignment:', error);
@@ -73,7 +73,7 @@ const SspoAssignmentsPage = () => {
 
         try {
             setActionLoading(true);
-            await api.post(`/api/v2/assignments/${selectedAssignment.id}/decline`, {
+            await api.post(`/v2/assignments/${selectedAssignment.id}/decline`, {
                 reason: declineReason,
             });
             setShowDeclineModal(false);

@@ -109,11 +109,11 @@ const CareBundleWizard = () => {
 
             // Fetch patient and TNP data
             const [patientRes, tnpRes] = await Promise.all([
-                api.get(`/api/patients/${patientId}`).catch(err => {
+                api.get(`/patients/${patientId}`).catch(err => {
                     console.error('Patient fetch failed', err);
                     return { data: { data: null } };
                 }),
-                api.get(`/api/patients/${patientId}/tnp`).catch(err => {
+                api.get(`/patients/${patientId}/tnp`).catch(err => {
                     console.warn('TNP fetch failed (likely 404), continuing without TNP data.', err);
                     return { data: null };
                 })
@@ -151,7 +151,7 @@ const CareBundleWizard = () => {
             } catch (bundleErr) {
                 console.error('Bundle builder API failed, falling back to template API', bundleErr);
                 // Fallback to basic bundle templates
-                const bundlesRes = await api.get('/api/v2/bundle-templates').catch(() => ({ data: [] }));
+                const bundlesRes = await api.get('/v2/bundle-templates').catch(() => ({ data: [] }));
                 const enrichedBundles = (bundlesRes.data || []).map(b => ({
                     ...b,
                     colorTheme: b.code === 'COMPLEX' ? 'green' : b.code === 'PALLIATIVE' ? 'purple' : 'blue',

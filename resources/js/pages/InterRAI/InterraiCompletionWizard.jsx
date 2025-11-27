@@ -76,9 +76,9 @@ const InterraiCompletionWizard = () => {
             try {
                 setLoading(true);
                 const [statusRes, historyRes, schemaRes] = await Promise.all([
-                    api.get(`/api/v2/interrai/patients/${patientId}/status`),
-                    api.get(`/api/v2/interrai/patients/${patientId}/assessments`),
-                    api.get('/api/v2/interrai/form-schema'),
+                    api.get(`/v2/interrai/patients/${patientId}/status`),
+                    api.get(`/v2/interrai/patients/${patientId}/assessments`),
+                    api.get('/v2/interrai/form-schema'),
                 ]);
 
                 setPatient(statusRes.data.data);
@@ -130,7 +130,7 @@ const InterraiCompletionWizard = () => {
             setError(null);
 
             const response = await api.post(
-                `/api/v2/interrai/patients/${patientId}/assessments`,
+                `/v2/interrai/patients/${patientId}/assessments`,
                 formData
             );
 

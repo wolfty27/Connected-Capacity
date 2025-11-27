@@ -13,7 +13,7 @@ const FieldStaffWorklistPage = () => {
     useEffect(() => {
         const fetchAssignments = async () => {
             try {
-                const response = await api.get('/api/care-assignments');
+                const response = await api.get('/care-assignments');
                 setAssignments(response.data || []);
             } catch (error) {
                 console.error('Failed to fetch assignments:', error);

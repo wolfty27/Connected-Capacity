@@ -31,9 +31,9 @@ const SspoCapabilityPage = () => {
         setLoading(true);
         try {
             const [capRes, coverageRes, serviceTypesRes] = await Promise.all([
-                api.get('/api/v2/sspo-capabilities'),
-                api.get('/api/v2/sspo-capabilities/coverage'),
-                api.get('/api/v2/service-types'),
+                api.get('/v2/sspo-capabilities'),
+                api.get('/v2/sspo-capabilities/coverage'),
+                api.get('/v2/service-types'),
             ]);
             setCapabilities(capRes.data.data || []);
             setCoverage(coverageRes.data.data || []);
@@ -48,9 +48,9 @@ const SspoCapabilityPage = () => {
     const handleSaveCapability = async (formData) => {
         try {
             if (isAddMode) {
-                await api.post('/api/v2/sspo-capabilities', formData);
+                await api.post('/v2/sspo-capabilities', formData);
             } else {
-                await api.put(`/api/v2/sspo-capabilities/${selectedCapability.id}`, formData);
+                await api.put(`/v2/sspo-capabilities/${selectedCapability.id}`, formData);
             }
             setIsModalOpen(false);
             setSelectedCapability(null);
@@ -64,7 +64,7 @@ const SspoCapabilityPage = () => {
     const handleDeleteCapability = async (id) => {
         if (!window.confirm('Are you sure you want to delete this capability?')) return;
         try {
-            await api.delete(`/api/v2/sspo-capabilities/${id}`);
+            await api.delete(`/v2/sspo-capabilities/${id}`);
             fetchData();
         } catch (error) {
             console.error('Failed to delete capability', error);
@@ -77,7 +77,7 @@ const SspoCapabilityPage = () => {
             return;
         }
         try {
-            const res = await api.post('/api/v2/sspo-capabilities/find-matches', matchingForm);
+            const res = await api.post('/v2/sspo-capabilities/find-matches', matchingForm);
             setMatchingResults(res.data);
         } catch (error) {
             console.error('Failed to find matches', error);

@@ -26,8 +26,8 @@ const CareDashboardPage = () => {
         if (!silent) setLoading(true);
         try {
             const [dashboardRes, fteRes] = await Promise.all([
-                api.get('/api/v2/dashboards/spo'),
-                api.get('/api/v2/staffing/fte')
+                api.get('/v2/dashboards/spo'),
+                api.get('/v2/staffing/fte')
             ]);
             setData(dashboardRes.data);
             setFteData(fteRes.data);

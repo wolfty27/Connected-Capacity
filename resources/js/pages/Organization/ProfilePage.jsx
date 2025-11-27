@@ -29,7 +29,7 @@ const ProfilePage = () => {
 
     const fetchOrg = async () => {
         try {
-            const response = await api.get('/api/organization');
+            const response = await api.get('/organization');
             const data = response.data.organization;
             const options = response.data.capabilityOptions;
             
@@ -71,7 +71,7 @@ const ProfilePage = () => {
         setErrors({});
 
         try {
-            await api.put('/api/organization', org);
+            await api.put('/organization', org);
             setMessage({ type: 'success', text: 'Profile updated successfully.' });
         } catch (error) {
             if (error.response && error.response.status === 422) {

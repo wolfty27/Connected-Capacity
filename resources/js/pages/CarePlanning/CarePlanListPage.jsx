@@ -12,7 +12,7 @@ const CarePlanListPage = () => {
     useEffect(() => {
         const fetchPlans = async () => {
             try {
-                const response = await api.get('/api/v2/care-plans');
+                const response = await api.get('/v2/care-plans');
                 setPlans(response.data);
                 setLoading(false);
             } catch (error) {
