@@ -81,6 +81,170 @@ class CarePlanController extends Controller
         return response()->json(['data' => $data]);
     }
 
+    public function show($id)
+    {
+        $plan = CarePlan::with(['patient.user', 'careBundle', 'serviceAssignments.serviceType'])
+            ->findOrFail($id);
+
+        // Parse frequency from frequency_rule helper
+        $parseFrequency = function ($frequencyRule) {
+            if ($frequencyRule) {
+                preg_match('/(\d+)/', $frequencyRule, $matches);
+                return isset($matches[1]) ? (int) $matches[1] : 1;
+            }
+            return 1;
+        };
+
+        return response()->json([
+            'data' => [
+                'id' => $plan->id,
+                'patient_id' => $plan->patient_id,
+                'patient' => $plan->patient->user->name ?? 'Unknown',
+                'bundle' => $plan->careBundle->name ?? 'Custom',
+                'bundle_code' => $plan->careBundle->code ?? null,
+                'status' => $plan->status,
+                'start_date' => $plan->created_at->format('Y-m-d'),
+                'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),
+                'services' => $plan->serviceAssignments->map(function ($sa) use ($parseFrequency) {
+                    $frequencyPerWeek = $parseFrequency($sa->frequency_rule);
+                    $durationWeeks = 12;
+                    if ($sa->scheduled_start && $sa->scheduled_end) {
+                        $days = $sa->scheduled_start->diffInDays($sa->scheduled_end);
+                        $durationWeeks = max(1, ceil($days / 7));
+                    }
+
+                    return [
+                        'id' => $sa->id,
+                        'service_type_id' => $sa->service_type_id,
+                        'name' => $sa->serviceType->name ?? 'Unknown',
+                        'code' => $sa->serviceType->code ?? null,
+                        'category' => $sa->serviceType->category ?? 'Clinical Services',
+                        'status' => $sa->status,
+                        'cost_per_visit' => (float) ($sa->serviceType->cost_per_visit ?? 0),
+                        'frequency' => $frequencyPerWeek,
+                        'frequency_rule' => $sa->frequency_rule,
+                        'duration' => $durationWeeks,
+                        'estimated_hours_per_week' => $sa->estimated_hours_per_week,
+                    ];
+                })->toArray(),
+                'total_cost' => $plan->serviceAssignments->sum(function ($sa) use ($parseFrequency) {
+                    $frequencyPerWeek = $parseFrequency($sa->frequency_rule);
+                    return ($sa->serviceType->cost_per_visit ?? 0) * $frequencyPerWeek;
+                }),
+            ]
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $plan = CarePlan::findOrFail($id);
+
+        $validated = $request->validate([
+            'status' => 'sometimes|string|in:active,draft,completed,cancelled',
+            'bundle_id' => 'sometimes|string',
+            'assignments' => 'sometimes|array',
+        ]);
+
+        return DB::transaction(function () use ($plan, $validated, $request) {
+            // Update status if provided
+            if (isset($validated['status'])) {
+                $plan->status = $validated['status'];
+            }
+
+            // Update bundle if provided
+            if (isset($validated['bundle_id'])) {
+                $bundleCodeMap = [
+                    'standard' => 'STD-MED',
+                    'complex' => 'COMPLEX',
+                    'palliative' => 'PALLIATIVE',
+                    'dementia' => 'DEM-SUP'
+                ];
+                $dbCode = $bundleCodeMap[$validated['bundle_id']] ?? $validated['bundle_id'];
+                $careBundle = CareBundle::where('code', $dbCode)->first();
+                if ($careBundle) {
+                    $plan->care_bundle_id = $careBundle->id;
+                }
+            }
+
+            $plan->save();
+
+            // Update service assignments if provided
+            if (isset($validated['assignments'])) {
+                // Collect all service codes first
+                $serviceCodes = [];
+                foreach ($validated['assignments'] as $serviceKey => $data) {
+                    $serviceCodes[$serviceKey] = match ($serviceKey) {
+                        'nursing' => 'NURSING',
+                        'psw' => 'PSW',
+                        'rehab' => 'REHAB',
+                        'dementia' => 'DEMENTIA',
+                        'mh' => 'MH',
+                        'rpm' => 'RPM',
+                        'digital' => 'DIGITAL',
+                        default => strtoupper($serviceKey)
+                    };
+                }
+
+                // Bulk fetch service types
+                $serviceTypes = ServiceType::whereIn('code', array_values($serviceCodes))->get()->keyBy('code');
+
+                // Delete existing assignments and create new ones
+                ServiceAssignment::where('care_plan_id', $plan->id)->delete();
+
+                foreach ($validated['assignments'] as $serviceKey => $data) {
+                    $serviceCode = $serviceCodes[$serviceKey];
+                    $serviceType = $serviceTypes->get($serviceCode);
+
+                    if (!$serviceType) continue;
+
+                    $orgId = null;
+                    $userId = null;
+
+                    if (($data['type'] ?? '') === 'internal') {
+                        $orgId = Auth::user()->organization_id;
+                        $userId = $data['staff']['id'] ?? null;
+                    } else {
+                        $orgId = $data['partner']['id'] ?? null;
+                    }
+
+                    if (!$orgId) continue;
+
+                    ServiceAssignment::create([
+                        'care_plan_id' => $plan->id,
+                        'patient_id' => $plan->patient_id,
+                        'service_type_id' => $serviceType->id,
+                        'service_provider_organization_id' => $orgId,
+                        'assigned_user_id' => $userId,
+                        'status' => 'planned',
+                        'frequency_rule' => $data['freq'] ?? 'Weekly',
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Care plan updated successfully',
+                'data' => $plan->fresh(['patient.user', 'careBundle', 'serviceAssignments.serviceType'])
+            ]);
+        });
+    }
+
+    public function destroy($id)
+    {
+        $plan = CarePlan::findOrFail($id);
+
+        return DB::transaction(function () use ($plan) {
+            // Delete associated service assignments first
+            ServiceAssignment::where('care_plan_id', $plan->id)->delete();
+
+            // Delete the care plan
+            $plan->delete();
+
+            return response()->json([
+                'message' => 'Care plan deleted successfully'
+            ]);
+        });
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

@@ -18,7 +18,7 @@ const patientQueueApi = {
      * @returns {Promise} API response with queue data and summary
      */
     async getQueue(params = {}) {
-        const response = await api.get('/api/v2/patient-queue', { params });
+        const response = await api.get('/v2/patient-queue', { params });
         return response.data;
     },
 
@@ -29,7 +29,7 @@ const patientQueueApi = {
      * @returns {Promise} Queue entry with patient and transition history
      */
     async getQueueEntry(id) {
-        const response = await api.get(`/api/v2/patient-queue/${id}`);
+        const response = await api.get(`/v2/patient-queue/${id}`);
         return response.data;
     },
 
@@ -44,7 +44,7 @@ const patientQueueApi = {
      * @returns {Promise} Created queue entry
      */
     async addToQueue(data) {
-        const response = await api.post('/api/v2/patient-queue', data);
+        const response = await api.post('/v2/patient-queue', data);
         return response.data;
     },
 
@@ -56,7 +56,7 @@ const patientQueueApi = {
      * @returns {Promise} Updated queue entry
      */
     async updateQueueEntry(id, data) {
-        const response = await api.put(`/api/v2/patient-queue/${id}`, data);
+        const response = await api.put(`/v2/patient-queue/${id}`, data);
         return response.data;
     },
 
@@ -70,7 +70,7 @@ const patientQueueApi = {
      * @returns {Promise} Updated queue entry with transitions
      */
     async transition(id, toStatus, reason = null, context = null) {
-        const response = await api.post(`/api/v2/patient-queue/${id}/transition`, {
+        const response = await api.post(`/v2/patient-queue/${id}/transition`, {
             to_status: toStatus,
             reason,
             context,
@@ -85,7 +85,7 @@ const patientQueueApi = {
      * @returns {Promise} List of patients ready for bundles
      */
     async getReadyForBundle(params = {}) {
-        const response = await api.get('/api/v2/patient-queue/ready-for-bundle', { params });
+        const response = await api.get('/v2/patient-queue/ready-for-bundle', { params });
         return response.data;
     },
 
@@ -96,7 +96,7 @@ const patientQueueApi = {
      * @returns {Promise} List of transitions
      */
     async getTransitions(id) {
-        const response = await api.get(`/api/v2/patient-queue/${id}/transitions`);
+        const response = await api.get(`/v2/patient-queue/${id}/transitions`);
         return response.data;
     },
 
@@ -107,7 +107,7 @@ const patientQueueApi = {
      * @returns {Promise} Updated queue entry with redirect URL
      */
     async startBundleBuilding(id) {
-        const response = await api.post(`/api/v2/patient-queue/${id}/start-bundle`);
+        const response = await api.post(`/v2/patient-queue/${id}/start-bundle`);
         return response.data;
     },
 

@@ -17,7 +17,7 @@ const interraiApi = {
      * Get patients needing InterRAI assessment
      */
     async getPatientsNeedingAssessment(limit = 50) {
-        const response = await api.get('/api/v2/interrai/patients-needing-assessment', {
+        const response = await api.get('/v2/interrai/patients-needing-assessment', {
             params: { limit },
         });
         return response.data;
@@ -27,7 +27,7 @@ const interraiApi = {
      * Get InterRAI status for a patient
      */
     async getPatientStatus(patientId) {
-        const response = await api.get(`/api/v2/interrai/patients/${patientId}/status`);
+        const response = await api.get(`/v2/interrai/patients/${patientId}/status`);
         return response.data;
     },
 
@@ -35,7 +35,7 @@ const interraiApi = {
      * Get assessment history for a patient
      */
     async getPatientAssessments(patientId) {
-        const response = await api.get(`/api/v2/interrai/patients/${patientId}/assessments`);
+        const response = await api.get(`/v2/interrai/patients/${patientId}/assessments`);
         return response.data;
     },
 
@@ -45,7 +45,7 @@ const interraiApi = {
      * Get assessment details
      */
     async getAssessment(assessmentId) {
-        const response = await api.get(`/api/v2/interrai/assessments/${assessmentId}`);
+        const response = await api.get(`/v2/interrai/assessments/${assessmentId}`);
         return response.data;
     },
 
@@ -53,7 +53,7 @@ const interraiApi = {
      * Create SPO-completed assessment
      */
     async createAssessment(patientId, data) {
-        const response = await api.post(`/api/v2/interrai/patients/${patientId}/assessments`, data);
+        const response = await api.post(`/v2/interrai/patients/${patientId}/assessments`, data);
         return response.data;
     },
 
@@ -61,7 +61,7 @@ const interraiApi = {
      * Start a new InterRAI HC assessment
      */
     async startAssessment(patientId, reassessmentReason = null) {
-        const response = await api.post(`/api/v2/interrai/patients/${patientId}/assessments/start`, {
+        const response = await api.post(`/v2/interrai/patients/${patientId}/assessments/start`, {
             reassessment_reason: reassessmentReason,
         });
         return response.data;
@@ -71,7 +71,7 @@ const interraiApi = {
      * Save assessment progress (auto-save)
      */
     async saveAssessmentProgress(assessmentId, data) {
-        const response = await api.patch(`/api/v2/interrai/assessments/${assessmentId}/progress`, data);
+        const response = await api.patch(`/v2/interrai/assessments/${assessmentId}/progress`, data);
         return response.data;
     },
 
@@ -79,7 +79,7 @@ const interraiApi = {
      * Calculate scores from raw items
      */
     async calculateScores(assessmentId, rawItems) {
-        const response = await api.post(`/api/v2/interrai/assessments/${assessmentId}/calculate-scores`, {
+        const response = await api.post(`/v2/interrai/assessments/${assessmentId}/calculate-scores`, {
             raw_items: rawItems,
         });
         return response.data;
@@ -89,7 +89,7 @@ const interraiApi = {
      * Complete and finalize assessment
      */
     async completeAssessment(assessmentId, data) {
-        const response = await api.post(`/api/v2/interrai/assessments/${assessmentId}/complete`, data);
+        const response = await api.post(`/v2/interrai/assessments/${assessmentId}/complete`, data);
         return response.data;
     },
 
@@ -97,7 +97,7 @@ const interraiApi = {
      * Create externally-completed assessment
      */
     async createExternalAssessment(patientId, data) {
-        const response = await api.post(`/api/v2/interrai/patients/${patientId}/assessments/external`, data);
+        const response = await api.post(`/v2/interrai/patients/${patientId}/assessments/external`, data);
         return response.data;
     },
 
@@ -105,7 +105,7 @@ const interraiApi = {
      * Link external IAR document ID
      */
     async linkExternalIar(patientId, iarDocumentId, notes = null) {
-        const response = await api.post(`/api/v2/interrai/patients/${patientId}/link-external`, {
+        const response = await api.post(`/v2/interrai/patients/${patientId}/link-external`, {
             iar_document_id: iarDocumentId,
             notes,
         });
@@ -118,7 +118,7 @@ const interraiApi = {
      * Get form schema with options
      */
     async getFormSchema() {
-        const response = await api.get('/api/v2/interrai/form-schema');
+        const response = await api.get('/v2/interrai/form-schema');
         return response.data;
     },
 
@@ -126,7 +126,7 @@ const interraiApi = {
      * Get full assessment form schema with all sections
      */
     async getFullFormSchema() {
-        const response = await api.get('/api/v2/interrai/full-form-schema');
+        const response = await api.get('/v2/interrai/full-form-schema');
         return response.data;
     },
 
@@ -142,7 +142,7 @@ const interraiApi = {
         if (notes) formData.append('notes', notes);
 
         const response = await api.post(
-            `/api/v2/interrai/assessments/${assessmentId}/documents`,
+            `/v2/interrai/assessments/${assessmentId}/documents`,
             formData,
             {
                 headers: { 'Content-Type': 'multipart/form-data' },
@@ -155,7 +155,7 @@ const interraiApi = {
      * Get documents for assessment
      */
     async getDocuments(assessmentId) {
-        const response = await api.get(`/api/v2/interrai/assessments/${assessmentId}/documents`);
+        const response = await api.get(`/v2/interrai/assessments/${assessmentId}/documents`);
         return response.data;
     },
 
@@ -164,7 +164,7 @@ const interraiApi = {
      */
     async deleteDocument(assessmentId, documentId) {
         const response = await api.delete(
-            `/api/v2/interrai/assessments/${assessmentId}/documents/${documentId}`
+            `/v2/interrai/assessments/${assessmentId}/documents/${documentId}`
         );
         return response.data;
     },
@@ -175,7 +175,7 @@ const interraiApi = {
      * Request reassessment for patient
      */
     async requestReassessment(patientId, reason, notes = null, priority = 'medium') {
-        const response = await api.post(`/api/v2/interrai/patients/${patientId}/request-reassessment`, {
+        const response = await api.post(`/v2/interrai/patients/${patientId}/request-reassessment`, {
             reason,
             notes,
             priority,
@@ -187,7 +187,7 @@ const interraiApi = {
      * Get pending reassessment triggers
      */
     async getReassessmentTriggers(limit = 50, priority = null) {
-        const response = await api.get('/api/v2/interrai/reassessment-triggers', {
+        const response = await api.get('/v2/interrai/reassessment-triggers', {
             params: { limit, priority },
         });
         return response.data;
@@ -197,7 +197,7 @@ const interraiApi = {
      * Resolve reassessment trigger
      */
     async resolveReassessmentTrigger(triggerId, assessmentId, notes = null) {
-        const response = await api.post(`/api/v2/interrai/reassessment-triggers/${triggerId}/resolve`, {
+        const response = await api.post(`/v2/interrai/reassessment-triggers/${triggerId}/resolve`, {
             assessment_id: assessmentId,
             notes,
         });
@@ -208,7 +208,7 @@ const interraiApi = {
      * Get trigger form options
      */
     async getReassessmentTriggerOptions() {
-        const response = await api.get('/api/v2/interrai/reassessment-trigger-options');
+        const response = await api.get('/v2/interrai/reassessment-trigger-options');
         return response.data;
     },
 
@@ -218,7 +218,7 @@ const interraiApi = {
      * Retry IAR upload
      */
     async retryIarUpload(assessmentId) {
-        const response = await api.post(`/api/v2/interrai/assessments/${assessmentId}/retry-iar`);
+        const response = await api.post(`/v2/interrai/assessments/${assessmentId}/retry-iar`);
         return response.data;
     },
 
@@ -226,7 +226,7 @@ const interraiApi = {
      * Get pending IAR uploads
      */
     async getPendingIarUploads() {
-        const response = await api.get('/api/v2/interrai/pending-iar-uploads');
+        const response = await api.get('/v2/interrai/pending-iar-uploads');
         return response.data;
     },
 
@@ -234,7 +234,7 @@ const interraiApi = {
      * Get failed IAR uploads
      */
     async getFailedIarUploads() {
-        const response = await api.get('/api/v2/interrai/failed-iar-uploads');
+        const response = await api.get('/v2/interrai/failed-iar-uploads');
         return response.data;
     },
 
@@ -244,7 +244,7 @@ const interraiApi = {
      * Get dashboard statistics
      */
     async getDashboardStats() {
-        const response = await api.get('/api/v2/admin/interrai/dashboard-stats');
+        const response = await api.get('/v2/admin/interrai/dashboard-stats');
         return response.data;
     },
 
@@ -252,7 +252,7 @@ const interraiApi = {
      * Get stale assessments list
      */
     async getStaleAssessments(limit = 50) {
-        const response = await api.get('/api/v2/admin/interrai/stale-assessments', {
+        const response = await api.get('/v2/admin/interrai/stale-assessments', {
             params: { limit },
         });
         return response.data;
@@ -262,7 +262,7 @@ const interraiApi = {
      * Get missing assessments list
      */
     async getMissingAssessments(limit = 50) {
-        const response = await api.get('/api/v2/admin/interrai/missing-assessments', {
+        const response = await api.get('/v2/admin/interrai/missing-assessments', {
             params: { limit },
         });
         return response.data;
@@ -272,7 +272,7 @@ const interraiApi = {
      * Get failed uploads list
      */
     async getFailedUploads(limit = 50) {
-        const response = await api.get('/api/v2/admin/interrai/failed-uploads', {
+        const response = await api.get('/v2/admin/interrai/failed-uploads', {
             params: { limit },
         });
         return response.data;
@@ -282,7 +282,7 @@ const interraiApi = {
      * Bulk retry failed IAR uploads
      */
     async bulkRetryIar() {
-        const response = await api.post('/api/v2/admin/interrai/bulk-retry-iar');
+        const response = await api.post('/v2/admin/interrai/bulk-retry-iar');
         return response.data;
     },
 
@@ -290,7 +290,7 @@ const interraiApi = {
      * Sync all patient statuses
      */
     async syncStatuses() {
-        const response = await api.post('/api/v2/admin/interrai/sync-statuses');
+        const response = await api.post('/v2/admin/interrai/sync-statuses');
         return response.data;
     },
 
@@ -298,7 +298,7 @@ const interraiApi = {
      * Get pending triggers for admin
      */
     async getPendingTriggers(limit = 50, priority = null) {
-        const response = await api.get('/api/v2/admin/interrai/pending-triggers', {
+        const response = await api.get('/v2/admin/interrai/pending-triggers', {
             params: { limit, priority },
         });
         return response.data;
@@ -308,7 +308,7 @@ const interraiApi = {
      * Get compliance report
      */
     async getComplianceReport() {
-        const response = await api.get('/api/v2/admin/interrai/compliance-report');
+        const response = await api.get('/v2/admin/interrai/compliance-report');
         return response.data;
     },
 };
