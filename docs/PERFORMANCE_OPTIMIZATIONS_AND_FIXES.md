@@ -16,6 +16,7 @@ A naming conflict existed in the `ServiceType` model. The model had both a strin
     - `App\Services\CareBundleBuilderService`
     - `App\Http\Controllers\Api\V2\BundleTemplateController`
     - `App\Http\Controllers\Api\V2\ServiceTypeController`
+- **Restored Methods:** Restored accidentally deleted helper methods in `CareBundleBuilderService.php` (`buildPatientContext`, `hasCognitiveNeeds`, etc.) which were causing API failures.
 
 **Outcome:**
 Services now correctly eager load their category data and populate the Care Bundle Wizard interface.
