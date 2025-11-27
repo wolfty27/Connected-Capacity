@@ -156,7 +156,8 @@ class DemoSeeder extends Seeder
 
     /**
      * Seed care activities (ServiceAssignments) for all staff for the current week
-     * This allows testing that the FTE ratio calculation is working properly
+     * This allows testing that the FTE ratio calculation is working properly.
+     * Assignments are properly tied to patient care bundles.
      */
     protected function seedCareActivities(ServiceProviderOrganization $spo): void
     {
@@ -166,13 +167,13 @@ class DemoSeeder extends Seeder
             ->where('staff_status', 'active')
             ->get();
 
-        // Get active patients with care plans
+        // Get active patients with care plans and their bundles' service types
         $patients = Patient::where('status', 'Active')
             ->whereHas('carePlans', function ($q) {
                 $q->where('status', 'active');
             })
             ->with(['carePlans' => function ($q) {
-                $q->where('status', 'active');
+                $q->where('status', 'active')->with('careBundle.serviceTypes');
             }])
             ->get();
 
@@ -180,8 +181,8 @@ class DemoSeeder extends Seeder
             return; // No patients or staff to create assignments for
         }
 
-        // Get service types matched to staff roles
-        $serviceTypeMap = [
+        // Map staff roles to service type codes
+        $roleToServiceType = [
             'RN' => 'NUR',   // Nursing
             'RPN' => 'NUR',  // Nursing
             'PSW' => 'PSW',  // Personal Support Worker
@@ -191,7 +192,6 @@ class DemoSeeder extends Seeder
 
         // Current week boundaries
         $weekStart = Carbon::now()->startOfWeek();
-        $weekEnd = Carbon::now()->endOfWeek();
 
         // Define visit schedules per employment type (hours per day)
         $hoursPerDay = [
@@ -204,11 +204,29 @@ class DemoSeeder extends Seeder
         $statuses = ['completed', 'completed', 'completed', 'in_progress', 'planned'];
 
         foreach ($activeStaff as $staff) {
-            // Get appropriate service type for this staff member's role
-            $serviceTypeCode = $serviceTypeMap[$staff->organization_role] ?? 'PSW';
-            $serviceType = ServiceType::where('code', $serviceTypeCode)->first();
+            // Get the service type code for this staff member's role
+            $serviceTypeCode = $roleToServiceType[$staff->organization_role] ?? null;
+            if (!$serviceTypeCode) {
+                continue;
+            }
 
+            $serviceType = ServiceType::where('code', $serviceTypeCode)->first();
             if (!$serviceType) {
+                continue;
+            }
+
+            // Find patients whose care bundle includes this service type
+            $eligiblePatients = $patients->filter(function ($patient) use ($serviceType) {
+                $carePlan = $patient->carePlans->first();
+                if (!$carePlan || !$carePlan->careBundle) {
+                    return false;
+                }
+                // Check if the bundle includes this service type
+                return $carePlan->careBundle->serviceTypes->contains('id', $serviceType->id);
+            });
+
+            // If no eligible patients for this service type, skip
+            if ($eligiblePatients->isEmpty()) {
                 continue;
             }
 
@@ -221,19 +239,19 @@ class DemoSeeder extends Seeder
                 // Skip future days for completed status
                 $isPastOrToday = $visitDate->lte(Carbon::today());
 
-                // Assign to a random patient
-                $patient = $patients->random();
-                $carePlan = $patient->carePlans->first();
-
-                if (!$carePlan) {
-                    continue;
-                }
-
                 // Create 2-3 visits per day for this staff member
                 $visitsPerDay = rand(2, 3);
                 $hoursPerVisit = $dailyHours / $visitsPerDay;
 
                 for ($visit = 0; $visit < $visitsPerDay; $visit++) {
+                    // Assign to a random eligible patient (whose bundle includes this service)
+                    $patient = $eligiblePatients->random();
+                    $carePlan = $patient->carePlans->first();
+
+                    if (!$carePlan) {
+                        continue;
+                    }
+
                     // Calculate visit time slots (starting at 8am, 11am, 2pm)
                     $startHour = 8 + ($visit * 3);
                     $scheduledStart = $visitDate->copy()->setTime($startHour, 0);
@@ -249,10 +267,6 @@ class DemoSeeder extends Seeder
                     } else {
                         $status = 'planned';
                     }
-
-                    // Rotate through patients
-                    $patient = $patients->random();
-                    $carePlan = $patient->carePlans->first();
 
                     ServiceAssignment::updateOrCreate(
                         [
