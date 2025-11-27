@@ -29,7 +29,7 @@ class ServiceType extends Model
         'active' => 'boolean',
     ];
 
-    public function category()
+    public function serviceCategory()
     {
         return $this->belongsTo(ServiceCategory::class, 'category_id');
     }
@@ -79,7 +79,7 @@ class ServiceType extends Model
             ->whereIn('skills.id', $requiredSkillIds)
             ->where(function ($q) {
                 $q->whereNull('staff_skills.expires_at')
-                  ->orWhere('staff_skills.expires_at', '>', now());
+                    ->orWhere('staff_skills.expires_at', '>', now());
             })
             ->pluck('skills.id');
 

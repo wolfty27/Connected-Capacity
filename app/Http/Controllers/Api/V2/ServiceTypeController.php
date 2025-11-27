@@ -38,14 +38,14 @@ class ServiceTypeController extends Controller
 
         // Filter by category
         if ($request->has('category')) {
-            $query->whereHas('category', function ($q) use ($request) {
+            $query->whereHas('serviceCategory', function ($q) use ($request) {
                 $q->where('code', $request->category);
             });
         }
 
         // Include category relationship
         if ($request->boolean('with_category', true)) {
-            $query->with('category');
+            $query->with('serviceCategory');
         }
 
         $serviceTypes = $query->orderBy('category')->orderBy('name')->get();
@@ -68,7 +68,7 @@ class ServiceTypeController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $serviceType = ServiceType::with('category', 'careBundles')->find($id);
+        $serviceType = ServiceType::with('serviceCategory', 'careBundles')->find($id);
 
         if (!$serviceType) {
             return response()->json(['message' => 'Service type not found'], 404);
@@ -122,7 +122,7 @@ class ServiceTypeController extends Controller
         $data['active'] = $data['active'] ?? true;
 
         $serviceType = ServiceType::create($data);
-        $serviceType->load('category');
+        $serviceType->load('serviceCategory');
 
         return response()->json([
             'message' => 'Service type created successfully',
@@ -177,7 +177,7 @@ class ServiceTypeController extends Controller
         }
 
         $serviceType->update($data);
-        $serviceType->load('category');
+        $serviceType->load('serviceCategory');
 
         return response()->json([
             'message' => 'Service type updated successfully',
@@ -227,7 +227,7 @@ class ServiceTypeController extends Controller
     public function byCategory(): JsonResponse
     {
         $serviceTypes = ServiceType::where('active', true)
-            ->with('category')
+            ->with('serviceCategory')
             ->orderBy('name')
             ->get();
 
@@ -256,9 +256,11 @@ class ServiceTypeController extends Controller
     public function categories(): JsonResponse
     {
         $categories = ServiceCategory::where('active', true)
-            ->withCount(['serviceTypes' => function ($q) {
-                $q->where('active', true);
-            }])
+            ->withCount([
+                'serviceTypes' => function ($q) {
+                    $q->where('active', true);
+                }
+            ])
             ->orderBy('name')
             ->get();
 
@@ -303,8 +305,8 @@ class ServiceTypeController extends Controller
     protected function transformServiceType(ServiceType $serviceType, bool $includeRelations = false): array
     {
         // Get the category relationship if loaded (use getRelation to avoid column conflict)
-        $categoryRelation = $serviceType->relationLoaded('category')
-            ? $serviceType->getRelation('category')
+        $categoryRelation = $serviceType->relationLoaded('serviceCategory')
+            ? $serviceType->getRelation('serviceCategory')
             : null;
 
         // Use the category column value directly (it stores the category name as a string)

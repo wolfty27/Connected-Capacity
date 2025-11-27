@@ -16,8 +16,8 @@ class BundleTemplateController extends Controller
 
     public function show($id)
     {
-        $bundle = CareBundle::with(['serviceTypes.category'])->find($id);
-        
+        $bundle = CareBundle::with(['serviceTypes.serviceCategory'])->find($id);
+
         if (!$bundle) {
             return response()->json(['message' => 'Bundle not found'], 404);
         }
