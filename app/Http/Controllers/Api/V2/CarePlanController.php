@@ -38,12 +38,43 @@ class CarePlanController extends Controller
                 'status' => $plan->status, // Keep lowercase for frontend filtering
                 'start_date' => $plan->created_at->format('Y-m-d'),
                 'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),
-                'services' => $plan->serviceAssignments->map(fn($sa) => [
-                    'id' => $sa->id,
-                    'name' => $sa->serviceType->name ?? 'Unknown',
-                    'code' => $sa->serviceType->code ?? null,
-                    'status' => $sa->status,
-                ])->toArray(),
+                'services' => $plan->serviceAssignments->map(function ($sa) {
+                    // Parse frequency from frequency_rule (e.g., "2x per week" -> 2)
+                    $frequencyPerWeek = 1;
+                    if ($sa->frequency_rule) {
+                        preg_match('/(\d+)/', $sa->frequency_rule, $matches);
+                        $frequencyPerWeek = isset($matches[1]) ? (int) $matches[1] : 1;
+                    }
+
+                    // Calculate duration in weeks from scheduled dates, or default to 12
+                    $durationWeeks = 12;
+                    if ($sa->scheduled_start && $sa->scheduled_end) {
+                        $days = $sa->scheduled_start->diffInDays($sa->scheduled_end);
+                        $durationWeeks = max(1, ceil($days / 7));
+                    }
+
+                    return [
+                        'id' => $sa->id,
+                        'service_type_id' => $sa->service_type_id,
+                        'name' => $sa->serviceType->name ?? 'Unknown',
+                        'code' => $sa->serviceType->code ?? null,
+                        'category' => $sa->serviceType->category ?? 'Clinical Services',
+                        'status' => $sa->status,
+                        'cost_per_visit' => (float) ($sa->serviceType->cost_per_visit ?? 0),
+                        'frequency' => $frequencyPerWeek,
+                        'frequency_rule' => $sa->frequency_rule,
+                        'duration' => $durationWeeks,
+                        'estimated_hours_per_week' => $sa->estimated_hours_per_week,
+                    ];
+                })->toArray(),
+                'total_cost' => $plan->serviceAssignments->sum(function ($sa) {
+                    $frequencyPerWeek = 1;
+                    if ($sa->frequency_rule) {
+                        preg_match('/(\d+)/', $sa->frequency_rule, $matches);
+                        $frequencyPerWeek = isset($matches[1]) ? (int) $matches[1] : 1;
+                    }
+                    return ($sa->serviceType->cost_per_visit ?? 0) * $frequencyPerWeek;
+                }),
             ];
         });
 

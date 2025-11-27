@@ -104,10 +104,16 @@ const PatientDetailPage = () => {
     // Map API services to BundleSummary format
     const summaryServices = currentPlan?.services?.map(s => ({
         ...s,
-        currentFrequency: s.frequency || 3, // Fallback if not in API
-        defaultFrequency: 1, // Treat as core for display
-        currentDuration: s.duration || 12 // Fallback
+        currentFrequency: s.frequency || 1,
+        defaultFrequency: s.frequency > 0 ? 1 : 0, // Treat as core if has frequency
+        currentDuration: s.duration || 12,
+        costPerVisit: s.cost_per_visit || 0,
     })) || [];
+
+    // Calculate total weekly cost from services
+    const calculatedWeeklyCost = summaryServices.reduce((total, s) => {
+        return total + ((s.costPerVisit || 0) * (s.currentFrequency || 0));
+    }, 0);
 
     return (
         <div className="space-y-6">
@@ -580,8 +586,8 @@ const PatientDetailPage = () => {
                         <div className="p-6">
                             <BundleSummary
                                 services={summaryServices}
-                                bundleName={currentPlan?.bundle?.name}
-                                totalCost={currentPlan?.total_cost || 0}
+                                bundleName={currentPlan?.bundle || currentPlan?.bundle_name}
+                                totalCost={calculatedWeeklyCost || currentPlan?.total_cost || 0}
                             />
                         </div>
                     </div>

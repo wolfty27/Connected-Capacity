@@ -38,6 +38,8 @@ const CareBundleWizard = () => {
     const [loading, setLoading] = useState(true);
     const [publishing, setPublishing] = useState(false);
     const [carePlanId, setCarePlanId] = useState(null);
+    const [existingPlan, setExistingPlan] = useState(null);
+    const [isModifying, setIsModifying] = useState(false);
 
     // Fetch service types from API (SC-003)
     const { serviceTypes: apiServiceTypes, loading: servicesLoading, error: servicesError } = useServiceTypes();
@@ -59,9 +61,34 @@ const CareBundleWizard = () => {
     // Initialize services from API types when available and wizard data is loaded
     useEffect(() => {
         if (!loading && apiServiceTypes.length > 0 && services.length === 0) {
-            console.log('Initializing services with selected bundle:', selectedBundle?.name);
+            console.log('Initializing services with selected bundle:', selectedBundle?.name, 'isModifying:', isModifying);
 
-            if (selectedBundle) {
+            // If modifying existing plan, use the existing plan's services as the baseline
+            if (isModifying && existingPlan?.services?.length > 0) {
+                console.log('Loading existing care plan services for modification:', existingPlan.services);
+                const servicesWithConfig = apiServiceTypes.map(s => {
+                    // Find this service in the existing plan
+                    const existingService = existingPlan.services.find(es =>
+                        es.service_type_id == s.id ||
+                        (es.code && s.code && es.code === s.code) ||
+                        (es.name && s.name && es.name === s.name)
+                    );
+                    const isInExistingPlan = !!existingService;
+
+                    return {
+                        ...s,
+                        is_core: isInExistingPlan,
+                        currentFrequency: isInExistingPlan ? (existingService.frequency || 1) : 0,
+                        currentDuration: isInExistingPlan ? (existingService.duration || 12) : 12,
+                        defaultFrequency: isInExistingPlan ? (existingService.frequency || 1) : 0,
+                        // Store original values for comparison display
+                        originalFrequency: isInExistingPlan ? (existingService.frequency || 1) : 0,
+                        originalDuration: isInExistingPlan ? (existingService.duration || 12) : 0,
+                        originalCost: isInExistingPlan ? (existingService.cost_per_visit || s.costPerVisit || 0) : 0,
+                    };
+                });
+                setServices(servicesWithConfig);
+            } else if (selectedBundle) {
                 // Merge bundle services with all available services
                 const servicesWithConfig = apiServiceTypes.map(s => {
                     const bundleService = selectedBundle.services?.find(b =>
@@ -77,6 +104,9 @@ const CareBundleWizard = () => {
                         currentFrequency: isCore ? (bundleService.pivot?.frequency || bundleService.frequency || bundleService.currentFrequency || 1) : 0,
                         currentDuration: isCore ? (bundleService.pivot?.duration || bundleService.duration || bundleService.currentDuration || 12) : 12,
                         defaultFrequency: isCore ? (bundleService.pivot?.frequency || bundleService.frequency || bundleService.currentFrequency || 1) : 0,
+                        originalFrequency: 0,
+                        originalDuration: 0,
+                        originalCost: 0,
                     };
                 });
                 setServices(servicesWithConfig);
@@ -87,11 +117,14 @@ const CareBundleWizard = () => {
                     is_core: false,
                     currentFrequency: 0,
                     currentDuration: 12,
-                    defaultFrequency: 0
+                    defaultFrequency: 0,
+                    originalFrequency: 0,
+                    originalDuration: 0,
+                    originalCost: 0,
                 })));
             }
         }
-    }, [loading, apiServiceTypes, selectedBundle, services.length]);
+    }, [loading, apiServiceTypes, selectedBundle, services.length, isModifying, existingPlan]);
 
 
 
@@ -107,8 +140,8 @@ const CareBundleWizard = () => {
         try {
             setLoading(true);
 
-            // Fetch patient and TNP data
-            const [patientRes, tnpRes] = await Promise.all([
+            // Fetch patient, TNP data, and existing care plans
+            const [patientRes, tnpRes, carePlansRes] = await Promise.all([
                 api.get(`/patients/${patientId}`).catch(err => {
                     console.error('Patient fetch failed', err);
                     return { data: { data: null } };
@@ -116,6 +149,10 @@ const CareBundleWizard = () => {
                 api.get(`/patients/${patientId}/tnp`).catch(err => {
                     console.warn('TNP fetch failed (likely 404), continuing without TNP data.', err);
                     return { data: null };
+                }),
+                api.get(`/v2/care-plans?patient_id=${patientId}`).catch(err => {
+                    console.warn('Care plans fetch failed', err);
+                    return { data: { data: [] } };
                 })
             ]);
 
@@ -126,6 +163,15 @@ const CareBundleWizard = () => {
             }
 
             setTnp(tnpRes.data);
+
+            // Check for existing active care plan
+            const existingPlans = carePlansRes.data?.data || carePlansRes.data || [];
+            const activePlan = existingPlans.find(p => p.status === 'active' || p.status === 'approved');
+            if (activePlan) {
+                setExistingPlan(activePlan);
+                setIsModifying(true);
+                console.log('Found existing care plan to modify:', activePlan);
+            }
 
             // Fetch bundles with metadata-driven configuration
             try {
@@ -437,9 +483,16 @@ const CareBundleWizard = () => {
                 {/* Top Header */}
                 <header className="h-16 bg-white border-b border-slate-200 flex justify-between items-center px-8 shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800">Care Delivery Plan (Schedule 3)</h2>
+                        <h2 className="text-xl font-bold text-slate-800">
+                            {isModifying ? 'Modify Care Delivery Plan' : 'Care Delivery Plan (Schedule 3)'}
+                        </h2>
                         <div className="flex items-center gap-2 text-sm text-slate-500">
                             <span>Episode ID: #{patient?.id || '---'}</span>
+                            {isModifying && (
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                    Modifying: {existingPlan?.bundle || 'Current Plan'}
+                                </span>
+                            )}
                             {patient?.is_in_queue && (
                                 <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
                                     In Queue
@@ -449,13 +502,23 @@ const CareBundleWizard = () => {
                     </div>
                     <div className="flex gap-3">
                         {step === 1 && (
-                            <button
-                                onClick={() => setStep(2)}
-                                disabled={!selectedBundle}
-                                className="px-4 py-2 bg-blue-700 text-white rounded-md font-medium hover:bg-blue-800 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Next: Customize Bundle <ArrowRight className="w-4 h-4" />
-                            </button>
+                            <>
+                                {isModifying && (
+                                    <button
+                                        onClick={() => setStep(2)}
+                                        className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 bg-white shadow-sm flex items-center gap-2"
+                                    >
+                                        Skip to Customize Current <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setStep(2)}
+                                    disabled={!selectedBundle && !isModifying}
+                                    className="px-4 py-2 bg-blue-700 text-white rounded-md font-medium hover:bg-blue-800 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isModifying ? 'Switch Bundle & Customize' : 'Next: Customize Bundle'} <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </>
                         )}
                         {step === 2 && (
                             <>
@@ -590,12 +653,36 @@ const CareBundleWizard = () => {
                         {/* Step 1: Bundle Selection */}
                         {step === 1 && (
                             <div className="space-y-6">
+                                {/* Current Plan Info (when modifying) */}
+                                {isModifying && existingPlan && (
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                                <h3 className="font-medium text-blue-800">Modifying Existing Care Plan</h3>
+                                                <p className="text-sm text-blue-700 mt-1">
+                                                    Current bundle: <strong>{existingPlan.bundle || 'Current Plan'}</strong> with {existingPlan.services?.length || 0} services
+                                                    (${existingPlan.total_cost?.toLocaleString() || 0}/week)
+                                                </p>
+                                                <p className="text-sm text-blue-600 mt-2">
+                                                    Select a new bundle below or proceed to customize the current services.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="mb-6">
-                                    <h1 className="text-xl font-bold text-slate-900 mb-2">Step 1: Select Care Bundle</h1>
+                                    <h1 className="text-xl font-bold text-slate-900 mb-2">
+                                        {isModifying ? 'Step 1: Change Bundle (Optional)' : 'Step 1: Select Care Bundle'}
+                                    </h1>
                                     <p className="text-sm text-slate-600">
-                                        Based on the patient's TNP score and clinical flags, bundles have been pre-configured by the metadata engine.
+                                        {isModifying
+                                            ? 'You can switch to a different bundle or skip to customize the existing services.'
+                                            : 'Based on the patient\'s TNP score and clinical flags, bundles have been pre-configured by the metadata engine.'
+                                        }
                                     </p>
-                                    {recommendedBundle && (
+                                    {recommendedBundle && !isModifying && (
                                         <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
                                             <Star className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
                                             <div>
@@ -675,9 +762,14 @@ const CareBundleWizard = () => {
                         {step === 2 && (
                             <div className="space-y-6">
                                 <div>
-                                    <h1 className="text-xl font-bold text-slate-900 mb-2">Step 2: Customize {selectedBundle?.name}</h1>
+                                    <h1 className="text-xl font-bold text-slate-900 mb-2">
+                                        Step 2: {isModifying ? 'Modify Services' : `Customize ${selectedBundle?.name}`}
+                                    </h1>
                                     <p className="text-sm text-slate-600">
-                                        Services have been auto-configured based on the patient's TNP and clinical flags. Adjust frequency and duration as needed.
+                                        {isModifying
+                                            ? 'Adjust the frequency and duration of services. Changes from the current plan are tracked and will be shown in the review step.'
+                                            : 'Services have been auto-configured based on the patient\'s TNP and clinical flags. Adjust frequency and duration as needed.'
+                                        }
                                     </p>
                                 </div>
 
@@ -775,48 +867,133 @@ const CareBundleWizard = () => {
 
                                         {/* Summary */}
                                         <div className="bg-white border border-slate-200 rounded-lg p-6">
-                                            <h3 className="font-bold text-slate-900 mb-4">Care Plan Summary</h3>
+                                            <h3 className="font-bold text-slate-900 mb-4">
+                                                {isModifying ? 'Care Plan Changes' : 'Care Plan Summary'}
+                                            </h3>
 
-                                            <div className="grid grid-cols-3 gap-4 mb-6">
-                                                <div className="p-4 bg-slate-50 rounded-lg">
-                                                    <div className="text-sm text-slate-500">Selected Bundle</div>
-                                                    <div className="font-medium text-slate-900">
-                                                        {selectedBundle?.name || 'Custom'}
-                                                        <span className="text-slate-500 font-normal text-xs ml-1">
-                                                            ({services.some(s => s.defaultFrequency === 0 && s.currentFrequency > 0) ? 'Customized' : 'Base'})
-                                                        </span>
+                                            {/* Current Plan Summary (only when modifying) */}
+                                            {isModifying && existingPlan && (
+                                                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                                                    <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                                        <span className="w-3 h-3 bg-slate-400 rounded-full"></span>
+                                                        Current Plan: {existingPlan.bundle || 'Current Bundle'}
+                                                    </h4>
+                                                    <div className="space-y-1 text-sm text-slate-600">
+                                                        {existingPlan.services?.map((s, idx) => (
+                                                            <div key={idx} className="flex justify-between">
+                                                                <span>{s.name}</span>
+                                                                <span>{s.frequency}x/week • ${(s.cost_per_visit * s.frequency * 4).toLocaleString()}/mo</span>
+                                                            </div>
+                                                        ))}
+                                                        <div className="pt-2 mt-2 border-t border-slate-300 font-medium flex justify-between">
+                                                            <span>Current Weekly Cost</span>
+                                                            <span>${existingPlan.total_cost?.toLocaleString() || 0}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="p-4 bg-slate-50 rounded-lg">
-                                                    <div className="text-sm text-slate-500">Est. Weekly Cost</div>
-                                                    <div className="font-medium text-slate-900">${weeklyCost.toLocaleString()}</div>
-                                                </div>
-                                                <div className="p-4 bg-slate-50 rounded-lg">
-                                                    <div className="text-sm text-slate-500">Est. Monthly Cost</div>
-                                                    <div className="font-medium text-slate-900">${monthlyCost.toLocaleString()}</div>
-                                                </div>
-                                            </div>
+                                            )}
 
-                                            <h4 className="font-medium text-slate-900 mb-3">Active Services</h4>
-                                            <div className="space-y-2">
-                                                {services.filter(s => (s.currentFrequency || 0) > 0).map(service => (
-                                                    <div key={service.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                                                        <div>
-                                                            <span className="font-medium text-slate-800">{service.name}</span>
-                                                            <span className="text-slate-500 text-sm ml-2">
-                                                                {service.currentFrequency}x/week for {service.currentDuration} weeks
+                                            {/* New/Modified Plan Summary */}
+                                            <div className={isModifying ? 'p-4 bg-blue-50 border border-blue-200 rounded-lg' : ''}>
+                                                {isModifying && (
+                                                    <h4 className="font-medium text-blue-700 mb-3 flex items-center gap-2">
+                                                        <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                                                        Modified Plan: {selectedBundle?.name || 'Custom'}
+                                                    </h4>
+                                                )}
+
+                                                <div className="grid grid-cols-3 gap-4 mb-6">
+                                                    <div className="p-4 bg-white rounded-lg border border-slate-200">
+                                                        <div className="text-sm text-slate-500">Selected Bundle</div>
+                                                        <div className="font-medium text-slate-900">
+                                                            {selectedBundle?.name || 'Custom'}
+                                                            <span className="text-slate-500 font-normal text-xs ml-1">
+                                                                ({services.some(s => s.defaultFrequency === 0 && s.currentFrequency > 0) ? 'Customized' : 'Base'})
                                                             </span>
                                                         </div>
-                                                        <span className="text-slate-600">
-                                                            ${(service.costPerVisit * service.currentFrequency * 4).toLocaleString()}/mo
-                                                        </span>
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <div className="p-4 bg-white rounded-lg border border-slate-200">
+                                                        <div className="text-sm text-slate-500">Est. Weekly Cost</div>
+                                                        <div className="font-medium text-slate-900">
+                                                            ${weeklyCost.toLocaleString()}
+                                                            {isModifying && existingPlan?.total_cost && weeklyCost !== existingPlan.total_cost && (
+                                                                <span className={`ml-2 text-xs ${weeklyCost > existingPlan.total_cost ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                    ({weeklyCost > existingPlan.total_cost ? '+' : ''}{(weeklyCost - existingPlan.total_cost).toLocaleString()})
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-4 bg-white rounded-lg border border-slate-200">
+                                                        <div className="text-sm text-slate-500">Est. Monthly Cost</div>
+                                                        <div className="font-medium text-slate-900">${monthlyCost.toLocaleString()}</div>
+                                                    </div>
+                                                </div>
 
-                                            {services.filter(s => (s.currentFrequency || 0) > 0).length === 0 && (
-                                                <p className="text-slate-500 text-sm italic">No services selected. Please go back and configure services.</p>
-                                            )}
+                                                <h4 className="font-medium text-slate-900 mb-3">
+                                                    {isModifying ? 'Modified Services' : 'Active Services'}
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {services.filter(s => (s.currentFrequency || 0) > 0).map(service => {
+                                                        const hasChanged = isModifying && (
+                                                            service.currentFrequency !== service.originalFrequency ||
+                                                            service.currentDuration !== service.originalDuration
+                                                        );
+                                                        const isNew = isModifying && service.originalFrequency === 0 && service.currentFrequency > 0;
+
+                                                        return (
+                                                            <div key={service.id} className={`flex items-center justify-between py-2 border-b border-slate-100 last:border-0 ${hasChanged ? 'bg-blue-50 -mx-2 px-2 rounded' : ''}`}>
+                                                                <div>
+                                                                    <span className="font-medium text-slate-800">{service.name}</span>
+                                                                    {isNew && (
+                                                                        <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full">New</span>
+                                                                    )}
+                                                                    {hasChanged && !isNew && (
+                                                                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">Changed</span>
+                                                                    )}
+                                                                    <span className="text-slate-500 text-sm ml-2">
+                                                                        {service.currentFrequency}x/week for {service.currentDuration} weeks
+                                                                        {hasChanged && !isNew && (
+                                                                            <span className="text-slate-400 ml-1">
+                                                                                (was: {service.originalFrequency}x/week)
+                                                                            </span>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="text-slate-600">
+                                                                    ${(service.costPerVisit * service.currentFrequency * 4).toLocaleString()}/mo
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* Show removed services when modifying */}
+                                                {isModifying && services.filter(s => s.originalFrequency > 0 && s.currentFrequency === 0).length > 0 && (
+                                                    <>
+                                                        <h4 className="font-medium text-rose-700 mb-3 mt-4">Removed Services</h4>
+                                                        <div className="space-y-2">
+                                                            {services.filter(s => s.originalFrequency > 0 && s.currentFrequency === 0).map(service => (
+                                                                <div key={service.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0 bg-rose-50 -mx-2 px-2 rounded">
+                                                                    <div>
+                                                                        <span className="font-medium text-slate-800 line-through">{service.name}</span>
+                                                                        <span className="ml-2 px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded-full">Removed</span>
+                                                                        <span className="text-slate-400 text-sm ml-2">
+                                                                            (was: {service.originalFrequency}x/week)
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-slate-400 line-through">
+                                                                        ${(service.costPerVisit * service.originalFrequency * 4).toLocaleString()}/mo
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {services.filter(s => (s.currentFrequency || 0) > 0).length === 0 && (
+                                                    <p className="text-slate-500 text-sm italic">No services selected. Please go back and configure services.</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </>
                                 )}
