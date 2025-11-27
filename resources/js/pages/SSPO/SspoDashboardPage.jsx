@@ -13,7 +13,7 @@ const SspoDashboardPage = () => {
     useEffect(() => {
         const fetchAssignments = async () => {
             try {
-                const response = await api.get('/api/v2/sspo/assignments');
+                const response = await api.get('/v2/sspo/assignments');
                 setAssignments(response.data);
             } catch (error) {
                 console.error('Failed to fetch SSPO assignments', error);
@@ -21,15 +21,15 @@ const SspoDashboardPage = () => {
                 setLoading(false);
             }
         };
-        
+
         fetchAssignments();
     }, []);
 
     const columns = [
         { header: 'Patient', accessor: 'patient' },
         { header: 'Service Type', accessor: 'service' },
-        { 
-            header: 'Status', 
+        {
+            header: 'Status',
             accessor: (row) => (
                 <span className="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
                     {row.status}
@@ -38,8 +38,8 @@ const SspoDashboardPage = () => {
         },
         { header: 'Frequency', accessor: 'frequency' },
         { header: 'Next Scheduled', accessor: 'next_visit' },
-        { 
-            header: 'Action', 
+        {
+            header: 'Action',
             accessor: (row) => (
                 <Button size="sm" variant="secondary">View Care Plan</Button>
             )

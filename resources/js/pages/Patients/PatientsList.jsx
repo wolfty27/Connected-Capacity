@@ -27,7 +27,7 @@ const PatientsList = () => {
 
     const fetchPatients = async () => {
         try {
-            const response = await api.get('/api/patients');
+            const response = await api.get('/patients');
             setPatients(response.data.data || []);
             setSummary(response.data.summary || { total: 0, active: 0, in_queue: 0 });
             setLoading(false);

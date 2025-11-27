@@ -14,7 +14,7 @@ const TnpReviewListPage = () => {
     useEffect(() => {
         const fetchPatients = async () => {
             try {
-                const response = await api.get('/api/patients');
+                const response = await api.get('/patients');
                 const data = response.data.data || [];
                 setAllPatients(data);
 
@@ -163,9 +163,9 @@ const TnpReviewListPage = () => {
             </div>
 
             <Section title="Intake Queue & Transition Reviews">
-                <DataTable 
-                    columns={columns} 
-                    data={patients} 
+                <DataTable
+                    columns={columns}
+                    data={patients}
                     keyField="id"
                 />
             </Section>
