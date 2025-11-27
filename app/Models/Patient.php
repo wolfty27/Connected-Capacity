@@ -170,6 +170,75 @@ class Patient extends Model
         return $this->hasMany(ServiceAssignment::class);
     }
 
+    /**
+     * Get upcoming service assignments (scheduled in the future).
+     */
+    public function upcomingServiceAssignments()
+    {
+        return $this->serviceAssignments()->upcoming();
+    }
+
+    /**
+     * Get past/completed service assignments.
+     */
+    public function pastServiceAssignments()
+    {
+        return $this->serviceAssignments()->past();
+    }
+
+    /**
+     * Get service assignments for the current week.
+     */
+    public function thisWeekServiceAssignments()
+    {
+        return $this->serviceAssignments()->thisWeek();
+    }
+
+    /**
+     * Get today's service assignments.
+     */
+    public function todayServiceAssignments()
+    {
+        return $this->serviceAssignments()->today();
+    }
+
+    /**
+     * Get the active care plan with bundle and service types.
+     */
+    public function activeCarePlan()
+    {
+        return $this->hasOne(CarePlan::class)
+            ->where('status', 'active')
+            ->with('careBundle.serviceTypes');
+    }
+
+    /**
+     * Get care schedule summary for this patient.
+     * Returns service types with their weekly frequency from the active bundle.
+     */
+    public function getCareScheduleSummaryAttribute(): array
+    {
+        $carePlan = $this->activeCarePlan;
+        if (!$carePlan || !$carePlan->careBundle) {
+            return [];
+        }
+
+        return $carePlan->careBundle->serviceTypes->map(function ($serviceType) {
+            return [
+                'service_type' => $serviceType->name,
+                'code' => $serviceType->code,
+                'frequency_per_week' => $serviceType->pivot->default_frequency_per_week ?? 0,
+                'duration_minutes' => $serviceType->default_duration_minutes ?? 60,
+                'assignment_type' => $serviceType->pivot->assignment_type ?? 'Either',
+                'weekly_hours' => round(
+                    (($serviceType->pivot->default_frequency_per_week ?? 0) *
+                    ($serviceType->default_duration_minutes ?? 60)) / 60,
+                    2
+                ),
+            ];
+        })->toArray();
+    }
+
     public function interdisciplinaryNotes()
     {
         return $this->hasMany(InterdisciplinaryNote::class);

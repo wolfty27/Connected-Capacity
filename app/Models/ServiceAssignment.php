@@ -149,6 +149,77 @@ class ServiceAssignment extends Model
         return $query->where('sspo_acceptance_status', '!=', self::SSPO_NOT_APPLICABLE);
     }
 
+    /**
+     * Scope for upcoming assignments (scheduled in the future).
+     */
+    public function scopeUpcoming(Builder $query): Builder
+    {
+        return $query->where('scheduled_start', '>', now())
+            ->whereIn('status', [self::STATUS_PLANNED, self::STATUS_PENDING, self::STATUS_ACTIVE])
+            ->orderBy('scheduled_start', 'asc');
+    }
+
+    /**
+     * Scope for past/completed assignments.
+     */
+    public function scopePast(Builder $query): Builder
+    {
+        return $query->where(function ($q) {
+            $q->where('scheduled_start', '<', now())
+              ->orWhere('status', self::STATUS_COMPLETED);
+        })->orderBy('scheduled_start', 'desc');
+    }
+
+    /**
+     * Scope for assignments within the current week.
+     */
+    public function scopeThisWeek(Builder $query): Builder
+    {
+        $weekStart = now()->startOfWeek();
+        $weekEnd = now()->endOfWeek();
+
+        return $query->whereBetween('scheduled_start', [$weekStart, $weekEnd])
+            ->orderBy('scheduled_start', 'asc');
+    }
+
+    /**
+     * Scope for assignments today.
+     */
+    public function scopeToday(Builder $query): Builder
+    {
+        return $query->whereDate('scheduled_start', now()->toDateString())
+            ->orderBy('scheduled_start', 'asc');
+    }
+
+    /**
+     * Scope for assignments assigned to a specific staff member.
+     */
+    public function scopeForStaff(Builder $query, int $userId): Builder
+    {
+        return $query->where('assigned_user_id', $userId);
+    }
+
+    /**
+     * Scope for active (in-progress or scheduled for today/future).
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            self::STATUS_PLANNED,
+            self::STATUS_ACTIVE,
+            self::STATUS_IN_PROGRESS,
+            self::STATUS_PENDING,
+        ]);
+    }
+
+    /**
+     * Scope for completed assignments.
+     */
+    public function scopeCompleted(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_COMPLETED);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | SSPO Acceptance Methods
