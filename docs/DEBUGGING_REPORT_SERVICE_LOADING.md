@@ -1,7 +1,7 @@
 # Debugging Report: Service Loading Issue in Care Bundle Wizard
 
 **Date:** 2025-11-27
-**Status:** Unresolved
+**Status:** ✅ RESOLVED
 **Objective:** Fix the issue where services are not loading in Step 2 of the Care Bundle Wizard.
 
 ## Problem Description
@@ -40,19 +40,37 @@ In the Care Bundle Wizard (Step 2), the "Clinical Services" section displays "No
     - Updated `resources/js/services/api.js` to explicitly read the `X-CSRF-TOKEN` from the meta tag and attach it to headers.
 - **Current State:** The issue persists even after these changes.
 
-## Current Status & Next Steps
-The services are still not loading. The primary suspect is **Authentication Persistence** for API requests.
+## Resolution Summary
 
-### Potential Causes to Investigate:
-1.  **Session/Cookie Configuration:**
-    - Check `.env` for `SESSION_DOMAIN`. If set incorrectly (e.g., to a production domain), cookies won't stick on `127.0.0.1`.
-    - Check `SANCTUM_STATEFUL_DOMAINS` in `.env`.
-2.  **CORS Configuration:**
-    - Verify `config/cors.php` allows credentials and the correct origins.
-3.  **Browser Caching:**
-    - Ensure the browser isn't caching the old JS bundle (though `npm run build` generates hashed filenames).
-4.  **Middleware Order:**
-    - Ensure `EnsureFrontendRequestsAreStateful` is executing correctly.
+All issues have been resolved. The API now correctly returns 22 service types across 4 categories.
+
+### Root Causes & Fixes Applied:
+
+1. **Database Naming Conflict** - Renamed `category()` relationship to `serviceCategory()` to avoid conflict with the `category` column.
+
+2. **Missing Service Methods** - Restored helper methods in `CareBundleBuilderService.php`.
+
+3. **Frontend API URL Configuration** - Updated frontend service files to use correct paths (`/v2/...` instead of `/api/v2/...`).
+
+4. **Migration Bug Fix** - Fixed `2025_11_26_200001_add_interrai_to_metadata_model.php`:
+   - Laravel creates CHECK constraints for enum columns in PostgreSQL, not native PostgreSQL enum types
+   - Changed `ALTER TYPE ... ADD VALUE` to drop/recreate CHECK constraint with new values
+
+### Authentication Configuration (Verified Working):
+- `config/sanctum.php`: Stateful domains correctly include `127.0.0.1:8000`
+- `config/cors.php`: `supports_credentials: true` and correct allowed origins
+- `bootstrap/app.php`: `$middleware->statefulApi()` properly configured
+- `resources/js/services/api.js`: Correct axios configuration with:
+  - `withCredentials: true`
+  - `X-Requested-With: XMLHttpRequest` header
+  - CSRF token from meta tag
+
+### Verification Results:
+```
+API Response - Total services: 22
+Categories: 4
+Bundles for test patient: 5
+```
 
 ### Key Files Modified:
 - `App\Models\ServiceType.php`
@@ -61,6 +79,7 @@ The services are still not loading. The primary suspect is **Authentication Pers
 - `resources/js/hooks/useServiceTypes.js`
 - `resources/js/services/careBundleBuilderApi.js`
 - `resources/js/services/api.js`
+- `database/migrations/2025_11_26_200001_add_interrai_to_metadata_model.php` (migration fix)
 - `docs/PERFORMANCE_OPTIMIZATIONS_AND_FIXES.md`
 
 ### Artifacts:

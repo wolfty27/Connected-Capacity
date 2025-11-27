@@ -17,12 +17,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Add InterRAI-related queue statuses to patient_queue enum
-        // Note: For PostgreSQL, we need to alter the enum type
+        // 1. Add InterRAI-related queue statuses to patient_queue
+        // Laravel uses CHECK constraints for enum columns in PostgreSQL, not native enum types
+        // We need to drop the old constraint and create a new one with additional values
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TYPE patient_queue_queue_status_check ADD VALUE IF NOT EXISTS 'interrai_required'");
-            DB::statement("ALTER TYPE patient_queue_queue_status_check ADD VALUE IF NOT EXISTS 'interrai_in_progress'");
-            DB::statement("ALTER TYPE patient_queue_queue_status_check ADD VALUE IF NOT EXISTS 'interrai_complete'");
+            DB::statement("ALTER TABLE patient_queue DROP CONSTRAINT IF EXISTS patient_queue_queue_status_check");
+            DB::statement("ALTER TABLE patient_queue ADD CONSTRAINT patient_queue_queue_status_check CHECK (queue_status::text = ANY (ARRAY[
+                'pending_intake', 'triage_in_progress', 'triage_complete',
+                'tnp_in_progress', 'tnp_complete', 'bundle_building',
+                'bundle_review', 'bundle_approved', 'transitioned',
+                'interrai_required', 'interrai_in_progress', 'interrai_complete'
+            ]::text[]))");
         }
 
         // 2. Enhance interrai_assessments table for re-assessment support
