@@ -136,6 +136,14 @@ class StaffController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $user = Auth::user();
+
+        // Use logged-in user's organization if not provided
+        $organizationId = $request->input('organization_id') ?: $user->organization_id;
+
+        // Merge organization_id into request for validation
+        $request->merge(['organization_id' => $organizationId]);
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -155,10 +163,7 @@ class StaffController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $user = Auth::user();
-        $organizationId = $request->input('organization_id');
-
-        // Authorization check
+        // Authorization check - only allow creating staff in own org unless master
         if (!$user->isMaster() && $organizationId != $user->organization_id) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
