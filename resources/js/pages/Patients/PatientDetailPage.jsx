@@ -35,10 +35,10 @@ const PatientDetailPage = () => {
 
             // Fetch all data in parallel
             const [patientRes, carePlansRes, tnpRes, interraiRes] = await Promise.all([
-                api.get(`/api/patients/${id}`),
-                api.get(`/api/v2/care-plans?patient_id=${id}`).catch(() => ({ data: { data: [] } })),
-                api.get(`/api/patients/${id}/tnp`).catch(() => ({ data: null })),
-                api.get(`/api/v2/interrai/patients/${id}/status`).catch(() => ({ data: { data: null } })),
+                api.get(`/patients/${id}`),
+                api.get(`/v2/care-plans?patient_id=${id}`).catch(() => ({ data: { data: [] } })),
+                api.get(`/patients/${id}/tnp`).catch(() => ({ data: null })),
+                api.get(`/v2/interrai/patients/${id}/status`).catch(() => ({ data: { data: null } })),
             ]);
 
             setPatient(patientRes.data.data);
