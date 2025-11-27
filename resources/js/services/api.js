@@ -17,4 +17,10 @@ const api = axios.create({
     },
 });
 
+// Add CSRF token from meta tag if available
+const token = document.head.querySelector('meta[name="csrf-token"]');
+if (token) {
+    api.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
+}
+
 export default api;

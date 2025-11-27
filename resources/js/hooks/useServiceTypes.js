@@ -30,8 +30,8 @@ const useServiceTypes = (options = {}) => {
             if (category) params.append('category', category);
 
             const [typesRes, categoriesRes] = await Promise.all([
-                api.get(`/api/v2/service-types?${params}`),
-                api.get('/api/v2/service-types/categories'),
+                api.get(`/v2/service-types?${params}`),
+                api.get('/v2/service-types/categories'),
             ]);
 
             console.log('API Params:', params.toString());
