@@ -147,11 +147,20 @@ const SpoStaffPage = () => {
     const columns = [
         { header: 'Name', accessor: 'name' },
         { header: 'Role', accessor: 'organization_role' },
-        { header: 'Employment', accessor: (row) => getEmploymentTypeBadge(row.employment_type) },
-        { header: 'Status', accessor: (row) => getStatusBadge(row.staff_status) },
+        {
+            header: 'Employment',
+            accessor: 'employment_type',
+            render: (row) => getEmploymentTypeBadge(row.employment_type)
+        },
+        {
+            header: 'Status',
+            accessor: 'staff_status',
+            render: (row) => getStatusBadge(row.staff_status)
+        },
         {
             header: 'Hours (This Week)',
-            accessor: (row) => (
+            accessor: 'current_weekly_hours',
+            render: (row) => (
                 <div className="text-sm">
                     <span className="font-medium">{row.current_weekly_hours || 0}</span>
                     <span className="text-slate-400"> / {row.max_weekly_hours || 40}h</span>
@@ -166,7 +175,8 @@ const SpoStaffPage = () => {
         },
         {
             header: 'Skills',
-            accessor: (row) => (
+            accessor: 'skills_count',
+            render: (row) => (
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{row.skills_count || 0}</span>
                     {row.expiring_skills_count > 0 && (
@@ -179,7 +189,8 @@ const SpoStaffPage = () => {
         },
         {
             header: 'Actions',
-            accessor: (row) => (
+            accessor: 'id',
+            render: (row) => (
                 <div className="flex gap-2">
                     <Button size="sm" variant="secondary" onClick={() => handleViewSkills(row)}>
                         Skills
