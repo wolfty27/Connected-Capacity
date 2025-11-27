@@ -13,10 +13,12 @@ use Illuminate\Support\Facades\DB;
 /**
  * FTE Compliance Service
  *
- * Implements OHaH's 80% FTE requirement tracking:
- * - SPO must deliver at least 80% of care hours via full-time staff
- * - SSPO hours count as external/subcontracted
- * - Tracks compliance at organization and system level
+ * Implements OHaH's 80% FTE requirement tracking per RFP Q&A:
+ * FTE ratio = [Number of active full-time direct staff in the program in a week
+ *              ÷ Number of active direct staff in the program in the same week] × 100%
+ *
+ * This is a HEADCOUNT ratio, not hours-based.
+ * Full-time is defined per Ontario's Employment Standards Act.
  */
 class FteComplianceService
 {
@@ -65,8 +67,9 @@ class FteComplianceService
             ? ($hoursMetrics['internal_hours'] / $hoursMetrics['total_hours']) * 100
             : 0;
 
-        // Use hours-based ratio as primary (more accurate per OHaH)
-        $primaryRatio = $hoursMetrics['total_hours'] > 0 ? $hoursRatio : $headcountRatio;
+        // Use headcount-based ratio as primary per RFP Q&A:
+        // FTE ratio = [Number of active full-time direct staff ÷ Number of active direct staff] × 100%
+        $primaryRatio = $headcountRatio;
         $band = $this->determineBand($primaryRatio);
 
         return [
@@ -75,14 +78,14 @@ class FteComplianceService
             'organization_type' => $organization->type,
             'calculated_at' => Carbon::now()->toIso8601String(),
 
-            // Headcount-based metrics
+            // Headcount-based metrics (primary per RFP)
             'total_staff' => $staffMetrics['total_staff'],
             'full_time_staff' => $staffMetrics['full_time_staff'],
             'part_time_staff' => $staffMetrics['part_time_staff'],
             'casual_staff' => $staffMetrics['casual_staff'],
             'headcount_fte_ratio' => round($headcountRatio, 1),
 
-            // Hours-based metrics (primary for OHaH compliance)
+            // Hours-based metrics (supplementary tracking)
             'total_hours' => round($hoursMetrics['total_hours'], 1),
             'internal_hours' => round($hoursMetrics['internal_hours'], 1),
             'sspo_hours' => round($hoursMetrics['sspo_hours'], 1),
@@ -297,8 +300,10 @@ class FteComplianceService
             $weekStart = $currentWeekStart->copy()->subWeeks($i);
             $hoursMetrics = $this->getHoursMetrics($orgId, $weekStart);
 
-            $ratio = $hoursMetrics['total_hours'] > 0
-                ? ($hoursMetrics['internal_hours'] / $hoursMetrics['total_hours']) * 100
+            // Get staff metrics for headcount-based ratio (per RFP requirement)
+            $staffMetrics = $this->getStaffMetrics($orgId);
+            $headcountRatio = $staffMetrics['total_staff'] > 0
+                ? ($staffMetrics['full_time_staff'] / $staffMetrics['total_staff']) * 100
                 : null;
 
             $trend[] = [
@@ -307,8 +312,10 @@ class FteComplianceService
                 'internal_hours' => round($hoursMetrics['internal_hours'], 1),
                 'sspo_hours' => round($hoursMetrics['sspo_hours'], 1),
                 'total_hours' => round($hoursMetrics['total_hours'], 1),
-                'fte_ratio' => $ratio !== null ? round($ratio, 1) : null,
-                'band' => $ratio !== null ? $this->determineBand($ratio) : self::BAND_GREY,
+                'full_time_staff' => $staffMetrics['full_time_staff'],
+                'total_staff' => $staffMetrics['total_staff'],
+                'fte_ratio' => $headcountRatio !== null ? round($headcountRatio, 1) : null,
+                'band' => $headcountRatio !== null ? $this->determineBand($headcountRatio) : self::BAND_GREY,
             ];
         }
 
