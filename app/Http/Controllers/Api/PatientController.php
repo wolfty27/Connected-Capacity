@@ -16,7 +16,7 @@ class PatientController extends Controller
     {
         try {
             $user = Auth::user();
-            $query = Patient::with(['user', 'queueEntry', 'transitionNeedsProfile']);
+            $query = Patient::with(['user', 'queueEntry', 'transitionNeedsProfile', 'hospital.user']);
 
             // Filter by queue status if requested
             $showQueue = $request->get('show_queue', null);
@@ -43,8 +43,8 @@ class PatientController extends Controller
             // Transform data for API
             $data = $patients->map(function ($patient) {
                 $userObj = $patient->user;
-                $hospitalObj = Hospital::find($patient->hospital_id);
-                $hospitalUser = $hospitalObj ? User::find($hospitalObj->user_id) : null;
+                $hospitalObj = $patient->hospital;
+                $hospitalUser = $hospitalObj ? $hospitalObj->user : null;
                 $queueEntry = $patient->queueEntry;
 
                 return [

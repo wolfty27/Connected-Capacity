@@ -30,14 +30,23 @@ class MetadataEngine
     /**
      * Get an object definition by code.
      */
+    /**
+     * Get an object definition by code.
+     */
     public function getDefinition(string $code): ?ObjectDefinition
     {
         if (!isset($this->definitionCache[$code])) {
-            $this->definitionCache[$code] = ObjectDefinition::with([
-                'attributes',
-                'sourceRelationships.targetObject',
-                'rules'
-            ])->where('code', $code)->where('is_active', true)->first();
+            $this->definitionCache[$code] = \Illuminate\Support\Facades\Cache::remember(
+                "metadata_definition_{$code}",
+                now()->addMinutes(60),
+                function () use ($code) {
+                    return ObjectDefinition::with([
+                        'attributes',
+                        'sourceRelationships.targetObject',
+                        'rules'
+                    ])->where('code', $code)->where('is_active', true)->first();
+                }
+            );
         }
 
         return $this->definitionCache[$code];
@@ -214,7 +223,7 @@ class MetadataEngine
         // Only allow safe mathematical operations
         if (preg_match('/^[\d\s\+\-\*\/\.\(\)]+$/', $evaluated)) {
             try {
-                return eval("return {$evaluated};");
+                return eval ("return {$evaluated};");
             } catch (\Throwable $e) {
                 return null;
             }
@@ -295,5 +304,8 @@ class MetadataEngine
     public function clearCache(): void
     {
         $this->definitionCache = [];
+        // Note: We can't easily clear specific keys without knowing them, 
+        // but we can rely on TTL or manual cache clearing commands.
+        // For now, we just clear the runtime cache.
     }
 }

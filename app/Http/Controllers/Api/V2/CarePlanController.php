@@ -114,13 +114,11 @@ class CarePlanController extends Controller
             ]);
 
             // 2. Create Service Assignments
-            foreach ($validated['assignments'] as $serviceKey => $data) {
-                // Map service key to ServiceType ID
-                // We assume serviceKey matches 'code' or we have a map.
-                // Wizard keys: 'nursing', 'psw', 'rehab', 'dietitian', 'dementia', 'mh', 'sw', 'rpm', 'digital'
-                // DB Codes (Seeder): NURSING, PSW, REHAB, DEMENTIA, MH, YOUTH, DIGITAL, RPM
 
-                $serviceCode = match ($serviceKey) {
+            // Collect all service codes first
+            $serviceCodes = [];
+            foreach ($validated['assignments'] as $serviceKey => $data) {
+                $serviceCodes[$serviceKey] = match ($serviceKey) {
                     'nursing' => 'NURSING',
                     'psw' => 'PSW',
                     'rehab' => 'REHAB',
@@ -130,8 +128,14 @@ class CarePlanController extends Controller
                     'digital' => 'DIGITAL',
                     default => strtoupper($serviceKey)
                 };
+            }
 
-                $serviceType = ServiceType::where('code', $serviceCode)->first();
+            // Bulk fetch service types
+            $serviceTypes = ServiceType::whereIn('code', array_values($serviceCodes))->get()->keyBy('code');
+
+            foreach ($validated['assignments'] as $serviceKey => $data) {
+                $serviceCode = $serviceCodes[$serviceKey];
+                $serviceType = $serviceTypes->get($serviceCode);
 
                 if (!$serviceType)
                     continue; // Skip unknown services

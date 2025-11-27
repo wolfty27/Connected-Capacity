@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AssessmentForm;
 use App\Models\Booking;
 use App\Models\Hospital;
-use App\Models\Hospital;
+
 use App\Models\InPersonAssessment;
 use App\Models\Patient;
 use App\Models\RetirementHome;
@@ -73,11 +73,11 @@ class PatientsController extends Controller
         }
     }
 
-    public function appointedView(Request $request, $patientId,$bookingId)
+    public function appointedView(Request $request, $patientId, $bookingId)
     {
         // Method body removed as view 'patients.confirm-patient' is deleted
         return Redirect::route('dashboard');
-    }    
+    }
 
     public function delete(Request $request, $id)
     {
@@ -137,7 +137,8 @@ class PatientsController extends Controller
         }
     }
 
-    public function placedPatients(Request $request){
+    public function placedPatients(Request $request)
+    {
         // Method body removed as view 'patients.placed-patients' is deleted
         return Redirect::route('dashboard');
     }

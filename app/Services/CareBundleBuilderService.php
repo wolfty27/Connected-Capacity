@@ -44,7 +44,7 @@ class CareBundleBuilderService
      */
     public function getAvailableBundles(int $patientId): array
     {
-        $patient = Patient::with(['transitionNeedsProfile'])->find($patientId);
+        $patient = Patient::with(['transitionNeedsProfile', 'latestInterraiAssessment'])->find($patientId);
         if (!$patient) {
             return [];
         }
@@ -65,7 +65,7 @@ class CareBundleBuilderService
      */
     public function getBundleForPatient(int $bundleId, int $patientId): ?array
     {
-        $patient = Patient::with(['transitionNeedsProfile'])->find($patientId);
+        $patient = Patient::with(['transitionNeedsProfile', 'latestInterraiAssessment'])->find($patientId);
         if (!$patient) {
             return null;
         }

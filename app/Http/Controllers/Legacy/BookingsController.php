@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Hospital;
 use App\Models\InPersonAssessment;
-use App\Models\Hospital;
+
 use App\Models\Patient;
 use App\Models\RetirementHome;
 use App\Models\Tier;
@@ -32,13 +32,13 @@ class BookingsController extends Controller
         }
     }
 
-public function hospitalBookings()
+    public function hospitalBookings()
     {
         try {
-             $userId = Auth::user()->id;
+            $userId = Auth::user()->id;
             $hospitalObj = Hospital::where('user_id', $userId)->first();
-            $bookings = Booking::with(['retirement.user','patient.user','assessment.tier'])->where('hospital_id', $hospitalObj->id)->where('status', 'Application Progress')->whereRetirement_home_status('accepted')->get()->reverse();
-            return view('bookings.hospital')->with(["bookings"=>$bookings]);
+            $bookings = Booking::with(['retirement.user', 'patient.user', 'assessment.tier'])->where('hospital_id', $hospitalObj->id)->where('status', 'Application Progress')->whereRetirement_home_status('accepted')->get()->reverse();
+            return view('bookings.hospital')->with(["bookings" => $bookings]);
         } catch (\Exception $e) {
             return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
         }
@@ -48,7 +48,7 @@ public function hospitalBookings()
     {
         try {
             $retirementHome = RetirementHome::whereUser_id(Auth::user()->id)->first();
-            $bookings = Booking::with('patient.user', 'hospital.user')->where('retirement_home_id', $retirementHome->id)->where('status','In person Assessment')->get()->reverse();
+            $bookings = Booking::with('patient.user', 'hospital.user')->where('retirement_home_id', $retirementHome->id)->where('status', 'In person Assessment')->get()->reverse();
             return view('bookings.retirement_home')->with(['data' => $bookings]);
         } catch (\Exception $e) {
             return Redirect::back()->with(['errors' => $e->getMessage()])->withInput();
@@ -175,7 +175,7 @@ public function hospitalBookings()
             if ($request->status == 'accepted') {
                 $bookingObj->update(['status' => 'Application Progress']);
                 $bookingObj->update(['retirement_home_status' => 'accepted']);
-            } 
+            }
 
             InPersonAssessment::create([
                 'booking_id' => $request->booking_id,
@@ -195,11 +195,11 @@ public function hospitalBookings()
 
             $bookingObj = Booking::whereId($request->booking_id_rej)->delete();
             $bookingpatient = Booking::where('patient_id', $request->patient_id_rej)->count();
-            if($bookingpatient < 1){
+            if ($bookingpatient < 1) {
                 $patientObj = Patient::where('id', $request->patient_id_rej)->first();
                 $patientObj->update(['status' => 'Available']);
             }
-            
+
 
             InPersonAssessment::create([
                 'booking_id' => $request->booking_id_rej,
@@ -222,14 +222,13 @@ public function hospitalBookings()
             if ($status == 'accept') {
                 $patientObj->update(['status' => 'Placement Made']);
                 $patientObj->update(['retirement_home_id' => $bookingObj->retirement_home_id]);
-                
+
                 //cancel all other bookings
                 $bookings = Booking::where('patient_id', $patientObj->id)->where('status', null)->get();
                 foreach ($bookings as $booking) {
                     $booking->first()->delete();
                 }
-            } 
-            else {
+            } else {
                 $bookingObj->delete();
                 $patientObj->update(['status' => 'Available']);
             }
@@ -291,8 +290,8 @@ public function hospitalBookings()
         try {
             $userId = Auth::user()->id;
             $hospitalObj = Hospital::where('user_id', $userId)->first();
-            $bookings = Booking::with(['retirement.user','patient.user'])->where('hospital_id', $hospitalObj->id)->where('status', 'In person Assessment')->whereNull('retirement_home_status')->get()->reverse();
-            return view('bookings.hospital_appointments')->with(["bookings"=>$bookings]);
+            $bookings = Booking::with(['retirement.user', 'patient.user'])->where('hospital_id', $hospitalObj->id)->where('status', 'In person Assessment')->whereNull('retirement_home_status')->get()->reverse();
+            return view('bookings.hospital_appointments')->with(["bookings" => $bookings]);
         } catch (\Exception $e) {
             return Redirect::back()->with(['errors' => $e->getMessage() . ' Please contact admin.'])->withInput();
         }
