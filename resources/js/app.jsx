@@ -3,8 +3,16 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './components/App';
+import { initializeCsrf } from './services/api';
 
 console.log('Connected Capacity: JS Entry Point Loaded');
+
+// Initialize CSRF protection early
+initializeCsrf().then(() => {
+    console.log('CSRF protection initialized');
+}).catch((err) => {
+    console.warn('CSRF initialization delayed:', err);
+});
 
 // Global error handler to catch errors before React mounts
 window.onerror = function (message, source, lineno, colno, error) {
