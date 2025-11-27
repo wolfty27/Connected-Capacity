@@ -155,19 +155,44 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * Seed care activities (ServiceAssignments) for all staff for the current week
-     * This allows testing that the FTE ratio calculation is working properly.
-     * Assignments are properly tied to patient care bundles.
+     * Seed care activities (ServiceAssignments) for all staff for the current week.
+     *
+     * This method is metadata-driven:
+     * - Uses bundle's default_frequency_per_week to determine visits per week
+     * - Uses service type's default_duration_minutes for visit duration
+     * - Assigns staff based on role matching service type codes
+     * - Respects bundle's assignment_type (Internal vs External)
      */
     protected function seedCareActivities(ServiceProviderOrganization $spo): void
     {
-        // Get all active field staff in the organization
+        // Map staff roles to service type codes
+        $roleToServiceType = [
+            'RN' => 'NUR',
+            'RPN' => 'NUR',
+            'PSW' => 'PSW',
+            'OT' => 'OT',
+            'PT' => 'PT',
+        ];
+
+        // Get all active field staff in the organization, grouped by their service type
+        $staffByServiceType = [];
         $activeStaff = User::where('organization_id', $spo->id)
             ->where('role', User::ROLE_FIELD_STAFF)
             ->where('staff_status', 'active')
             ->get();
 
-        // Get active patients with care plans and their bundles' service types
+        foreach ($activeStaff as $staff) {
+            $serviceTypeCode = $roleToServiceType[$staff->organization_role] ?? null;
+            if ($serviceTypeCode) {
+                $staffByServiceType[$serviceTypeCode][] = $staff;
+            }
+        }
+
+        if (empty($staffByServiceType)) {
+            return;
+        }
+
+        // Get active patients with care plans and their bundles' service types (with pivot data)
         $patients = Patient::where('status', 'Active')
             ->whereHas('carePlans', function ($q) {
                 $q->where('status', 'active');
@@ -177,118 +202,148 @@ class DemoSeeder extends Seeder
             }])
             ->get();
 
-        if ($patients->isEmpty() || $activeStaff->isEmpty()) {
-            return; // No patients or staff to create assignments for
+        if ($patients->isEmpty()) {
+            return;
         }
-
-        // Map staff roles to service type codes
-        $roleToServiceType = [
-            'RN' => 'NUR',   // Nursing
-            'RPN' => 'NUR',  // Nursing
-            'PSW' => 'PSW',  // Personal Support Worker
-            'OT' => 'OT',    // Occupational Therapy
-            'PT' => 'PT',    // Physiotherapy
-        ];
 
         // Current week boundaries
         $weekStart = Carbon::now()->startOfWeek();
 
-        // Define visit schedules per employment type (hours per day)
-        $hoursPerDay = [
-            'full_time' => 6,   // ~30 hours/week (some admin time)
-            'part_time' => 4,   // ~20 hours/week
-            'casual' => 2,      // ~10 hours/week
-        ];
-
-        // Statuses to distribute among assignments
-        $statuses = ['completed', 'completed', 'completed', 'in_progress', 'planned'];
-
-        foreach ($activeStaff as $staff) {
-            // Get the service type code for this staff member's role
-            $serviceTypeCode = $roleToServiceType[$staff->organization_role] ?? null;
-            if (!$serviceTypeCode) {
+        // Process each patient's care plan
+        foreach ($patients as $patient) {
+            $carePlan = $patient->carePlans->first();
+            if (!$carePlan || !$carePlan->careBundle) {
                 continue;
             }
 
-            $serviceType = ServiceType::where('code', $serviceTypeCode)->first();
-            if (!$serviceType) {
-                continue;
-            }
+            $bundle = $carePlan->careBundle;
 
-            // Find patients whose care bundle includes this service type
-            $eligiblePatients = $patients->filter(function ($patient) use ($serviceType) {
-                $carePlan = $patient->carePlans->first();
-                if (!$carePlan || !$carePlan->careBundle) {
-                    return false;
+            // Process each service type in the bundle
+            foreach ($bundle->serviceTypes as $serviceType) {
+                // Get bundle-defined frequency and assignment type from pivot
+                $frequencyPerWeek = $serviceType->pivot->default_frequency_per_week ?? 1;
+                $assignmentType = $serviceType->pivot->assignment_type ?? 'Either';
+
+                // Skip external-only services (those would be assigned to SSPOs)
+                if ($assignmentType === 'External') {
+                    continue;
                 }
-                // Check if the bundle includes this service type
-                return $carePlan->careBundle->serviceTypes->contains('id', $serviceType->id);
-            });
 
-            // If no eligible patients for this service type, skip
-            if ($eligiblePatients->isEmpty()) {
-                continue;
-            }
+                // Get available staff for this service type
+                $availableStaff = $staffByServiceType[$serviceType->code] ?? [];
+                if (empty($availableStaff)) {
+                    continue;
+                }
 
-            $dailyHours = $hoursPerDay[$staff->employment_type] ?? 4;
+                // Get duration from service type metadata (default to 60 min if not set)
+                $durationMinutes = $serviceType->default_duration_minutes ?? 60;
 
-            // Create assignments for each day of the week (Mon-Fri)
-            for ($day = 0; $day < 5; $day++) {
-                $visitDate = $weekStart->copy()->addDays($day);
+                // Distribute visits across the week based on frequency
+                $visitDays = $this->distributeVisitsAcrossWeek($frequencyPerWeek);
 
-                // Skip future days for completed status
-                $isPastOrToday = $visitDate->lte(Carbon::today());
+                foreach ($visitDays as $dayIndex => $visitsOnDay) {
+                    for ($visitNum = 0; $visitNum < $visitsOnDay; $visitNum++) {
+                        $visitDate = $weekStart->copy()->addDays($dayIndex);
+                        $isPastOrToday = $visitDate->lte(Carbon::today());
 
-                // Create 2-3 visits per day for this staff member
-                $visitsPerDay = rand(2, 3);
-                $hoursPerVisit = $dailyHours / $visitsPerDay;
+                        // Round-robin staff assignment
+                        $staff = $availableStaff[array_rand($availableStaff)];
 
-                for ($visit = 0; $visit < $visitsPerDay; $visit++) {
-                    // Assign to a random eligible patient (whose bundle includes this service)
-                    $patient = $eligiblePatients->random();
-                    $carePlan = $patient->carePlans->first();
+                        // Calculate visit time (spread visits throughout the day)
+                        $startHour = 8 + ($visitNum * 3); // 8am, 11am, 2pm, etc.
+                        $scheduledStart = $visitDate->copy()->setTime($startHour, 0);
+                        $scheduledEnd = $scheduledStart->copy()->addMinutes($durationMinutes);
 
-                    if (!$carePlan) {
-                        continue;
+                        // Determine status based on date
+                        $status = $this->determineVisitStatus($visitDate, $isPastOrToday);
+
+                        // Create the service assignment using bundle metadata
+                        ServiceAssignment::updateOrCreate(
+                            [
+                                'care_plan_id' => $carePlan->id,
+                                'patient_id' => $patient->id,
+                                'service_type_id' => $serviceType->id,
+                                'scheduled_start' => $scheduledStart,
+                            ],
+                            [
+                                'assigned_user_id' => $staff->id,
+                                'service_provider_organization_id' => $spo->id,
+                                'status' => $status,
+                                'scheduled_end' => $scheduledEnd,
+                                'frequency_rule' => "{$frequencyPerWeek}x per week",
+                                'estimated_hours_per_week' => round(($frequencyPerWeek * $durationMinutes) / 60, 2),
+                                'source' => 'manual',
+                                'notes' => "Bundle: {$bundle->code} | Service: {$serviceType->name}",
+                                'actual_start' => $status === 'completed' ? $scheduledStart : null,
+                                'actual_end' => $status === 'completed' ? $scheduledEnd : null,
+                            ]
+                        );
                     }
-
-                    // Calculate visit time slots (starting at 8am, 11am, 2pm)
-                    $startHour = 8 + ($visit * 3);
-                    $scheduledStart = $visitDate->copy()->setTime($startHour, 0);
-                    $scheduledEnd = $scheduledStart->copy()->addHours($hoursPerVisit);
-
-                    // Determine status based on date
-                    if ($isPastOrToday) {
-                        $status = $statuses[array_rand($statuses)];
-                        // Past days should be completed
-                        if ($visitDate->lt(Carbon::today())) {
-                            $status = 'completed';
-                        }
-                    } else {
-                        $status = 'planned';
-                    }
-
-                    ServiceAssignment::updateOrCreate(
-                        [
-                            'care_plan_id' => $carePlan->id,
-                            'patient_id' => $patient->id,
-                            'assigned_user_id' => $staff->id,
-                            'scheduled_start' => $scheduledStart,
-                        ],
-                        [
-                            'service_type_id' => $serviceType->id,
-                            'service_provider_organization_id' => $spo->id,
-                            'status' => $status,
-                            'scheduled_end' => $scheduledEnd,
-                            'frequency_rule' => 'daily',
-                            'source' => 'manual',
-                            'notes' => "Demo visit for {$staff->name}",
-                            'actual_start' => $status === 'completed' ? $scheduledStart : null,
-                            'actual_end' => $status === 'completed' ? $scheduledEnd : null,
-                        ]
-                    );
                 }
             }
         }
+    }
+
+    /**
+     * Distribute visits across the week based on frequency.
+     * Returns array where index = day (0=Mon, 4=Fri), value = visits on that day.
+     */
+    protected function distributeVisitsAcrossWeek(int $frequencyPerWeek): array
+    {
+        $days = [0, 0, 0, 0, 0]; // Mon-Fri
+
+        if ($frequencyPerWeek >= 14) {
+            // 14+ visits = 2-3 visits per day
+            $days = [3, 3, 3, 3, 2];
+        } elseif ($frequencyPerWeek >= 7) {
+            // 7-13 visits = 1-2 visits per day
+            $perDay = intdiv($frequencyPerWeek, 5);
+            $remainder = $frequencyPerWeek % 5;
+            for ($i = 0; $i < 5; $i++) {
+                $days[$i] = $perDay + ($i < $remainder ? 1 : 0);
+            }
+        } elseif ($frequencyPerWeek >= 5) {
+            // 5-6 visits = 1 per day, some days have 2
+            $days = [1, 1, 1, 1, 1];
+            $extra = $frequencyPerWeek - 5;
+            for ($i = 0; $i < $extra; $i++) {
+                $days[$i]++;
+            }
+        } elseif ($frequencyPerWeek >= 3) {
+            // 3-4 visits = Mon, Wed, Fri (+ Tue if 4)
+            $days[0] = 1; // Mon
+            $days[2] = 1; // Wed
+            $days[4] = 1; // Fri
+            if ($frequencyPerWeek == 4) {
+                $days[1] = 1; // Tue
+            }
+        } elseif ($frequencyPerWeek == 2) {
+            // 2 visits = Mon, Thu
+            $days[0] = 1;
+            $days[3] = 1;
+        } elseif ($frequencyPerWeek == 1) {
+            // 1 visit = Wednesday (mid-week)
+            $days[2] = 1;
+        }
+
+        return $days;
+    }
+
+    /**
+     * Determine visit status based on the date.
+     */
+    protected function determineVisitStatus(Carbon $visitDate, bool $isPastOrToday): string
+    {
+        if (!$isPastOrToday) {
+            return 'planned';
+        }
+
+        if ($visitDate->lt(Carbon::today())) {
+            return 'completed';
+        }
+
+        // Today - mix of statuses
+        $statuses = ['completed', 'completed', 'in_progress', 'planned'];
+        return $statuses[array_rand($statuses)];
     }
 }
