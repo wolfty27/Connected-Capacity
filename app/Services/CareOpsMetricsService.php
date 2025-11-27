@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Visit;
+use App\Models\ServiceAssignment;
 use App\Models\CareAssignment;
 use App\Models\User;
 use App\Models\Patient;
@@ -13,36 +13,47 @@ class CareOpsMetricsService
 {
     /**
      * Get missed care statistics for the past 24 hours.
-     * 
+     * Uses real data from ServiceAssignment model via MissedCareService.
+     *
      * @param int $orgId
      * @return array
      */
     public function getMissedCareStats(int $orgId): array
     {
-        // Logic: Count visits with status 'missed' in the last 24h
-        // For now, we'll mock this with realistic data structures or use DB queries if models exist
+        $missedCareService = new MissedCareService();
 
-        // Mocking for initial implementation to match wireframe
+        // Get 24h metrics
+        $metrics24h = $missedCareService->calculate($orgId, now()->subHours(24), now());
+
+        // Get previous 24h for trend
+        $metricsPrev24h = $missedCareService->calculate($orgId, now()->subHours(48), now()->subHours(24));
+
+        $trend = $metrics24h['missed'] - $metricsPrev24h['missed'];
+        $trendStr = $trend >= 0 ? "+{$trend}" : (string)$trend;
+
+        // Get missed assignment details
+        $missedAssignments = $missedCareService->getMissedAssignments($orgId, now()->subHours(24), now(), 10);
+
+        $events = $missedAssignments->map(function ($assignment) {
+            return [
+                'id' => $assignment['id'],
+                'patient_name' => $assignment['patient']['name'] ?? 'Unknown',
+                'visit_time' => $assignment['scheduled_start'],
+                'service_type' => $assignment['service_type']['name'] ?? 'Unknown',
+                'reason' => $assignment['notes'] ?? 'No reason provided',
+                'status' => $assignment['status'],
+                'assigned_to' => $assignment['assigned_to'],
+            ];
+        })->toArray();
+
         return [
-            'count_24h' => 2,
-            'trend' => '+1', // vs previous 24h
-            'status' => 'critical', // 0 is success, >0 is critical
-            'events' => [
-                [
-                    'id' => 101,
-                    'patient_name' => 'Sarah J.',
-                    'visit_time' => Carbon::now()->subHours(4)->toIso8601String(),
-                    'reason' => 'Staff No-Show',
-                    'status' => 'pending_review'
-                ],
-                [
-                    'id' => 102,
-                    'patient_name' => 'Robert M.',
-                    'visit_time' => Carbon::now()->subHours(12)->toIso8601String(),
-                    'reason' => 'Patient Refusal',
-                    'status' => 'investigating'
-                ]
-            ]
+            'count_24h' => $metrics24h['missed'],
+            'trend' => $trendStr,
+            'status' => $metrics24h['missed'] > 0 ? 'critical' : 'success',
+            'delivered' => $metrics24h['delivered'],
+            'missed_rate' => $metrics24h['missed_rate'],
+            'compliance' => $metrics24h['compliance'],
+            'events' => $events,
         ];
     }
 

@@ -152,6 +152,9 @@ class DemoSeeder extends Seeder
 
         // 9. Seed care activities (service assignments) for the current week
         $this->seedCareActivities($spo);
+
+        // 10. Seed some missed appointments for testing missed care metrics
+        $this->seedMissedAppointments($spo);
     }
 
     /**
@@ -345,5 +348,88 @@ class DemoSeeder extends Seeder
         // Today - mix of statuses
         $statuses = ['completed', 'completed', 'in_progress', 'planned'];
         return $statuses[array_rand($statuses)];
+    }
+
+    /**
+     * Seed some missed care appointments for testing missed care metrics.
+     * Creates 2-3 missed appointments in the last 24 hours.
+     */
+    protected function seedMissedAppointments(ServiceProviderOrganization $spo): void
+    {
+        // Get active patients with care plans
+        $patients = Patient::where('status', 'Active')
+            ->whereHas('carePlans', function ($q) {
+                $q->where('status', 'active');
+            })
+            ->with(['carePlans' => function ($q) {
+                $q->where('status', 'active')->with('careBundle.serviceTypes');
+            }])
+            ->take(3)
+            ->get();
+
+        if ($patients->isEmpty()) {
+            return;
+        }
+
+        // Get active staff
+        $activeStaff = User::where('organization_id', $spo->id)
+            ->where('role', User::ROLE_FIELD_STAFF)
+            ->where('staff_status', 'active')
+            ->get();
+
+        if ($activeStaff->isEmpty()) {
+            return;
+        }
+
+        // Missed appointment reasons
+        $missedReasons = [
+            'Staff No-Show - Traffic delay',
+            'Patient Refusal - Not feeling well',
+            'Access Issue - Patient not home',
+        ];
+
+        $missedCount = 0;
+        foreach ($patients as $patient) {
+            if ($missedCount >= 2) {
+                break; // Create only 2 missed appointments
+            }
+
+            $carePlan = $patient->carePlans->first();
+            if (!$carePlan || !$carePlan->careBundle) {
+                continue;
+            }
+
+            $serviceType = $carePlan->careBundle->serviceTypes->first();
+            if (!$serviceType) {
+                continue;
+            }
+
+            $staff = $activeStaff->random();
+
+            // Schedule in the past 4-12 hours
+            $hoursAgo = rand(4, 12);
+            $scheduledStart = Carbon::now()->subHours($hoursAgo);
+            $scheduledEnd = $scheduledStart->copy()->addMinutes($serviceType->default_duration_minutes ?? 60);
+
+            ServiceAssignment::updateOrCreate(
+                [
+                    'care_plan_id' => $carePlan->id,
+                    'patient_id' => $patient->id,
+                    'service_type_id' => $serviceType->id,
+                    'scheduled_start' => $scheduledStart,
+                ],
+                [
+                    'assigned_user_id' => $staff->id,
+                    'service_provider_organization_id' => $spo->id,
+                    'status' => 'missed',
+                    'scheduled_end' => $scheduledEnd,
+                    'frequency_rule' => 'as needed',
+                    'source' => 'manual',
+                    'notes' => $missedReasons[$missedCount] ?? 'Missed - reason not specified',
+                ]
+            );
+
+            $missedCount++;
+        }
     }
 }

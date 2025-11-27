@@ -2,72 +2,119 @@
 
 namespace App\Services\CareOps;
 
-use App\Models\Visit;
+use App\Models\ServiceAssignment;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class MissedCareMonitor
 {
     /**
-     * Identify visits that have exceeded their clinical window and are not completed.
+     * Identify service assignments that have exceeded their clinical window and are not completed.
      * Contract Rule: 0% Missed Care Target.
-     * 
+     *
+     * @param int|null $organizationId Filter by organization
      * @return Collection
      */
-    public function detectMissedCare(): Collection
+    public function detectMissedCare(?int $organizationId = null): Collection
     {
         $now = Carbon::now();
-        
-        // In a real scenario, we would use 'window_end_at'.
-        // For prototype, we assume a visit is missed if it hasn't started 
-        // 2 hours after its scheduled time.
+
+        // A service assignment is missed if:
+        // - Status is 'missed' OR
+        // - Status is 'planned'/'pending' and scheduled_start was >2 hours ago
         $threshold = $now->copy()->subHours(2);
 
-        return Visit::with(['patient.user', 'careAssignment.assignedUser'])
-            ->where('status', 'pending')
-            ->where('scheduled_at', '<', $threshold)
-            ->get()
-            ->map(function ($visit) {
-                $visit->risk_level = 'CRITICAL'; // Missed
-                $visit->breach_duration = $visit->scheduled_at->diffForHumans();
-                return $visit;
+        $query = ServiceAssignment::with(['patient.user', 'assignedUser', 'serviceType'])
+            ->where(function ($q) use ($threshold) {
+                $q->where('status', ServiceAssignment::STATUS_MISSED)
+                  ->orWhere(function ($sub) use ($threshold) {
+                      $sub->whereIn('status', [ServiceAssignment::STATUS_PLANNED, ServiceAssignment::STATUS_PENDING])
+                          ->where('scheduled_start', '<', $threshold);
+                  });
             });
+
+        if ($organizationId) {
+            $query->where('service_provider_organization_id', $organizationId);
+        }
+
+        return $query->get()->map(function ($assignment) {
+            return [
+                'id' => $assignment->id,
+                'risk_level' => 'CRITICAL',
+                'breach_duration' => $assignment->scheduled_start?->diffForHumans() ?? 'Unknown',
+                'patient' => [
+                    'id' => $assignment->patient?->id,
+                    'user' => ['name' => $assignment->patient?->user?->name ?? 'Unknown'],
+                ],
+                'care_assignment' => [
+                    'assigned_user' => ['name' => $assignment->assignedUser?->name ?? 'Unassigned'],
+                ],
+                'service_type' => $assignment->serviceType?->name ?? 'Unknown',
+                'reason' => 'Visit Verification Overdue',
+                'scheduled_start' => $assignment->scheduled_start?->toIso8601String(),
+            ];
+        });
     }
 
     /**
-     * Identify visits approaching their deadline (Jeopardy Board).
+     * Identify service assignments approaching their deadline (Jeopardy Board).
      * Contract Rule: "At Risk" if < 2 hours remaining in window.
-     * 
+     *
+     * @param int|null $organizationId Filter by organization
      * @return Collection
      */
-    public function detectJeopardy(): Collection
+    public function detectJeopardy(?int $organizationId = null): Collection
     {
         $now = Carbon::now();
         $upcoming = $now->copy()->addHours(2);
 
-        return Visit::with(['patient.user', 'careAssignment.assignedUser'])
-            ->where('status', 'pending')
-            ->whereBetween('scheduled_at', [$now, $upcoming])
-            ->get()
-            ->map(function ($visit) {
-                $visit->risk_level = 'WARNING'; // Jeopardy
-                $visit->time_remaining = $visit->scheduled_at->diffInMinutes($now, true) . ' mins';
-                return $visit;
-            });
+        $query = ServiceAssignment::with(['patient.user', 'assignedUser', 'serviceType'])
+            ->whereIn('status', [ServiceAssignment::STATUS_PLANNED, ServiceAssignment::STATUS_PENDING])
+            ->whereBetween('scheduled_start', [$now, $upcoming]);
+
+        if ($organizationId) {
+            $query->where('service_provider_organization_id', $organizationId);
+        }
+
+        return $query->get()->map(function ($assignment) use ($now) {
+            $minutesRemaining = $now->diffInMinutes($assignment->scheduled_start, false);
+
+            return [
+                'id' => $assignment->id,
+                'risk_level' => 'WARNING',
+                'time_remaining' => $minutesRemaining . 'm',
+                'patient' => [
+                    'id' => $assignment->patient?->id,
+                    'user' => ['name' => $assignment->patient?->user?->name ?? 'Unknown'],
+                ],
+                'care_assignment' => [
+                    'assigned_user' => ['name' => $assignment->assignedUser?->name ?? 'Unassigned'],
+                ],
+                'service_type' => $assignment->serviceType?->name ?? 'Unknown',
+                'reason' => 'Late Start Risk',
+                'scheduled_start' => $assignment->scheduled_start?->toIso8601String(),
+            ];
+        });
     }
 
     /**
      * Aggregate all risks for the Command Center.
+     *
+     * @param int|null $organizationId Filter by organization
+     * @return array
      */
-    public function getRiskSnapshot(): array
+    public function getRiskSnapshot(?int $organizationId = null): array
     {
-        $missed = $this->detectMissedCare();
-        $jeopardy = $this->detectJeopardy();
+        $missed = $this->detectMissedCare($organizationId);
+        $jeopardy = $this->detectJeopardy($organizationId);
 
         return [
             'missed_count' => $missed->count(),
             'jeopardy_count' => $jeopardy->count(),
-            'risks' => $missed->merge($jeopardy)->sortBy('scheduled_at')->values()
+            'risks' => $missed->merge($jeopardy)
+                ->sortBy('scheduled_start')
+                ->values()
+                ->toArray(),
         ];
     }
 }
