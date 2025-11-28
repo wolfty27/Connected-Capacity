@@ -29,6 +29,12 @@ class RUGClassification extends Model
 {
     use HasFactory;
 
+    /**
+     * The table associated with the model.
+     * Explicitly set to avoid Laravel converting RUG to r_u_g.
+     */
+    protected $table = 'rug_classifications';
+
     protected $fillable = [
         'patient_id',
         'assessment_id',
