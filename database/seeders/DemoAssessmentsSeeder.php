@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\InterraiAssessment;
 use App\Models\Patient;
+use App\Models\ServiceProviderOrganization;
 use App\Services\RUGClassificationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Log;
@@ -46,6 +47,13 @@ class DemoAssessmentsSeeder extends Seeder
     {
         $this->command->info('Creating InterRAI assessments and RUG classifications...');
 
+        // Get the SPO organization (SE Health) for source attribution
+        $spo = ServiceProviderOrganization::where('slug', 'se-health')->first();
+        if (!$spo) {
+            $this->command->error('SPO organization (SE Health) not found. Run DemoSeeder first.');
+            return;
+        }
+
         $targetRugGroups = DemoPatientsSeeder::getTargetRugGroups();
         $notReadyPatients = DemoPatientsSeeder::getNotReadyPatients();
 
@@ -76,11 +84,13 @@ class DemoAssessmentsSeeder extends Seeder
             $rawItems = DemoInterraiPayloadFactory::forRug($targetRug);
 
             // Create InterRAI assessment with proper iCODE raw_items
+            // Source is SPO (completed by SPO team) with organization set
             $assessment = InterraiAssessment::create([
                 'patient_id' => $patient->id,
                 'assessment_type' => 'hc',
                 'assessment_date' => now()->subDays(rand(5, 30)),
-                'source' => 'OHAH',
+                'source' => InterraiAssessment::SOURCE_SPO,
+                'source_organization_id' => $spo->id,
                 'workflow_status' => 'completed',
                 'is_current' => true,
                 'version' => 1,

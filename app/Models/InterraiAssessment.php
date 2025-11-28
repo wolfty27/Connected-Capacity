@@ -54,6 +54,7 @@ class InterraiAssessment extends Model
         'assessor_id',
         'assessor_role',
         'source',
+        'source_organization_id',
         'maple_score',
         'rai_cha_score',
         'adl_hierarchy',
@@ -173,6 +174,11 @@ class InterraiAssessment extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function sourceOrganization()
+    {
+        return $this->belongsTo(ServiceProviderOrganization::class, 'source_organization_id');
     }
 
     public function previousAssessment()
@@ -388,6 +394,23 @@ class InterraiAssessment extends Model
     }
 
     /**
+     * Get human-readable source name, using organization name for SPO assessments.
+     */
+    public function getSourceDisplayName(): string
+    {
+        if ($this->source === self::SOURCE_SPO && $this->sourceOrganization) {
+            return $this->sourceOrganization->name;
+        }
+
+        return match ($this->source) {
+            self::SOURCE_HPG => 'HPG Referral',
+            self::SOURCE_SPO => 'SPO Completed',
+            self::SOURCE_OHAH => 'OHaH Provided',
+            default => $this->source ?? 'Unknown',
+        };
+    }
+
+    /**
      * Get high-risk flags as array.
      */
     public function getHighRiskFlagsAttribute(): array
@@ -490,6 +513,8 @@ class InterraiAssessment extends Model
             'assessment_date' => $this->assessment_date->toIso8601String(),
             'assessment_type' => $this->assessment_type,
             'source' => $this->source,
+            'source_display_name' => $this->getSourceDisplayName(),
+            'source_organization_id' => $this->source_organization_id,
             'workflow_status' => $this->workflow_status ?? 'completed',
             'is_current' => $this->is_current ?? true,
             'is_stale' => $this->isStale(),
@@ -570,12 +595,7 @@ class InterraiAssessment extends Model
                 default => $this->assessment_type,
             },
             'assessment_date' => $this->assessment_date?->format('Y-m-d'),
-            'source' => match ($this->source) {
-                'hpg_referral' => 'HPG Referral',
-                'spo_completed' => 'SPO Completed',
-                'ohah_provided' => 'OHaH Provided',
-                default => $this->source,
-            },
+            'source' => $this->getSourceDisplayName(),
             'assessor_role' => $this->assessor_role,
             'primary_diagnosis' => $this->primary_diagnosis_icd10,
         ];

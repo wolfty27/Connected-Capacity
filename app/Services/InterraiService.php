@@ -93,6 +93,9 @@ class InterraiService
     public function createSpoAssessment(Patient $patient, array $data, ?User $assessor = null): InterraiAssessment
     {
         return DB::transaction(function () use ($patient, $data, $assessor) {
+            // Get the SPO organization from the assessor or data
+            $organizationId = $data['source_organization_id'] ?? $assessor?->organization_id;
+
             $assessment = InterraiAssessment::create([
                 'patient_id' => $patient->id,
                 'assessment_type' => $data['assessment_type'] ?? InterraiAssessment::TYPE_HC,
@@ -100,6 +103,7 @@ class InterraiService
                 'assessor_id' => $assessor?->id,
                 'assessor_role' => $data['assessor_role'] ?? $assessor?->organization_role ?? 'Care Coordinator',
                 'source' => InterraiAssessment::SOURCE_SPO,
+                'source_organization_id' => $organizationId,
 
                 // InterRAI HC Output Scores
                 'maple_score' => $data['maple_score'] ?? null,
@@ -378,6 +382,9 @@ class InterraiService
         ?User $enteredBy = null
     ): InterraiAssessment {
         return DB::transaction(function () use ($patient, $data, $enteredBy) {
+            // Allow specifying source organization for external assessments
+            $organizationId = $data['source_organization_id'] ?? $enteredBy?->organization_id;
+
             $assessment = InterraiAssessment::create([
                 'patient_id' => $patient->id,
                 'assessment_type' => $data['assessment_type'] ?? InterraiAssessment::TYPE_HC,
@@ -385,6 +392,7 @@ class InterraiService
                 'assessor_id' => $enteredBy?->id,
                 'assessor_role' => $data['assessor_role'] ?? 'External Assessor',
                 'source' => InterraiAssessment::SOURCE_OHAH,
+                'source_organization_id' => $organizationId,
 
                 // Clinical scores (manually entered)
                 'maple_score' => $data['maple_score'] ?? null,
