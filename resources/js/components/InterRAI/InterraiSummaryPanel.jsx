@@ -173,6 +173,25 @@ const InterraiSummaryPanel = ({
                 </div>
             </div>
 
+            {/* RUG Classification */}
+            {assessment.rug_classification && (
+                <div className="px-4 pb-3">
+                    <div className="p-2 bg-teal-50 border border-teal-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <span className="text-xs font-semibold text-teal-600 uppercase">RUG</span>
+                                <span className="ml-2 text-sm font-bold text-teal-800">
+                                    {assessment.rug_classification.rug_group}
+                                </span>
+                            </div>
+                            <span className="text-xs text-teal-600">
+                                {assessment.rug_classification.rug_category}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Risk Flags */}
             {(assessment.falls_in_last_90_days || assessment.wandering_flag || assessment.high_risk_flags?.length > 0) && (
                 <div className="px-4 pb-3 flex flex-wrap gap-1.5">

@@ -81,7 +81,12 @@ class InterraiController extends Controller
     public function patientStatus(Patient $patient): JsonResponse
     {
         $requiresInfo = $this->interraiService->requiresCompletion($patient);
-        $latestAssessment = $patient->latestInterraiAssessment;
+
+        // Eager load the latest assessment with its RUG classification
+        $latestAssessment = $patient->interraiAssessments()
+            ->with('latestRugClassification')
+            ->orderBy('assessment_date', 'desc')
+            ->first();
 
         return response()->json([
             'data' => [
@@ -104,6 +109,7 @@ class InterraiController extends Controller
     public function patientAssessments(Patient $patient): JsonResponse
     {
         $assessments = $patient->interraiAssessments()
+            ->with('latestRugClassification')
             ->orderBy('assessment_date', 'desc')
             ->get()
             ->map(fn ($a) => $a->toSummaryArray());

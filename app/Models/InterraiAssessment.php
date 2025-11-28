@@ -480,11 +480,18 @@ class InterraiAssessment extends Model
      */
     public function toSummaryArray(): array
     {
+        // Load RUG classification if not already loaded
+        $rugClassification = $this->relationLoaded('latestRugClassification')
+            ? $this->latestRugClassification
+            : $this->latestRugClassification()->first();
+
         return [
             'id' => $this->id,
             'assessment_date' => $this->assessment_date->toIso8601String(),
             'assessment_type' => $this->assessment_type,
             'source' => $this->source,
+            'workflow_status' => $this->workflow_status ?? 'completed',
+            'is_current' => $this->is_current ?? true,
             'is_stale' => $this->isStale(),
             'days_until_stale' => $this->days_until_stale,
             'maple_score' => $this->maple_score,
@@ -493,9 +500,26 @@ class InterraiAssessment extends Model
             'cps_description' => $this->cps_description,
             'adl_hierarchy' => $this->adl_hierarchy,
             'adl_description' => $this->adl_description,
+            'iadl_difficulty' => $this->iadl_difficulty,
+            'chess_score' => $this->chess_score,
+            'depression_rating_scale' => $this->depression_rating_scale,
+            'pain_scale' => $this->pain_scale,
+            'falls_in_last_90_days' => $this->falls_in_last_90_days,
+            'wandering_flag' => $this->wandering_flag,
             'high_risk_flags' => $this->high_risk_flags,
             'iar_status' => $this->iar_upload_status,
             'chris_status' => $this->chris_sync_status,
+            // RUG Classification data
+            'rug_group' => $rugClassification?->rug_group,
+            'rug_category' => $rugClassification?->rug_category,
+            'rug_classification' => $rugClassification ? [
+                'id' => $rugClassification->id,
+                'rug_group' => $rugClassification->rug_group,
+                'rug_category' => $rugClassification->rug_category,
+                'category_description' => $rugClassification->category_description,
+                'adl_sum' => $rugClassification->adl_sum,
+                'numeric_rank' => $rugClassification->numeric_rank,
+            ] : null,
         ];
     }
 }

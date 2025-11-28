@@ -451,20 +451,57 @@ const PatientDetailPage = () => {
                             {/* Assessment Info */}
                             <Card title="Current InterRAI HC Assessment">
                                 <div className="flex justify-between items-center mb-4">
-                                    <div className="text-sm text-slate-500">
-                                        Assessment Date: <span className="font-medium text-slate-700">
-                                            {latestAssessment.assessment_date?.split('T')[0]}
+                                    <div className="text-sm text-slate-500 flex items-center gap-2 flex-wrap">
+                                        <span>
+                                            Assessment Date: <span className="font-medium text-slate-700">
+                                                {latestAssessment.assessment_date?.split('T')[0]}
+                                            </span>
                                         </span>
+                                        {latestAssessment.workflow_status === 'completed' ? (
+                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs rounded-full font-medium">
+                                                Complete
+                                            </span>
+                                        ) : latestAssessment.workflow_status === 'in_progress' ? (
+                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs rounded-full font-medium">
+                                                In Progress
+                                            </span>
+                                        ) : latestAssessment.workflow_status === 'draft' ? (
+                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full font-medium">
+                                                Draft
+                                            </span>
+                                        ) : null}
                                         {latestAssessment.is_stale && (
-                                            <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs rounded-full font-medium">
+                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs rounded-full font-medium">
                                                 Stale ({'>'}90 days)
                                             </span>
                                         )}
                                     </div>
                                     <div className="text-sm">
-                                        Source: <span className="font-medium">{latestAssessment.source}</span>
+                                        Type: <span className="font-medium capitalize">{latestAssessment.assessment_type === 'hc' ? 'Home Care' : latestAssessment.assessment_type}</span>
                                     </div>
                                 </div>
+
+                                {/* RUG Classification */}
+                                {latestAssessment.rug_classification && (
+                                    <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <span className="text-xs font-semibold text-teal-600 uppercase">RUG Classification</span>
+                                                <div className="text-lg font-bold text-teal-800">
+                                                    {latestAssessment.rug_classification.rug_group}
+                                                </div>
+                                                <div className="text-sm text-teal-600">
+                                                    {latestAssessment.rug_classification.rug_category}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs text-teal-500">
+                                                    {latestAssessment.rug_classification.category_description}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Score Cards Grid */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
