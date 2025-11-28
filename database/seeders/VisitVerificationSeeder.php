@@ -83,9 +83,15 @@ class VisitVerificationSeeder extends Seeder
             return;
         }
 
-        // Clear existing assignments to avoid duplicates
-        ServiceAssignment::truncate();
-        $this->command->info('Cleared existing service assignments.');
+        // Check for existing assignments from WorkforceSeeder
+        $existingCount = ServiceAssignment::count();
+        if ($existingCount > 0) {
+            $this->command->info("Found {$existingCount} existing assignments. Adding verification statuses...");
+            $this->updateExistingAssignments();
+            return;
+        }
+
+        $this->command->info('No existing assignments found. Creating new visit verification data...');
 
         // Generate visits for the last 4 weeks
         $startDate = Carbon::now()->subWeeks($this->weeksBack)->startOfWeek();
@@ -305,5 +311,85 @@ class VisitVerificationSeeder extends Seeder
         ];
 
         return $sources[array_rand($sources)];
+    }
+
+    /**
+     * Update existing assignments with verification statuses.
+     * Called when WorkforceSeeder has already created assignments.
+     */
+    protected function updateExistingAssignments(): void
+    {
+        $verifiedCount = 0;
+        $missedCount = 0;
+        $pendingCount = 0;
+
+        // Get all assignments
+        $assignments = ServiceAssignment::all();
+
+        foreach ($assignments as $assignment) {
+            $isPast = $assignment->scheduled_start->lt(Carbon::now());
+            $isPastWeek = $assignment->scheduled_start->lt(Carbon::now()->startOfWeek());
+            $isCurrentWeek = $assignment->scheduled_start->isBetween(
+                Carbon::now()->startOfWeek(),
+                Carbon::now()->endOfWeek()
+            );
+            $isOverdueThreshold = $assignment->scheduled_start->lt(Carbon::now()->subHours(24));
+
+            $data = $this->generateAssignmentData(
+                $isPast,
+                $isPastWeek,
+                $isCurrentWeek,
+                $isOverdueThreshold,
+                $assignment->scheduled_start
+            );
+
+            $assignment->update([
+                'status' => $data['status'],
+                'verification_status' => $data['verification_status'],
+                'verified_at' => $data['verified_at'],
+                'verification_source' => $data['verification_source'],
+                'actual_start' => $data['actual_start'],
+                'actual_end' => $data['actual_end'],
+            ]);
+
+            // Track counts
+            match ($data['verification_status']) {
+                ServiceAssignment::VERIFICATION_VERIFIED => $verifiedCount++,
+                ServiceAssignment::VERIFICATION_MISSED => $missedCount++,
+                default => $pendingCount++,
+            };
+        }
+
+        // Create additional overdue alerts if needed
+        $overdueCount = ServiceAssignment::overdueUnverified()->count();
+        if ($overdueCount < $this->overdueAlertsCount) {
+            $this->command->info("Creating additional overdue alerts (currently {$overdueCount})...");
+            // Update some of the pending assignments to be overdue
+            $pendingAssignments = ServiceAssignment::where('verification_status', ServiceAssignment::VERIFICATION_PENDING)
+                ->where('scheduled_start', '<', Carbon::now()->subHours(24))
+                ->limit($this->overdueAlertsCount - $overdueCount)
+                ->get();
+
+            foreach ($pendingAssignments as $assignment) {
+                // Leave as PENDING but ensure they're in the past (already are)
+                // These will show on Jeopardy Board
+            }
+        }
+
+        // Report stats
+        $totalVisits = $assignments->count();
+        $rate = ($verifiedCount + $missedCount) > 0
+            ? round(($missedCount / ($verifiedCount + $missedCount)) * 100, 2)
+            : 0;
+
+        $this->command->info("Visit Verification Data Updated:");
+        $this->command->info("  Total Visits: {$totalVisits}");
+        $this->command->info("  Verified: {$verifiedCount}");
+        $this->command->info("  Missed: {$missedCount}");
+        $this->command->info("  Pending: {$pendingCount}");
+        $this->command->info("  Missed Care Rate: {$rate}%");
+
+        $overdueCount = ServiceAssignment::overdueUnverified()->count();
+        $this->command->info("  Overdue (Jeopardy Board): {$overdueCount}");
     }
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import DataTable from '../../components/UI/DataTable';
@@ -19,6 +20,7 @@ import Spinner from '../../components/UI/Spinner';
  * Target: 80% full-time, SSPO staff excluded from ratio
  */
 const WorkforceManagementPage = () => {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [summary, setSummary] = useState(null);
     const [fteTrend, setFteTrend] = useState([]);
@@ -136,8 +138,13 @@ const WorkforceManagementPage = () => {
                         HHR complement, FTE compliance, and staff satisfaction metrics
                     </p>
                 </div>
-                <div className="text-xs text-slate-400">
-                    Last updated: {new Date(summary?.calculated_at).toLocaleString()}
+                <div className="flex items-center gap-4">
+                    <Button variant="primary" onClick={() => navigate('/spo/scheduling')}>
+                        Open Scheduler
+                    </Button>
+                    <div className="text-xs text-slate-400">
+                        Last updated: {new Date(summary?.calculated_at).toLocaleString()}
+                    </div>
                 </div>
             </div>
 

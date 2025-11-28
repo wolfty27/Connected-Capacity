@@ -83,6 +83,14 @@ class DatabaseSeeder extends Seeder
             // Seeds: staff_roles, employment_types, additional staff, SSPO org,
             // past 3 weeks + current week of assignments
             WorkforceSeeder::class,
+
+            // ============================================
+            // VISIT VERIFICATION: Jeopardy & Missed Care
+            // ============================================
+
+            // 14. Visit verification data for Jeopardy Board and Missed Care Rate
+            // Creates realistic verification statuses for past 4 weeks of visits
+            VisitVerificationSeeder::class,
         ]);
     }
 }

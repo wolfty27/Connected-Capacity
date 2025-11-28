@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import Section from '../../components/UI/Section';
 import DataTable from '../../components/UI/DataTable';
@@ -9,6 +10,7 @@ import Select from '../../components/UI/Select';
 import Spinner from '../../components/UI/Spinner';
 
 const SpoStaffPage = () => {
+    const navigate = useNavigate();
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fteCompliance, setFteCompliance] = useState(null);
@@ -196,6 +198,9 @@ const SpoStaffPage = () => {
                         Skills
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => handleViewAvailability(row)}>
+                        Availability
+                    </Button>
+                    <Button size="sm" variant="primary" onClick={() => navigate(`/spo/scheduling?staff_id=${row.id}`)}>
                         Schedule
                     </Button>
                 </div>

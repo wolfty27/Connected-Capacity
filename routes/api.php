@@ -119,6 +119,22 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/sspo-metrics', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'metrics']);
     });
 
+    // Staff Scheduling Dashboard API (SCHED-001)
+    Route::prefix('v2/scheduling')->group(function () {
+        // Unscheduled care requirements (from CareBundleAssignmentPlanner)
+        Route::get('/requirements', [\App\Http\Controllers\Api\V2\SchedulingController::class, 'requirements']);
+        // Scheduling grid data (staff + assignments for week)
+        Route::get('/grid', [\App\Http\Controllers\Api\V2\SchedulingController::class, 'grid']);
+        // Staff eligible for a service at a specific time
+        Route::get('/eligible-staff', [\App\Http\Controllers\Api\V2\SchedulingController::class, 'eligibleStaff']);
+        // Navigation examples for deep links
+        Route::get('/navigation-examples', [\App\Http\Controllers\Api\V2\SchedulingController::class, 'navigationExamples']);
+        // Assignment CRUD
+        Route::post('/assignments', [\App\Http\Controllers\Api\V2\SchedulingController::class, 'createAssignment']);
+        Route::patch('/assignments/{id}', [\App\Http\Controllers\Api\V2\SchedulingController::class, 'updateAssignment']);
+        Route::delete('/assignments/{id}', [\App\Http\Controllers\Api\V2\SchedulingController::class, 'deleteAssignment']);
+    });
+
     // Jeopardy Board API (Visit Verification & Missed Care Risk)
     Route::prefix('v2/jeopardy')->group(function () {
         Route::get('/alerts', [\App\Http\Controllers\Api\V2\JeopardyBoardController::class, 'index']);

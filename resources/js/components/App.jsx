@@ -35,6 +35,7 @@ import SuppliesPage from '../pages/Logistics/SuppliesPage';
 import SspoDashboardPage from '../pages/SSPO/SspoDashboardPage';
 import SspoWorkforcePage from '../pages/SSPO/SspoWorkforcePage';
 import SspoCapabilityPage from '../pages/CareOps/SspoCapabilityPage';
+import SchedulingPage from '../pages/CareOps/SchedulingPage';
 import InterraiCompletionWizard from '../pages/InterRAI/InterraiCompletionWizard';
 import InterraiDashboardPage from '../pages/InterRAI/InterraiDashboardPage';
 import InterraiAssessmentForm from '../pages/InterRAI/InterraiAssessmentForm';
@@ -101,6 +102,9 @@ const AppRoutes = () => {
                         <Route path="/sspo-marketplace" element={<SspoMarketplacePage />} />
                         <Route path="/sspo-capabilities" element={<SspoCapabilityPage />} />
                         <Route path="/weekly-huddle" element={<WeeklyHuddlePage />} />
+                        <Route path="/spo/scheduling" element={<SchedulingPage isSspoMode={false} />} />
+                        <Route path="/sspo/scheduling" element={<SchedulingPage isSspoMode={true} />} />
+                        <Route path="/scheduling" element={<SchedulingPage isSspoMode={false} />} />
 
                         {/* Compliance & Reporting */}
                         <Route path="/qin" element={<QinManagerPage />} />
