@@ -3,21 +3,36 @@ import api from './api';
 /**
  * Care Bundle Builder API Service
  *
- * Provides methods for the metadata-driven care bundle building process.
+ * Provides methods for the RUG-driven care bundle building process.
  * Handles bundle retrieval, plan creation, and publishing (which triggers
  * the transition from queue to active patient profile).
+ *
+ * CC2.1 Architecture: Uses InterRAI HC RUG classification for bundle matching.
  */
 const careBundleBuilderApi = {
     /**
-     * Get available bundles configured for a patient.
+     * Get RUG-based bundle recommendations for a patient.
      *
      * Returns bundles with services pre-configured based on the patient's
-     * TNP assessment and clinical flags using the metadata engine.
+     * InterRAI HC assessment and RUG classification.
+     *
+     * @param {number} patientId - Patient ID
+     * @returns {Promise} Bundles with RUG-based recommendations
+     */
+    async getBundles(patientId) {
+        // Use RUG-based bundles endpoint (CC2.1 architecture)
+        const response = await api.get(`/v2/care-builder/${patientId}/rug-bundles`);
+        return response.data;
+    },
+
+    /**
+     * Get available bundles for a patient (legacy fallback).
      *
      * @param {number} patientId - Patient ID
      * @returns {Promise} Bundles with recommendations
+     * @deprecated Use getBundles() which now returns RUG-based bundles
      */
-    async getBundles(patientId) {
+    async getLegacyBundles(patientId) {
         const response = await api.get(`/v2/care-builder/${patientId}/bundles`);
         return response.data;
     },
@@ -51,17 +66,37 @@ const careBundleBuilderApi = {
     },
 
     /**
-     * Build a care plan from a bundle configuration.
+     * Build a care plan from a RUG template configuration.
      *
-     * Creates a draft care plan with service assignments.
+     * Creates a draft care plan with service assignments using the CC2.1 architecture.
+     *
+     * @param {number} patientId - Patient ID
+     * @param {number} templateId - RUG template ID
+     * @param {Array} services - Service configurations
+     * @param {string} notes - Optional notes
+     * @returns {Promise} Created care plan
+     */
+    async buildPlan(patientId, templateId, services, notes = null) {
+        // Use RUG template-based plan creation (CC2.1 architecture)
+        const response = await api.post(`/v2/care-builder/${patientId}/rug-plans`, {
+            template_id: templateId,
+            services,
+            notes,
+        });
+        return response.data;
+    },
+
+    /**
+     * Build a care plan from legacy bundle configuration.
      *
      * @param {number} patientId - Patient ID
      * @param {number} bundleId - Bundle ID
      * @param {Array} services - Service configurations
      * @param {string} notes - Optional notes
      * @returns {Promise} Created care plan
+     * @deprecated Use buildPlan() which now uses RUG templates
      */
-    async buildPlan(patientId, bundleId, services, notes = null) {
+    async buildLegacyPlan(patientId, bundleId, services, notes = null) {
         const response = await api.post(`/v2/care-builder/${patientId}/plans`, {
             bundle_id: bundleId,
             services,

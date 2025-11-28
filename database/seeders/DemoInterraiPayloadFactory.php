@@ -29,11 +29,12 @@ class DemoInterraiPayloadFactory
 {
     /**
      * Get a baseline payload with all iCODE keys initialized to safe defaults.
+     * Also includes human-readable keys for the UI display sections.
      */
     protected static function baseline(): array
     {
         return [
-            // ADL items (self-performance scores 0-4)
+            // ADL items (self-performance scores 0-4) - iCODE keys for RUG classification
             'iG1ha' => 0, // Bed mobility
             'iG1ia' => 0, // Transfer
             'iG1ea' => 0, // Toilet use
@@ -91,7 +92,148 @@ class DemoInterraiPayloadFactory
 
             // Location
             'location' => 'community',
+
+            // Human-readable keys for UI display (getAssessmentSections)
+            // Cognition Section
+            'cps_decision_making' => 0,
+            'cps_short_term_memory' => 0,
+            'cps_communication' => 0,
+
+            // Communication Section
+            'hearing' => 0,
+            'vision' => 0,
+
+            // Mood Section
+            'mood_negative_statements' => 0,
+            'mood_persistent_anger' => 0,
+            'mood_unrealistic_fears' => 0,
+            'mood_sad_expressions' => 0,
+            'mood_crying' => 0,
+
+            // ADL Section (UI keys)
+            'adl_bathing' => 0,
+            'adl_hygiene' => 0,
+            'adl_dressing_upper' => 0,
+            'adl_dressing_lower' => 0,
+            'adl_locomotion' => 0,
+            'adl_transfer' => 0,
+            'adl_toilet_use' => 0,
+            'adl_bed_mobility' => 0,
+            'adl_eating' => 0,
+
+            // IADL Section (UI keys)
+            'iadl_meal_prep' => 0,
+            'iadl_housework' => 0,
+            'iadl_finances' => 0,
+            'iadl_medications' => 0,
+            'iadl_phone' => 0,
+            'iadl_shopping' => 0,
+            'iadl_transportation' => 0,
+
+            // Continence Section
+            'bladder_continence' => 0,
+            'bowel_continence' => 0,
+
+            // Health Conditions Section
+            'pain_frequency' => 0,
+            'pain_intensity' => 1,
+            'dyspnea' => false,
+            'fatigue' => false,
+            'edema' => false,
+            'dizziness' => false,
+            'chest_pain' => false,
+            'fall_history' => 0,
+            'weight_loss' => false,
+            'dehydration' => false,
+            'vomiting' => false,
+
+            // Diseases Section
+            'special_ms' => false,
+            'special_quadriplegia' => false,
+            'special_coma' => false,
+            'clinical_chf' => false,
+            'clinical_copd' => false,
+            'clinical_pneumonia' => false,
+            'clinical_diabetes' => false,
+            'clinical_wound' => false,
+            'special_burns' => false,
+
+            // Treatments Section
+            'extensive_dialysis' => false,
+            'extensive_iv' => false,
+            'extensive_ventilator' => false,
+            'extensive_trach' => false,
+            'clinical_oxygen' => false,
+            'clinical_tube_feeding' => false,
+            'clinical_dialysis' => false,
+            'therapy_pt' => 0,
+            'therapy_ot' => 0,
+            'therapy_slp' => 0,
+
+            // Social Supports Section
+            'caregiver_lives_with' => false,
+            'caregiver_stress' => false,
         ];
+    }
+
+    /**
+     * Synchronize iCODE values to human-readable UI keys.
+     */
+    protected static function syncUiKeys(array $data): array
+    {
+        // Sync ADL values (iCODE -> UI keys)
+        $data['adl_bed_mobility'] = $data['iG1ha'];
+        $data['adl_transfer'] = $data['iG1ia'];
+        $data['adl_toilet_use'] = $data['iG1ea'];
+        $data['adl_eating'] = $data['iG1ja'];
+        $data['adl_hygiene'] = $data['iG1fa'];
+        $data['adl_bathing'] = $data['iG1ga'];
+        $data['adl_dressing_upper'] = $data['iG1ba'];
+        $data['adl_dressing_lower'] = $data['iG1ca'];
+        $data['adl_locomotion'] = $data['iG1ha']; // Use bed mobility as proxy
+
+        // Sync IADL values
+        $data['iadl_meal_prep'] = $data['iG1aa'];
+        $data['iadl_housework'] = $data['iG1da'];
+        $data['iadl_finances'] = $data['iG1eb'];
+        $data['iadl_medications'] = max($data['iG1aa'], $data['iG1da']);
+        $data['iadl_phone'] = $data['iG1eb'];
+        $data['iadl_shopping'] = $data['iG1da'];
+        $data['iadl_transportation'] = $data['iG1da'];
+
+        // Sync cognition values
+        $data['cps_decision_making'] = $data['iB3a'];
+        $data['cps_short_term_memory'] = $data['iB1'];
+        $data['cps_communication'] = $data['iC1'];
+
+        // Sync pain values
+        $data['pain_frequency'] = $data['iJ1a'];
+        $data['pain_intensity'] = max(1, $data['iJ1b']);
+
+        // Sync fall history
+        $data['fall_history'] = $data['iJ2a'];
+
+        // Sync therapy minutes
+        $data['therapy_pt'] = $data['iN3eb'];
+        $data['therapy_ot'] = $data['iN3fb'];
+        $data['therapy_slp'] = $data['iN3gb'];
+
+        // Sync extensive services
+        $data['extensive_iv'] = (bool) $data['iP1aa'];
+        $data['extensive_ventilator'] = (bool) $data['iP1ag'];
+        $data['extensive_trach'] = (bool) $data['iP1af'];
+        $data['extensive_dialysis'] = (bool) $data['iP1ak'];
+        $data['clinical_oxygen'] = (bool) $data['iP1ah'];
+
+        // Sync mood/behaviour items
+        $data['mood_negative_statements'] = min($data['iE3b'], 2);
+        $data['mood_persistent_anger'] = min($data['iE3b'], 2);
+
+        // Sync clinical indicators
+        $data['clinical_wound'] = ($data['iI1a'] >= 2);
+        $data['clinical_chf'] = ($data['chess'] >= 3);
+
+        return $data;
     }
 
     /**
@@ -619,10 +761,11 @@ class DemoInterraiPayloadFactory
 
     /**
      * Get payload for a specific RUG group.
+     * Automatically syncs iCODE values to human-readable UI keys.
      */
     public static function forRug(string $rugGroup): array
     {
-        return match ($rugGroup) {
+        $data = match ($rugGroup) {
             'RB0' => self::forRugRb0(),
             'RA2' => self::forRugRa2(),
             'SE3' => self::forRugSe3(),
@@ -643,5 +786,8 @@ class DemoInterraiPayloadFactory
             'PA2' => self::forRugPa2(),
             default => self::forRugPa1(),
         };
+
+        // Sync iCODE values to human-readable UI keys
+        return self::syncUiKeys($data);
     }
 }

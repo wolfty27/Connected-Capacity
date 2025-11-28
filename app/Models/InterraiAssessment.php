@@ -512,10 +512,13 @@ class InterraiAssessment extends Model
             // RUG Classification data
             'rug_group' => $rugClassification?->rug_group,
             'rug_category' => $rugClassification?->rug_category,
+            'rug_description' => $rugClassification?->rug_description,
+            'rug_label' => $rugClassification?->rug_label,
             'rug_classification' => $rugClassification ? [
                 'id' => $rugClassification->id,
                 'rug_group' => $rugClassification->rug_group,
                 'rug_category' => $rugClassification->rug_category,
+                'rug_description' => $rugClassification->rug_description,
                 'category_description' => $rugClassification->category_description,
                 'adl_sum' => $rugClassification->adl_sum,
                 'numeric_rank' => $rugClassification->numeric_rank,

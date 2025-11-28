@@ -110,6 +110,33 @@ class RUGClassification extends Model
         'PD0' => 5, 'PC0' => 4, 'PB0' => 3, 'PA2' => 2, 'PA1' => 1,
     ];
 
+    // Short descriptions for each RUG group (from CC21_RUG_Bundle_Templates.md)
+    public const GROUP_DESCRIPTIONS = [
+        'RB0' => 'Special Rehabilitation, High ADL',
+        'RA2' => 'Special Rehabilitation, Lower ADL, Higher IADL',
+        'RA1' => 'Special Rehabilitation, Lower ADL, Lower IADL',
+        'SE3' => 'Extensive Services, Highest Complexity',
+        'SE2' => 'Extensive Services, Moderate Complexity',
+        'SE1' => 'Extensive Services, Lower Complexity',
+        'SSB' => 'Special Care, High ADL',
+        'SSA' => 'Special Care, Lower ADL',
+        'CC0' => 'Clinically Complex, High ADL',
+        'CB0' => 'Clinically Complex, Moderate ADL',
+        'CA2' => 'Clinically Complex, Low ADL, Higher IADL',
+        'CA1' => 'Clinically Complex, Low ADL, Low IADL',
+        'IB0' => 'Impaired Cognition, Moderate ADL',
+        'IA2' => 'Impaired Cognition, Lower ADL, Higher IADL',
+        'IA1' => 'Impaired Cognition, Lower ADL, Lower IADL',
+        'BB0' => 'Behaviour Problems, Moderate ADL',
+        'BA2' => 'Behaviour Problems, Lower ADL, Higher IADL',
+        'BA1' => 'Behaviour Problems, Lower ADL, Lower IADL',
+        'PD0' => 'Reduced Physical Function, High ADL',
+        'PC0' => 'Reduced Physical Function, ADL 9-10',
+        'PB0' => 'Reduced Physical Function, ADL 6-8',
+        'PA2' => 'Reduced Physical Function, Low ADL, Higher IADL',
+        'PA1' => 'Reduced Physical Function, Low ADL, Lower IADL',
+    ];
+
     /*
     |--------------------------------------------------------------------------
     | Relationships
@@ -195,6 +222,24 @@ class RUGClassification extends Model
             self::CATEGORY_REDUCED_PHYSICAL_FUNCTION => 'Physical assistance needs without clinical complexity',
             default => 'Care needs assessment required',
         };
+    }
+
+    /**
+     * Get short RUG group description (e.g., "Special Rehabilitation, Lower ADL, Higher IADL").
+     */
+    public function getRugDescriptionAttribute(): string
+    {
+        return self::GROUP_DESCRIPTIONS[$this->rug_group] ?? $this->rug_category ?? 'Unknown';
+    }
+
+    /**
+     * Get full RUG label (code + description).
+     * Example: "RA2 – Special Rehabilitation, Lower ADL, Higher IADL"
+     */
+    public function getRugLabelAttribute(): string
+    {
+        $description = $this->rug_description;
+        return $this->rug_group . ' – ' . $description;
     }
 
     /**

@@ -174,20 +174,25 @@ const InterraiSummaryPanel = ({
             </div>
 
             {/* RUG Classification */}
-            {assessment.rug_classification && (
+            {(assessment.rug_classification || assessment.rug_group) && (
                 <div className="px-4 pb-3">
                     <div className="p-2 bg-teal-50 border border-teal-200 rounded-lg">
                         <div className="flex items-center justify-between">
                             <div>
                                 <span className="text-xs font-semibold text-teal-600 uppercase">RUG</span>
                                 <span className="ml-2 text-sm font-bold text-teal-800">
-                                    {assessment.rug_classification.rug_group}
+                                    {assessment.rug_classification?.rug_group || assessment.rug_group}
                                 </span>
                             </div>
                             <span className="text-xs text-teal-600">
-                                {assessment.rug_classification.rug_category}
+                                {assessment.rug_classification?.rug_category || assessment.rug_category}
                             </span>
                         </div>
+                        {(assessment.rug_classification?.rug_description || assessment.rug_description) && (
+                            <div className="mt-1 text-xs text-teal-700">
+                                {assessment.rug_classification?.rug_description || assessment.rug_description}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

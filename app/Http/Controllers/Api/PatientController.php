@@ -70,6 +70,8 @@ class PatientController extends Controller
                     // RUG classification info (from InterRAI assessment)
                     'rug_group' => $patient->latestRugClassification?->rug_group,
                     'rug_category' => $patient->latestRugClassification?->rug_category,
+                    'rug_description' => $patient->latestRugClassification?->rug_description,
+                    'rug_label' => $patient->latestRugClassification?->rug_label,
                     'has_interrai_assessment' => $patient->interraiAssessments()->where('assessment_type', 'hc')->exists(),
                 ];
             });
@@ -131,6 +133,8 @@ class PatientController extends Controller
                     // RUG classification info (from InterRAI assessment)
                     'rug_group' => $patient->latestRugClassification?->rug_group,
                     'rug_category' => $patient->latestRugClassification?->rug_category,
+                    'rug_description' => $patient->latestRugClassification?->rug_description,
+                    'rug_label' => $patient->latestRugClassification?->rug_label,
                     'has_interrai_assessment' => $patient->interraiAssessments()->where('assessment_type', 'hc')->exists(),
                     // Care plans
                     'care_plans' => $patient->carePlans->map(function ($plan) {

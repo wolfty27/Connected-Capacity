@@ -101,7 +101,7 @@ const BundleSummary = ({ services = [], totalCost = 0, isGeneratingAi = false, a
                     {isGeneratingAi ? (
                         <span className="animate-pulse">Generating clinical insights...</span>
                     ) : (
-                        aiRecommendation || "Recommendation: Based on the high TNP score, consider increasing Personal Support hours."
+                        aiRecommendation || "Recommendation: Based on the RUG classification and ADL hierarchy, consider adjusting Personal Support hours."
                     )}
                 </div>
 

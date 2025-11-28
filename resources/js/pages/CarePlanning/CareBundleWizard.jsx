@@ -22,11 +22,11 @@ import useServiceTypes, { mapCategory } from '../../hooks/useServiceTypes';
 import careBundleBuilderApi from '../../services/careBundleBuilderApi';
 
 /**
- * CareBundleWizard - Metadata-driven care bundle builder
+ * CareBundleWizard - RUG-driven care bundle builder
  *
  * Implements a Workday-style workflow where:
- * 1. Bundles are pre-configured based on patient's TNP via metadata engine
- * 2. Services are auto-adjusted based on clinical rules
+ * 1. Bundles are recommended based on patient's InterRAI HC RUG classification
+ * 2. Services are auto-configured based on RUG-driven templates
  * 3. Publishing triggers transition from queue to active patient profile
  */
 const CareBundleWizard = () => {
@@ -34,7 +34,6 @@ const CareBundleWizard = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
     const [patient, setPatient] = useState(null);
-    const [tnp, setTnp] = useState(null);
     const [loading, setLoading] = useState(true);
     const [publishing, setPublishing] = useState(false);
     const [carePlanId, setCarePlanId] = useState(null);
@@ -145,15 +144,11 @@ const CareBundleWizard = () => {
         try {
             setLoading(true);
 
-            // Fetch patient, TNP data, and existing care plans
-            const [patientRes, tnpRes, carePlansRes] = await Promise.all([
+            // Fetch patient and existing care plans (RUG classification comes with patient)
+            const [patientRes, carePlansRes] = await Promise.all([
                 api.get(`/patients/${patientId}`).catch(err => {
                     console.error('Patient fetch failed', err);
                     return { data: { data: null } };
-                }),
-                api.get(`/patients/${patientId}/tnp`).catch(err => {
-                    console.warn('TNP fetch failed (likely 404), continuing without TNP data.', err);
-                    return { data: null };
                 }),
                 api.get(`/v2/care-plans?patient_id=${patientId}`).catch(err => {
                     console.warn('Care plans fetch failed', err);
@@ -166,8 +161,6 @@ const CareBundleWizard = () => {
             } else {
                 console.error("Critical: Patient data missing");
             }
-
-            setTnp(tnpRes.data);
 
             // Check for existing active care plan
             const existingPlans = carePlansRes.data?.data || carePlansRes.data || [];
@@ -203,24 +196,35 @@ const CareBundleWizard = () => {
                 console.error('Bundle builder API failed, falling back to template API', bundleErr);
                 // Fallback to basic bundle templates
                 const bundlesRes = await api.get('/v2/bundle-templates').catch(() => ({ data: [] }));
+
+                // Map bundles with RUG-based categories instead of legacy Band A/B/C
+                const patientData = patientRes.data.data;
                 const enrichedBundles = (bundlesRes.data || []).map(b => ({
                     ...b,
-                    colorTheme: b.code === 'COMPLEX' ? 'green' : b.code === 'PALLIATIVE' ? 'purple' : 'blue',
-                    band: b.code === 'COMPLEX' ? 'Band B' : b.code === 'PALLIATIVE' ? 'Band C' : 'Band A',
-                    price: b.price || 1200,
+                    colorTheme: b.rug_category === 'Special Rehabilitation' ? 'amber' :
+                                b.rug_category === 'Impaired Cognition' || b.rug_category === 'Behaviour Problems' ? 'purple' :
+                                b.rug_category === 'Extensive Services' || b.rug_category === 'Special Care' ? 'rose' :
+                                b.rug_category === 'Clinically Complex' ? 'green' : 'teal',
+                    band: b.rug_category || b.category || 'RUG-Based',
+                    price: b.price || b.estimatedMonthlyCost || 1200,
                     services: apiServiceTypes.length > 0 ? apiServiceTypes : services
                 }));
                 setBundles(enrichedBundles);
 
-                // Auto-select based on TNP
-                if (tnpRes.data?.clinical_flags?.includes('Cognitive')) {
-                    const dem = enrichedBundles.find(b => b.code === 'DEM-SUP');
-                    if (dem) setSelectedBundle(dem);
-                } else if (tnpRes.data?.clinical_flags?.includes('Wound')) {
-                    const cpx = enrichedBundles.find(b => b.code === 'COMPLEX');
-                    if (cpx) setSelectedBundle(cpx);
+                // Auto-select based on patient's RUG classification
+                if (patientData?.rug_group) {
+                    const rugGroup = patientData.rug_group;
+                    // Find bundle that matches the RUG group
+                    const matchingBundle = enrichedBundles.find(b =>
+                        b.code?.includes(rugGroup) || b.rug_groups?.includes(rugGroup)
+                    );
+                    if (matchingBundle) {
+                        setSelectedBundle(matchingBundle);
+                    } else {
+                        setSelectedBundle(enrichedBundles[0]);
+                    }
                 } else {
-                    setSelectedBundle(enrichedBundles.find(b => b.code === 'STD-MED') || enrichedBundles[0]);
+                    setSelectedBundle(enrichedBundles[0]);
                 }
             }
 
@@ -297,7 +301,7 @@ const CareBundleWizard = () => {
         setIsGeneratingAi(true);
         // Simulate API call - could be connected to AI endpoint
         setTimeout(() => {
-            setAiRecommendation("Recommendation: Based on the patient's TNP assessment and clinical flags, the metadata engine has auto-configured services. Consider reviewing Personal Support hours based on ADL needs.");
+            setAiRecommendation("Recommendation: Based on the patient's InterRAI HC assessment and RUG classification, the bundle engine has auto-configured services. Consider reviewing Personal Support hours based on ADL hierarchy score.");
             setIsGeneratingAi(false);
         }, 1500);
     };
@@ -684,7 +688,7 @@ const CareBundleWizard = () => {
                                     <p className="text-sm text-slate-600">
                                         {isModifying
                                             ? 'You can switch to a different bundle or skip to customize the existing services.'
-                                            : 'Based on the patient\'s TNP score and clinical flags, bundles have been pre-configured by the metadata engine.'
+                                            : 'Based on the patient\'s InterRAI HC assessment and RUG classification, bundles have been recommended by the bundle engine.'
                                         }
                                     </p>
                                     {recommendedBundle && !isModifying && (
@@ -710,12 +714,19 @@ const CareBundleWizard = () => {
                                         >
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                        bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
                                                         bundle.colorTheme === 'purple' ? 'bg-purple-100 text-purple-700' :
-                                                            bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
-                                                                'bg-blue-100 text-blue-700'
-                                                        }`}>
-                                                        {bundle.band}
+                                                        bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
+                                                        bundle.colorTheme === 'red' ? 'bg-red-100 text-red-700' :
+                                                        bundle.colorTheme === 'rose' ? 'bg-rose-100 text-rose-700' :
+                                                        bundle.colorTheme === 'orange' ? 'bg-orange-100 text-orange-700' :
+                                                        bundle.colorTheme === 'pink' ? 'bg-pink-100 text-pink-700' :
+                                                        bundle.colorTheme === 'teal' ? 'bg-teal-100 text-teal-700' :
+                                                        bundle.colorTheme === 'gray' ? 'bg-gray-100 text-gray-700' :
+                                                        'bg-blue-100 text-blue-700'
+                                                    }`}>
+                                                        {bundle.rug_category || bundle.band || bundle.rug_group}
                                                     </span>
                                                     {bundle.isRecommended && (
                                                         <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
@@ -723,7 +734,12 @@ const CareBundleWizard = () => {
                                                 </div>
                                                 {selectedBundle?.id === bundle.id && <Check className="w-5 h-5 text-blue-600" />}
                                             </div>
-                                            <h3 className="text-lg font-bold text-slate-900 mb-2">{bundle.name}</h3>
+                                            <h3 className="text-lg font-bold text-slate-900 mb-2">
+                                                {bundle.name}
+                                                {bundle.rug_group && (
+                                                    <span className="ml-2 text-sm font-medium text-slate-500">({bundle.rug_group})</span>
+                                                )}
+                                            </h3>
                                             <p className="text-sm text-slate-600 mb-4 line-clamp-3">{bundle.description}</p>
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -773,7 +789,7 @@ const CareBundleWizard = () => {
                                     <p className="text-sm text-slate-600">
                                         {isModifying
                                             ? 'Adjust the frequency and duration of services. Changes from the current plan are tracked and will be shown in the review step.'
-                                            : 'Services have been auto-configured based on the patient\'s TNP and clinical flags. Adjust frequency and duration as needed.'
+                                            : 'Services have been auto-configured based on the patient\'s InterRAI HC assessment and RUG classification. Adjust frequency and duration as needed.'
                                         }
                                     </p>
                                 </div>

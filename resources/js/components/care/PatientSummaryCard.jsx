@@ -1,6 +1,12 @@
 import React from 'react';
 
-const PatientSummaryCard = ({ patient, tnp }) => {
+/**
+ * PatientSummaryCard - Shows patient details and RUG classification
+ *
+ * Displays patient info and their InterRAI HC-derived RUG classification
+ * instead of the legacy TNP score.
+ */
+const PatientSummaryCard = ({ patient }) => {
     if (!patient) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-5 animate-pulse">
@@ -17,10 +23,26 @@ const PatientSummaryCard = ({ patient, tnp }) => {
         );
     }
 
-    // Use TNP score from prop or patient data, fallback to mock
-    const tnpScore = tnp?.score || patient.tnp_score || 82;
-    const tnpLabel = tnpScore > 80 ? 'High' : tnpScore > 50 ? 'Moderate' : 'Low';
-    const tnpColor = tnpScore > 80 ? 'text-rose-700 bg-rose-50 border-rose-100' : 'text-amber-700 bg-amber-50 border-amber-100';
+    // Get RUG classification from patient data
+    const rugGroup = patient.rug_group;
+    const rugCategory = patient.rug_category;
+    const rugDescription = patient.rug_description;
+    const mapleScore = patient.maple_score;
+
+    // Determine color based on RUG category complexity
+    const getRugColor = () => {
+        if (!rugGroup) return 'text-slate-600 bg-slate-50 border-slate-200';
+        if (rugGroup.startsWith('SE') || rugGroup.startsWith('SS')) {
+            return 'text-rose-700 bg-rose-50 border-rose-100'; // High complexity
+        }
+        if (rugGroup.startsWith('R') || rugGroup.startsWith('C')) {
+            return 'text-amber-700 bg-amber-50 border-amber-100'; // Moderate complexity
+        }
+        if (rugGroup.startsWith('I') || rugGroup.startsWith('B')) {
+            return 'text-purple-700 bg-purple-50 border-purple-100'; // Cognitive/Behavioural
+        }
+        return 'text-teal-700 bg-teal-50 border-teal-100'; // Physical function
+    };
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
@@ -49,14 +71,35 @@ const PatientSummaryCard = ({ patient, tnp }) => {
                             {patient.diagnosis || 'Post-Acute Assessment pending'}
                         </span>
                     </div>
+                    {mapleScore && (
+                        <div>
+                            <span className="font-semibold text-slate-900">MAPLe Score: </span>
+                            <span className="text-slate-600">{mapleScore}</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className={`p-5 border-t ${tnpColor}`}>
-                <p className="font-semibold text-slate-900 mb-1 text-xs uppercase">Transition Needs Profile (TNP)</p>
-                <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold">{tnpLabel} ({tnpScore}/100)</span>
-                </div>
+            {/* RUG Classification Card (replaces TNP) */}
+            <div className={`p-5 border-t ${getRugColor()}`}>
+                <p className="font-semibold text-slate-900 mb-1 text-xs uppercase">InterRAI HC / RUG Classification</p>
+                {rugGroup ? (
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-2xl font-bold">{rugGroup}</span>
+                            {rugCategory && (
+                                <span className="text-sm font-medium opacity-80">– {rugCategory}</span>
+                            )}
+                        </div>
+                        {rugDescription && (
+                            <p className="text-sm mt-1 opacity-75">{rugDescription}</p>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-sm italic">
+                        InterRAI HC Assessment Pending
+                    </div>
+                )}
             </div>
         </div>
     );

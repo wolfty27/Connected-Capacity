@@ -175,10 +175,20 @@ const PatientsList = () => {
                                 <span className="text-gray-500">Hospital</span>
                                 <span className="text-gray-900 font-medium">{patient.hospital || '-'}</span>
                             </div>
-                            {patient.rug_group && (
+                            {patient.rug_group ? (
+                                <div className="space-y-1">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">RUG Group</span>
+                                        <span className="text-gray-900 font-medium">{patient.rug_group}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                                        {patient.rug_description || patient.rug_category}
+                                    </div>
+                                </div>
+                            ) : (
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-500">RUG Group</span>
-                                    <span className="text-gray-900 font-medium">{patient.rug_group}</span>
+                                    <span className="text-gray-400 italic">Not yet classified</span>
                                 </div>
                             )}
                             {patient.is_in_queue && patient.queue_status && (
