@@ -37,6 +37,12 @@ class DatabaseSeeder extends Seeder
 
             // 5. Patient workflow test data with queue statuses
             QueueWorkflowSeeder::class,
+
+            // 6. RUG-III/HC bundle templates (CC2.1 Architecture)
+            RUGBundleTemplatesSeeder::class,
+
+            // 7. RUG demo patients with InterRAI assessments
+            RugDemoSeeder::class,
         ]);
     }
 }
