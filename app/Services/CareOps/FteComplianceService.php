@@ -2,8 +2,10 @@
 
 namespace App\Services\CareOps;
 
+use App\Models\EmploymentType;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceProviderOrganization;
+use App\Models\StaffRole;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -35,6 +37,9 @@ class FteComplianceService
     public const BAND_YELLOW = 'YELLOW'; // 75-79% - At Risk
     public const BAND_RED = 'RED';       // < 75% - Non-Compliant
     public const BAND_GREY = 'GREY';     // No data
+
+    // Staff satisfaction target (per RFP)
+    public const SATISFACTION_TARGET = 95.0;
 
     /**
      * Calculate FTE compliance snapshot for an organization
@@ -356,6 +361,276 @@ class FteComplianceService
     }
 
     /**
+     * Get HHR (Human Health Resources) complement breakdown by role and employment type.
+     *
+     * Per RFP Q&A: Provides breakdown of staff by worker type (RN, RPN, PSW, etc.)
+     * and employment category (FT, PT, Casual, SSPO).
+     *
+     * SSPO staff are tracked separately and do NOT count in FTE ratio calculations.
+     */
+    public function getHhrComplement(?int $organizationId = null): array
+    {
+        $orgId = $organizationId ?? Auth::user()?->organization_id;
+
+        if (!$orgId) {
+            return $this->emptyHhrComplement();
+        }
+
+        // Get all staff roles and employment types for structured output
+        $staffRoles = StaffRole::active()->ordered()->get();
+        $employmentTypes = EmploymentType::active()->ordered()->get();
+
+        // Get staff with role and employment type relationships
+        $staff = User::where('organization_id', $orgId)
+            ->where('role', User::ROLE_FIELD_STAFF)
+            ->where(function ($q) {
+                $q->where('staff_status', User::STAFF_STATUS_ACTIVE)
+                  ->orWhereNull('staff_status');
+            })
+            ->with(['staffRole', 'employmentTypeModel'])
+            ->get();
+
+        // Build complement matrix: role -> employment_type -> count
+        $complement = [];
+        $totals = [
+            'by_role' => [],
+            'by_employment_type' => [],
+            'grand_total' => 0,
+            'direct_staff_total' => 0,
+            'sspo_staff_total' => 0,
+            'full_time_total' => 0,
+        ];
+
+        // Initialize structure
+        foreach ($staffRoles as $role) {
+            $complement[$role->code] = [
+                'role_id' => $role->id,
+                'role_code' => $role->code,
+                'role_name' => $role->name,
+                'category' => $role->category,
+                'is_regulated' => $role->is_regulated,
+                'counts_for_fte' => $role->counts_for_fte,
+                'by_employment_type' => [],
+                'total' => 0,
+                'fte_eligible' => 0,
+            ];
+
+            foreach ($employmentTypes as $empType) {
+                $complement[$role->code]['by_employment_type'][$empType->code] = [
+                    'employment_type_id' => $empType->id,
+                    'employment_type_code' => $empType->code,
+                    'employment_type_name' => $empType->name,
+                    'is_direct_staff' => $empType->is_direct_staff,
+                    'is_full_time' => $empType->is_full_time,
+                    'count' => 0,
+                    'capacity_hours' => 0,
+                ];
+            }
+        }
+
+        // Count staff by role and employment type
+        foreach ($staff as $member) {
+            $roleCode = $member->staffRole?->code ?? 'OTHER';
+            $empTypeCode = $member->employmentTypeModel?->code ?? 'FT';
+
+            // Handle case where role doesn't exist in our structure
+            if (!isset($complement[$roleCode])) {
+                continue;
+            }
+
+            // Handle case where employment type doesn't exist
+            if (!isset($complement[$roleCode]['by_employment_type'][$empTypeCode])) {
+                continue;
+            }
+
+            $complement[$roleCode]['by_employment_type'][$empTypeCode]['count']++;
+            $complement[$roleCode]['by_employment_type'][$empTypeCode]['capacity_hours'] +=
+                $member->max_weekly_hours ?? self::FULL_TIME_HOURS_PER_WEEK;
+
+            $complement[$roleCode]['total']++;
+
+            // Count FTE eligible (direct staff with this role)
+            if ($member->employmentTypeModel?->is_direct_staff ?? true) {
+                $complement[$roleCode]['fte_eligible']++;
+            }
+
+            // Update totals
+            $totals['grand_total']++;
+            $totals['by_role'][$roleCode] = ($totals['by_role'][$roleCode] ?? 0) + 1;
+            $totals['by_employment_type'][$empTypeCode] = ($totals['by_employment_type'][$empTypeCode] ?? 0) + 1;
+
+            if ($member->employmentTypeModel?->is_direct_staff ?? true) {
+                $totals['direct_staff_total']++;
+            } else {
+                $totals['sspo_staff_total']++;
+            }
+
+            if ($member->employmentTypeModel?->is_full_time ?? false) {
+                $totals['full_time_total']++;
+            }
+        }
+
+        // Calculate FTE ratio (direct staff only, per Q&A)
+        $fteRatio = $totals['direct_staff_total'] > 0
+            ? ($totals['full_time_total'] / $totals['direct_staff_total']) * 100
+            : 0;
+
+        return [
+            'organization_id' => $orgId,
+            'calculated_at' => Carbon::now()->toIso8601String(),
+            'complement' => array_values($complement),
+            'totals' => $totals,
+            'fte_ratio' => round($fteRatio, 1),
+            'band' => $this->determineBand($fteRatio),
+            'is_compliant' => $fteRatio >= self::FTE_COMPLIANCE_TARGET,
+            'employment_types' => $employmentTypes->map(fn($et) => [
+                'id' => $et->id,
+                'code' => $et->code,
+                'name' => $et->name,
+                'is_direct_staff' => $et->is_direct_staff,
+                'is_full_time' => $et->is_full_time,
+                'badge_color' => $et->badge_color,
+            ])->toArray(),
+            'staff_roles' => $staffRoles->map(fn($sr) => [
+                'id' => $sr->id,
+                'code' => $sr->code,
+                'name' => $sr->name,
+                'category' => $sr->category,
+                'badge_color' => $sr->badge_color,
+            ])->toArray(),
+        ];
+    }
+
+    /**
+     * Get staff satisfaction metrics for an organization.
+     *
+     * Per RFP: Target is >95% staff satisfaction.
+     * Tracks job_satisfaction field on User model (scale 1-5 or percentage).
+     */
+    public function getStaffSatisfactionMetrics(?int $organizationId = null): array
+    {
+        $orgId = $organizationId ?? Auth::user()?->organization_id;
+
+        if (!$orgId) {
+            return $this->emptySatisfactionMetrics();
+        }
+
+        $staff = User::where('organization_id', $orgId)
+            ->where('role', User::ROLE_FIELD_STAFF)
+            ->where(function ($q) {
+                $q->where('staff_status', User::STAFF_STATUS_ACTIVE)
+                  ->orWhereNull('staff_status');
+            })
+            ->whereNotNull('job_satisfaction')
+            ->get();
+
+        $totalResponses = $staff->count();
+
+        if ($totalResponses === 0) {
+            return $this->emptySatisfactionMetrics($orgId);
+        }
+
+        // Calculate satisfaction (assuming scale is 1-100 or 0-100 percentage)
+        $avgSatisfaction = $staff->avg('job_satisfaction');
+
+        // Count satisfied (>= 80% or 4/5 equivalent)
+        $satisfiedCount = $staff->filter(fn($s) => $s->job_satisfaction >= 80)->count();
+        $satisfiedRate = ($satisfiedCount / $totalResponses) * 100;
+
+        // Distribution breakdown
+        $distribution = [
+            'very_satisfied' => $staff->filter(fn($s) => $s->job_satisfaction >= 90)->count(),
+            'satisfied' => $staff->filter(fn($s) => $s->job_satisfaction >= 70 && $s->job_satisfaction < 90)->count(),
+            'neutral' => $staff->filter(fn($s) => $s->job_satisfaction >= 50 && $s->job_satisfaction < 70)->count(),
+            'dissatisfied' => $staff->filter(fn($s) => $s->job_satisfaction >= 30 && $s->job_satisfaction < 50)->count(),
+            'very_dissatisfied' => $staff->filter(fn($s) => $s->job_satisfaction < 30)->count(),
+        ];
+
+        // Most recent survey date
+        $latestSurvey = $staff->max('job_satisfaction_recorded_at');
+
+        return [
+            'organization_id' => $orgId,
+            'calculated_at' => Carbon::now()->toIso8601String(),
+            'total_responses' => $totalResponses,
+            'average_satisfaction' => round($avgSatisfaction, 1),
+            'satisfied_count' => $satisfiedCount,
+            'satisfaction_rate' => round($satisfiedRate, 1),
+            'target_rate' => self::SATISFACTION_TARGET,
+            'meets_target' => $satisfiedRate >= self::SATISFACTION_TARGET,
+            'gap_to_target' => max(0, self::SATISFACTION_TARGET - $satisfiedRate),
+            'distribution' => $distribution,
+            'latest_survey_date' => $latestSurvey?->toDateString(),
+        ];
+    }
+
+    /**
+     * Get comprehensive workforce summary combining FTE, HHR, and satisfaction.
+     */
+    public function getWorkforceSummary(?int $organizationId = null): array
+    {
+        $orgId = $organizationId ?? Auth::user()?->organization_id;
+
+        $fteSnapshot = $this->calculateSnapshot($orgId);
+        $hhrComplement = $this->getHhrComplement($orgId);
+        $satisfaction = $this->getStaffSatisfactionMetrics($orgId);
+
+        // Get SSPO hours for capacity tracking
+        $hoursMetrics = $this->getHoursMetrics($orgId);
+
+        return [
+            'organization_id' => $orgId,
+            'calculated_at' => Carbon::now()->toIso8601String(),
+
+            // FTE Compliance (primary metric per RFP Q&A)
+            'fte_compliance' => [
+                'ratio' => $fteSnapshot['fte_ratio'],
+                'band' => $fteSnapshot['band'],
+                'is_compliant' => $fteSnapshot['is_compliant'],
+                'target' => self::FTE_COMPLIANCE_TARGET,
+                'gap' => $fteSnapshot['gap_to_compliance'],
+                'full_time_count' => $fteSnapshot['full_time_staff'],
+                'direct_staff_count' => $fteSnapshot['total_staff'],
+            ],
+
+            // Staff Headcount Summary
+            'headcount' => [
+                'total' => $fteSnapshot['total_staff'],
+                'full_time' => $fteSnapshot['full_time_staff'],
+                'part_time' => $fteSnapshot['part_time_staff'],
+                'casual' => $fteSnapshot['casual_staff'],
+                'sspo' => $hhrComplement['totals']['sspo_staff_total'] ?? 0,
+            ],
+
+            // Hours & Capacity
+            'capacity' => [
+                'total_capacity_hours' => $fteSnapshot['total_capacity_hours'],
+                'utilized_hours' => $fteSnapshot['utilized_hours'],
+                'utilization_rate' => $fteSnapshot['utilization_rate'],
+                'internal_hours' => $hoursMetrics['internal_hours'],
+                'sspo_hours' => $hoursMetrics['sspo_hours'],
+            ],
+
+            // HHR Complement (by role)
+            'hhr_complement' => $hhrComplement['complement'],
+            'hhr_totals' => $hhrComplement['totals'],
+
+            // Staff Satisfaction
+            'satisfaction' => [
+                'average' => $satisfaction['average_satisfaction'],
+                'rate' => $satisfaction['satisfaction_rate'],
+                'meets_target' => $satisfaction['meets_target'],
+                'target' => self::SATISFACTION_TARGET,
+                'responses' => $satisfaction['total_responses'],
+            ],
+
+            // Reference data
+            'employment_types' => $hhrComplement['employment_types'],
+            'staff_roles' => $hhrComplement['staff_roles'],
+        ];
+    }
+
+    /**
      * Get compliance summary across all SPOs (for platform admin)
      */
     public function getPlatformComplianceSummary(): array
@@ -446,6 +721,57 @@ class FteComplianceService
             'is_compliant' => false,
             'gap_to_compliance' => self::FTE_COMPLIANCE_TARGET,
             'staff_by_status' => ['active' => 0, 'inactive' => 0, 'on_leave' => 0],
+        ];
+    }
+
+    /**
+     * Return empty HHR complement for missing data
+     */
+    protected function emptyHhrComplement(): array
+    {
+        return [
+            'organization_id' => null,
+            'calculated_at' => Carbon::now()->toIso8601String(),
+            'complement' => [],
+            'totals' => [
+                'by_role' => [],
+                'by_employment_type' => [],
+                'grand_total' => 0,
+                'direct_staff_total' => 0,
+                'sspo_staff_total' => 0,
+                'full_time_total' => 0,
+            ],
+            'fte_ratio' => 0,
+            'band' => self::BAND_GREY,
+            'is_compliant' => false,
+            'employment_types' => [],
+            'staff_roles' => [],
+        ];
+    }
+
+    /**
+     * Return empty satisfaction metrics for missing data
+     */
+    protected function emptySatisfactionMetrics(?int $organizationId = null): array
+    {
+        return [
+            'organization_id' => $organizationId,
+            'calculated_at' => Carbon::now()->toIso8601String(),
+            'total_responses' => 0,
+            'average_satisfaction' => null,
+            'satisfied_count' => 0,
+            'satisfaction_rate' => null,
+            'target_rate' => self::SATISFACTION_TARGET,
+            'meets_target' => false,
+            'gap_to_target' => null,
+            'distribution' => [
+                'very_satisfied' => 0,
+                'satisfied' => 0,
+                'neutral' => 0,
+                'dissatisfied' => 0,
+                'very_dissatisfied' => 0,
+            ],
+            'latest_survey_date' => null,
         ];
     }
 }

@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -72,6 +73,12 @@ class User extends Authenticatable
         'hire_date',
         'termination_date',
         'max_weekly_hours',
+        // Workforce management fields (WORKFORCE-003)
+        'staff_role_id',
+        'employment_type_id',
+        'job_satisfaction',
+        'job_satisfaction_recorded_at',
+        'external_staff_id',
     ];
 
     /**
@@ -95,6 +102,7 @@ class User extends Authenticatable
         'termination_date' => 'date',
         'max_weekly_hours' => 'decimal:2',
         'fte_value' => 'decimal:2',
+        'job_satisfaction_recorded_at' => 'date',
     ];
 
     public function hospitals()
@@ -105,6 +113,22 @@ class User extends Authenticatable
     public function organization()
     {
         return $this->belongsTo(ServiceProviderOrganization::class, 'organization_id');
+    }
+
+    /**
+     * Staff role (RN, RPN, PSW, OT, PT, SLP, SW, etc.)
+     */
+    public function staffRole(): BelongsTo
+    {
+        return $this->belongsTo(StaffRole::class);
+    }
+
+    /**
+     * Employment type (Full-Time, Part-Time, Casual, SSPO)
+     */
+    public function employmentTypeModel(): BelongsTo
+    {
+        return $this->belongsTo(EmploymentType::class, 'employment_type_id');
     }
 
     public function memberships()

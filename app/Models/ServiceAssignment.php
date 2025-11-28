@@ -27,6 +27,10 @@ class ServiceAssignment extends Model
     public const SSPO_DECLINED = 'declined';
     public const SSPO_NOT_APPLICABLE = 'not_applicable';
 
+    // Source constants (for FTE and capacity tracking)
+    public const SOURCE_INTERNAL = 'INTERNAL';  // SPO direct staff
+    public const SOURCE_SSPO = 'SSPO';          // Subcontracted SSPO staff
+
     protected $fillable = [
         'care_plan_id',
         'patient_id',
@@ -229,6 +233,30 @@ class ServiceAssignment extends Model
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_COMPLETED);
+    }
+
+    /**
+     * Scope for internal (SPO direct staff) assignments.
+     */
+    public function scopeInternal(Builder $query): Builder
+    {
+        return $query->where('source', self::SOURCE_INTERNAL);
+    }
+
+    /**
+     * Scope for SSPO (subcontracted) assignments.
+     */
+    public function scopeSspoSource(Builder $query): Builder
+    {
+        return $query->where('source', self::SOURCE_SSPO);
+    }
+
+    /**
+     * Scope for assignments within a specific week.
+     */
+    public function scopeInWeek(Builder $query, $weekStart, $weekEnd): Builder
+    {
+        return $query->whereBetween('scheduled_start', [$weekStart, $weekEnd]);
     }
 
     /*

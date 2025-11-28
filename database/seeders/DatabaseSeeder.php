@@ -68,6 +68,14 @@ class DatabaseSeeder extends Seeder
 
             // 10. Patient notes and narrative summaries
             PatientNotesSeeder::class,
+
+            // ============================================
+            // WORKFORCE: Staff Roles, Employment Types, FTE Demo
+            // ============================================
+
+            // 11. Workforce metadata and demo staff for FTE compliance
+            // Seeds: staff_roles, employment_types, additional staff, 8 weeks of assignments
+            WorkforceSeeder::class,
         ]);
     }
 }

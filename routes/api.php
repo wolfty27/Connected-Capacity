@@ -254,4 +254,34 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/analytics/utilization', [\App\Http\Controllers\Api\V2\StaffController::class, 'getStaffUtilization']);
         Route::post('/analytics/hire-projection', [\App\Http\Controllers\Api\V2\StaffController::class, 'getHireProjection']);
     });
+
+    // Workforce Management API (FTE Compliance, HHR Complement, Satisfaction)
+    Route::prefix('v2/workforce')->group(function () {
+        // Main workforce summary (combines FTE, HHR, satisfaction)
+        Route::get('/summary', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'summary']);
+
+        // FTE Compliance
+        Route::get('/fte-trend', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'fteTrend']);
+        Route::get('/compliance-gap', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'complianceGap']);
+        Route::get('/hire-projection', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'hireProjection']);
+
+        // HHR Complement (by role and employment type)
+        Route::get('/hhr-complement', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'hhrComplement']);
+
+        // Staff Satisfaction
+        Route::get('/satisfaction', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'satisfaction']);
+
+        // Staff listing with role/employment type
+        Route::get('/staff', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'staff']);
+
+        // Utilization
+        Route::get('/utilization', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'utilization']);
+
+        // Assignment summary (internal vs SSPO hours)
+        Route::get('/assignment-summary', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'assignmentSummary']);
+
+        // Metadata for forms/filters
+        Route::get('/metadata/roles', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'metadataRoles']);
+        Route::get('/metadata/employment-types', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'metadataEmploymentTypes']);
+    });
 });
