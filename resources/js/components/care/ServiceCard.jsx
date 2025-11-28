@@ -55,7 +55,9 @@ const ServiceCard = ({ service, onUpdate }) => {
                     {/* Frequency Control */}
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <label className="text-xs font-semibold text-slate-700">Frequency (visits/week): <span className="text-slate-900 font-bold">{service.currentFrequency}</span></label>
+                            <label className="text-xs font-semibold text-slate-700">
+                                Frequency ({service.code === 'PSW' ? 'hours/week' : 'visits/week'}): <span className="text-slate-900 font-bold">{service.currentFrequency}</span>
+                            </label>
                         </div>
                         <div className="flex items-center">
                             <button

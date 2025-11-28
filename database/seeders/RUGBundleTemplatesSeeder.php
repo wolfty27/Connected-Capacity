@@ -143,7 +143,7 @@ class RUGBundleTemplatesSeeder extends Seeder
             ['code' => 'OT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'SLP', 'freq' => 1, 'duration' => 45, 'conditional' => true, 'condition_flags' => ['swallowing_issue']],
             ['code' => 'NUR', 'freq' => 4, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10, 'required' => true],
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -171,7 +171,7 @@ class RUGBundleTemplatesSeeder extends Seeder
             ['code' => 'PT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'OT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'NUR', 'freq' => 2, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
             ['code' => 'PHAR', 'freq' => 3, 'duration' => 15],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -199,7 +199,7 @@ class RUGBundleTemplatesSeeder extends Seeder
             ['code' => 'PT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 4, 'duration' => 45],
+            ['code' => 'PSW', 'freq' => 7, 'duration' => 60], // Tier 1: 7 h/wk
             ['code' => 'MEAL', 'freq' => 3, 'duration' => 15],
         ]);
     }
@@ -227,7 +227,7 @@ class RUGBundleTemplatesSeeder extends Seeder
 
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 14, 'duration' => 480, 'required' => true, 'role' => 'RN'], // 8hr shifts
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 28, 'duration' => 60, 'required' => true], // Tier 4: 28 h/wk (4x/day)
             ['code' => 'RT', 'freq' => 3, 'duration' => 60, 'required' => true],
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10, 'required' => true],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -252,7 +252,7 @@ class RUGBundleTemplatesSeeder extends Seeder
 
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 14, 'duration' => 60, 'required' => true],
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true], // Tier 4: 21 h/wk (3x/day)
             ['code' => 'RT', 'freq' => 2, 'duration' => 60],
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10, 'required' => true],
         ]);
@@ -276,7 +276,7 @@ class RUGBundleTemplatesSeeder extends Seeder
 
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 10, 'duration' => 60, 'required' => true],
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10],
         ]);
     }
@@ -303,7 +303,7 @@ class RUGBundleTemplatesSeeder extends Seeder
 
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 10, 'duration' => 60, 'required' => true],
-            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true], // 3x/day
+            ['code' => 'PSW', 'freq' => 28, 'duration' => 60, 'required' => true], // Tier 4: 28 h/wk (4x/day)
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
             ['code' => 'MEAL', 'freq' => 7, 'duration' => 15],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -406,7 +406,7 @@ class RUGBundleTemplatesSeeder extends Seeder
 
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 3, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 45],
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60], // Tier 2: 10 h/wk
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
             ['code' => 'PHAR', 'freq' => 3, 'duration' => 15],
         ]);
@@ -431,7 +431,7 @@ class RUGBundleTemplatesSeeder extends Seeder
 
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 3, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 4, 'duration' => 45],
+            ['code' => 'PSW', 'freq' => 7, 'duration' => 60], // Tier 1: 7 h/wk
             ['code' => 'MEAL', 'freq' => 3, 'duration' => 15],
         ]);
     }
@@ -457,7 +457,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
             ['code' => 'NUR', 'freq' => 2, 'duration' => 45, 'required' => true],
             ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'REC', 'freq' => 3, 'duration' => 60],
@@ -483,7 +483,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
             ['code' => 'REC', 'freq' => 2, 'duration' => 60],
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
@@ -508,7 +508,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true], // Tier 1: 7 h/wk
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
             ['code' => 'REC', 'freq' => 2, 'duration' => 60],
         ]);
@@ -535,7 +535,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
             ['code' => 'NUR', 'freq' => 3, 'duration' => 60, 'required' => true],
             ['code' => 'BEH', 'freq' => 3, 'duration' => 60, 'required' => true],
             ['code' => 'REC', 'freq' => 3, 'duration' => 60],
@@ -561,7 +561,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
             ['code' => 'NUR', 'freq' => 2, 'duration' => 60],
             ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'REC', 'freq' => 3, 'duration' => 60],
@@ -587,7 +587,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true], // Tier 1: 7 h/wk
             ['code' => 'NUR', 'freq' => 2, 'duration' => 60],
             ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'REC', 'freq' => 2, 'duration' => 60],
@@ -614,7 +614,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
             ['code' => 'NUR', 'freq' => 2, 'duration' => 45],
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
             ['code' => 'MEAL', 'freq' => 7, 'duration' => 15],
@@ -637,7 +637,7 @@ class RUGBundleTemplatesSeeder extends Seeder
         ]);
 
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
             ['code' => 'PT', 'freq' => 1, 'duration' => 60],
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],

@@ -41,7 +41,9 @@ const BundleSummary = ({ services = [], totalCost = 0, isGeneratingAi = false, a
                 </div>
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                <div className="font-medium text-slate-900 text-xs">{service.currentFrequency} visits/week</div>
+                <div className="font-medium text-slate-900 text-xs">
+                    {service.currentFrequency} {service.code === 'PSW' ? 'hours/week' : 'visits/week'}
+                </div>
                 <div className="text-[10px] text-slate-500">{service.currentDuration} wks</div>
             </div>
         </div>
