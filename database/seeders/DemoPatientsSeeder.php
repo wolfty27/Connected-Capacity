@@ -123,102 +123,107 @@ class DemoPatientsSeeder extends Seeder
 
     /**
      * 10 Active patients - have InterRAI, RUG, and will get care plans.
-     * Covering all 7 RUG categories.
+     * Diversified across all 7 RUG categories with varying ADL levels.
+     *
+     * Distribution shows full range of care intensity:
+     * - High ADL/complexity: RB0, SE3, SSB, CC0, IB0, BB0, PD0
+     * - Moderate ADL: RA2, SE2, CB0, IA2, BA2, PC0
+     * - Lower ADL: RA1, SE1, CA1, IA1, BA1, PA1, PB0
      */
     protected function createActivePatients(Hospital $hospital): void
     {
         $this->command->info('  Creating 10 active patients...');
 
         $patients = [
-            // Active Patient 1: Special Rehabilitation (RA1) - Post hip fracture
+            // Active Patient 1: Special Rehabilitation (RB0) - Post-stroke, high ADL needs
             [
                 'name' => 'Margaret Thompson',
                 'email' => 'margaret.thompson@demo.cc',
                 'gender' => 'Female',
                 'dob' => '1955-03-15',
                 'ohip' => 'DEMO-A01-101',
-                'target_rug' => 'RA1', // Special Rehabilitation
+                'target_rug' => 'RB0', // Special Rehabilitation - HIGH ADL (11-18)
             ],
-            // Active Patient 2: Extensive Services (SE1) - Dialysis
+            // Active Patient 2: Extensive Services (SE2) - IV therapy + moderate ADL
             [
                 'name' => 'Robert Chen',
                 'email' => 'robert.chen@demo.cc',
                 'gender' => 'Male',
                 'dob' => '1946-07-22',
                 'ohip' => 'DEMO-A02-102',
-                'target_rug' => 'SE1', // Extensive Services
+                'target_rug' => 'SE2', // Extensive Services - moderate complexity
             ],
-            // Active Patient 3: Extensive Services (SE3) - Ventilator
+            // Active Patient 3: Extensive Services (SE3) - Ventilator dependent
             [
                 'name' => 'William Foster',
                 'email' => 'william.foster@demo.cc',
                 'gender' => 'Male',
                 'dob' => '1937-11-28',
                 'ohip' => 'DEMO-A03-103',
-                'target_rug' => 'SE3', // Extensive Services
+                'target_rug' => 'SE3', // Extensive Services - MAX intensity
             ],
-            // Active Patient 4: Special Care (SSB) - MS with high ADL needs
+            // Active Patient 4: Special Care (SSB) - MS with very high ADL needs
             [
                 'name' => 'Patricia Valdez',
                 'email' => 'patricia.valdez@demo.cc',
                 'gender' => 'Female',
                 'dob' => '1942-05-20',
                 'ohip' => 'DEMO-A04-104',
-                'target_rug' => 'SSB', // Special Care
+                'target_rug' => 'SSB', // Special Care - HIGH ADL (14-18)
             ],
-            // Active Patient 5: Clinically Complex (CC0) - COPD + multiple conditions
+            // Active Patient 5: Clinically Complex (CC0) - CHF + COPD, high ADL
             [
                 'name' => 'James O\'Brien',
                 'email' => 'james.obrien@demo.cc',
                 'gender' => 'Male',
                 'dob' => '1947-02-28',
                 'ohip' => 'DEMO-A05-105',
-                'target_rug' => 'CC0', // Clinically Complex
+                'target_rug' => 'CC0', // Clinically Complex - HIGH ADL (11-18)
             ],
-            // Active Patient 6: Clinically Complex (CA1) - Diabetes management
+            // Active Patient 6: Clinically Complex (CA2) - Diabetes + wounds, moderate ADL
             [
                 'name' => 'Helen Kowalski',
                 'email' => 'helen.kowalski@demo.cc',
                 'gender' => 'Female',
                 'dob' => '1950-12-25',
                 'ohip' => 'DEMO-A06-106',
-                'target_rug' => 'CA1', // Clinically Complex
+                'target_rug' => 'CA2', // Clinically Complex - lower ADL, higher IADL
             ],
-            // Active Patient 7: Impaired Cognition (IA1) - Early Alzheimer's
+            // Active Patient 7: Impaired Cognition (IA2) - Moderate dementia, IADL needs
             [
                 'name' => 'Frank Morrison',
                 'email' => 'frank.morrison@demo.cc',
                 'gender' => 'Male',
                 'dob' => '1941-01-14',
                 'ohip' => 'DEMO-A07-107',
-                'target_rug' => 'IA1', // Impaired Cognition
+                'target_rug' => 'IA2', // Impaired Cognition - lower ADL, higher IADL
             ],
-            // Active Patient 8: Behaviour Problems (BA1) - Bipolar with ADL needs
+            // Active Patient 8: Behaviour Problems (BA2) - Anxiety/agitation, IADL needs
             [
                 'name' => 'Grace Nakamura',
                 'email' => 'grace.nakamura@demo.cc',
                 'gender' => 'Female',
                 'dob' => '1952-04-18',
                 'ohip' => 'DEMO-A08-108',
-                'target_rug' => 'BA1', // Behaviour Problems
+                'target_rug' => 'BA2', // Behaviour Problems - lower ADL, higher IADL
             ],
-            // Active Patient 9: Reduced Physical Function (PA1) - Mild mobility issues
+            // Active Patient 9: Reduced Physical Function (PC0) - Mod-high ADL (9-10)
             [
                 'name' => 'Albert Singh',
                 'email' => 'albert.singh@demo.cc',
                 'gender' => 'Male',
                 'dob' => '1958-08-05',
                 'ohip' => 'DEMO-A09-109',
-                'target_rug' => 'PA1', // Reduced Physical Function
+                'target_rug' => 'PC0', // Reduced Physical Function - ADL 9-10
             ],
-            // Active Patient 10: Reduced Physical Function (PB0) - Moderate ADL support
+            // Active Patient 10: Reduced Physical Function (PA2) - Low ADL, IADL needs
             [
                 'name' => 'Catherine Dubois',
                 'email' => 'catherine.dubois@demo.cc',
                 'gender' => 'Female',
                 'dob' => '1949-10-12',
                 'ohip' => 'DEMO-A10-110',
-                'target_rug' => 'PB0', // Reduced Physical Function
+                'target_rug' => 'PA2', // Reduced Physical Function - low ADL, higher IADL
             ],
         ];
 
@@ -267,27 +272,31 @@ class DemoPatientsSeeder extends Seeder
     /**
      * Get the target RUG group for a patient by OHIP number.
      * Used by DemoAssessmentsSeeder to generate appropriate assessments.
+     *
+     * Diversified distribution showing full range of RUG groups:
+     * - Queue (5): CB0, IB0, BB0, SSA, PD0 (mix of moderate-high complexity)
+     * - Active (10): RB0, SE2, SE3, SSB, CC0, CA2, IA2, BA2, PC0, PA2 (full spectrum)
      */
     public static function getTargetRugGroups(): array
     {
         return [
-            // Queue patients
-            'DEMO-Q01-001' => 'CB0',
-            'DEMO-Q02-002' => 'IB0',
-            'DEMO-Q03-003' => 'BB0',
-            'DEMO-Q04-004' => 'SSA',
-            'DEMO-Q05-005' => 'PD0',
-            // Active patients
-            'DEMO-A01-101' => 'RA1',
-            'DEMO-A02-102' => 'SE1',
-            'DEMO-A03-103' => 'SE3',
-            'DEMO-A04-104' => 'SSB',
-            'DEMO-A05-105' => 'CC0',
-            'DEMO-A06-106' => 'CA1',
-            'DEMO-A07-107' => 'IA1',
-            'DEMO-A08-108' => 'BA1',
-            'DEMO-A09-109' => 'PA1',
-            'DEMO-A10-110' => 'PB0',
+            // Queue patients (pending bundle selection)
+            'DEMO-Q01-001' => 'CB0',  // Clinically Complex - moderate ADL
+            'DEMO-Q02-002' => 'IB0',  // Impaired Cognition - moderate ADL
+            'DEMO-Q03-003' => 'BB0',  // Behaviour Problems - moderate ADL
+            'DEMO-Q04-004' => 'SSA',  // Special Care - lower ADL
+            'DEMO-Q05-005' => 'PD0',  // Reduced Physical Function - HIGH ADL
+            // Active patients (with care plans) - diversified across ADL spectrum
+            'DEMO-A01-101' => 'RB0',  // Special Rehabilitation - HIGH ADL (11-18)
+            'DEMO-A02-102' => 'SE2',  // Extensive Services - moderate complexity
+            'DEMO-A03-103' => 'SE3',  // Extensive Services - MAX intensity
+            'DEMO-A04-104' => 'SSB',  // Special Care - HIGH ADL (14-18)
+            'DEMO-A05-105' => 'CC0',  // Clinically Complex - HIGH ADL (11-18)
+            'DEMO-A06-106' => 'CA2',  // Clinically Complex - lower ADL, higher IADL
+            'DEMO-A07-107' => 'IA2',  // Impaired Cognition - lower ADL, higher IADL
+            'DEMO-A08-108' => 'BA2',  // Behaviour Problems - lower ADL, higher IADL
+            'DEMO-A09-109' => 'PC0',  // Reduced Physical Function - ADL 9-10
+            'DEMO-A10-110' => 'PA2',  // Reduced Physical Function - low ADL, IADL needs
         ];
     }
 }
