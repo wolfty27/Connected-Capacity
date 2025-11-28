@@ -20,7 +20,7 @@ class EnsureOrganizationContext
             throw new AccessDeniedHttpException('Unauthorized');
         }
 
-        if ($user->isMaster()) {
+        if ($user->isMaster() || $user->role === \App\Models\User::ROLE_ADMIN) {
             return $next($request);
         }
 
@@ -29,7 +29,7 @@ class EnsureOrganizationContext
         $organization = $user->organization;
 
         if (!$organization || !$organization->active) {
-            \Illuminate\Support\Facades\Log::warning('Organization context failed', ['user_id' => $user->id, 'org_id' => $user->organization_id, 'has_org' => (bool)$organization, 'active' => $organization ? $organization->active : false]);
+            \Illuminate\Support\Facades\Log::warning('Organization context failed', ['user_id' => $user->id, 'org_id' => $user->organization_id, 'has_org' => (bool) $organization, 'active' => $organization ? $organization->active : false]);
             throw new AccessDeniedHttpException('Organization context required');
         }
 
