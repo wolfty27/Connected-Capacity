@@ -293,38 +293,78 @@ class SchedulingController extends Controller
 
     /**
      * Get navigation examples (staff and patient for deep links).
+     *
+     * Returns sample staff and patient for navigation:
+     * - If staff_id is in request, use that staff
+     * - If patient_id is in request, use that patient
+     * - Otherwise, pick a staff with recent assignments and a patient with unscheduled care
      */
     public function navigationExamples(Request $request): JsonResponse
     {
         $organizationId = $request->user()?->organization_id;
+        $currentStaffId = $request->input('current_staff_id');
+        $currentPatientId = $request->input('current_patient_id');
 
-        // Get a sample staff member - include field staff and coordinators
-        $sampleStaff = User::whereIn('role', [
-                User::ROLE_FIELD_STAFF,
-                User::ROLE_SPO_COORDINATOR,
-                User::ROLE_SSPO_COORDINATOR,
-            ])
-            ->where('staff_status', User::STAFF_STATUS_ACTIVE)
-            ->when($organizationId, fn($q) => $q->where('organization_id', $organizationId))
-            ->with('staffRole')
-            ->first();
+        // Try to use the current staff if provided, otherwise find a staff with assignments
+        $sampleStaff = null;
+        if ($currentStaffId) {
+            $sampleStaff = User::find($currentStaffId);
+        }
 
-        // Get a sample patient with active care plan
-        $samplePatient = Patient::where('status', 'Active')
-            ->whereHas('carePlans', fn($q) => $q->where('status', 'active'))
-            ->with('user')
-            ->first();
+        if (!$sampleStaff) {
+            // Find a staff member who has recent assignments (more relevant for demo)
+            $weekStart = Carbon::now()->startOfWeek();
+            $weekEnd = Carbon::now()->endOfWeek();
+
+            $staffWithAssignments = ServiceAssignment::query()
+                ->whereBetween('scheduled_start', [$weekStart, $weekEnd])
+                ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED])
+                ->pluck('assigned_user_id')
+                ->unique()
+                ->first();
+
+            if ($staffWithAssignments) {
+                $sampleStaff = User::with('staffRole')->find($staffWithAssignments);
+            }
+        }
+
+        // Fall back to any active field staff
+        if (!$sampleStaff) {
+            $sampleStaff = User::whereIn('role', [
+                    User::ROLE_FIELD_STAFF,
+                    User::ROLE_SPO_COORDINATOR,
+                    User::ROLE_SSPO_COORDINATOR,
+                ])
+                ->where('staff_status', User::STAFF_STATUS_ACTIVE)
+                ->when($organizationId, fn($q) => $q->where('organization_id', $organizationId))
+                ->with('staffRole')
+                ->first();
+        }
+
+        // Try to use the current patient if provided, otherwise find one with care needs
+        $samplePatient = null;
+        if ($currentPatientId) {
+            $samplePatient = Patient::with('user')->find($currentPatientId);
+        }
+
+        if (!$samplePatient) {
+            // Find a patient with active care plan (preferably with unscheduled needs)
+            $samplePatient = Patient::where('status', 'Active')
+                ->whereHas('carePlans', fn($q) => $q->where('status', 'active'))
+                ->with('user')
+                ->first();
+        }
 
         return response()->json([
             'data' => [
                 'staff' => $sampleStaff ? [
                     'id' => $sampleStaff->id,
                     'name' => $sampleStaff->name,
-                    'role' => $sampleStaff->staffRole?->name,
+                    'role' => $sampleStaff->staffRole?->name ?? $sampleStaff->organization_role ?? 'Staff',
                 ] : null,
                 'patient' => $samplePatient ? [
                     'id' => $samplePatient->id,
-                    'name' => $samplePatient->user?->name,
+                    'name' => $samplePatient->user?->name ?? 'Patient',
                 ] : null,
             ],
         ]);

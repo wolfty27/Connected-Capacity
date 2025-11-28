@@ -50,13 +50,18 @@ const SchedulingPage = ({ isSspoMode = false }) => {
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [selectedDate, setSelectedDate] = useState(null);
 
-    // Calculate week range
+    // Calculate week range (Monday start - ISO week standard)
     const weekRange = useMemo(() => {
         const today = new Date();
+        const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        // Calculate Monday: if Sunday (0), go back 6 days; otherwise go back (day - 1) days
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay() + (weekOffset * 7));
+        startOfWeek.setDate(today.getDate() - daysToMonday + (weekOffset * 7));
+        startOfWeek.setHours(0, 0, 0, 0);
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
         return {
             start: startOfWeek.toISOString().split('T')[0],
             end: endOfWeek.toISOString().split('T')[0],
@@ -107,13 +112,17 @@ const SchedulingPage = ({ isSspoMode = false }) => {
         }
     }, [weekRange.start, weekRange.end, patientIdParam]);
 
-    // Fetch metadata
+    // Fetch metadata (includes navigation examples with current context)
     const fetchMetadata = useCallback(async () => {
         try {
+            const params = new URLSearchParams();
+            if (staffIdParam) params.set('current_staff_id', staffIdParam);
+            if (patientIdParam) params.set('current_patient_id', patientIdParam);
+
             const [rolesRes, empTypesRes, navRes] = await Promise.all([
                 api.get('/v2/workforce/metadata/roles'),
                 api.get('/v2/workforce/metadata/employment-types'),
-                api.get('/v2/scheduling/navigation-examples'),
+                api.get(`/v2/scheduling/navigation-examples?${params}`),
             ]);
             setRoles(rolesRes.data.data || []);
             setEmploymentTypes(empTypesRes.data.data || []);
@@ -121,7 +130,7 @@ const SchedulingPage = ({ isSspoMode = false }) => {
         } catch (error) {
             console.error('Failed to fetch metadata:', error);
         }
-    }, []);
+    }, [staffIdParam, patientIdParam]);
 
     // Initial load
     useEffect(() => {
@@ -186,11 +195,12 @@ const SchedulingPage = ({ isSspoMode = false }) => {
         }
     };
 
-    // Clear filters
+    // Clear filters and navigate to base URL
     const clearFilters = () => {
         setRoleFilter('');
         setEmpTypeFilter('');
-        setSearchParams({});
+        // Navigate to the base path without any search params
+        navigate(window.location.pathname);
     };
 
     // Get assignments for a staff member on a specific date
@@ -223,7 +233,8 @@ const SchedulingPage = ({ isSspoMode = false }) => {
     // Format date for display
     const formatDate = (date) => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        return `${days[date.getDay()]} ${date.getDate()}`;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${days[date.getDay()]} ${months[date.getMonth()]} ${date.getDate()}`;
     };
 
     if (loading) {
@@ -310,9 +321,17 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                         </Button>
                     )}
                     {(staffIdParam || patientIdParam) && (
-                        <span className="text-sm text-slate-500 ml-4">
-                            {staffIdParam && `Filtered to Staff ID: ${staffIdParam}`}
-                            {patientIdParam && `Filtered to Patient ID: ${patientIdParam}`}
+                        <span className="text-sm text-slate-500 ml-4 flex items-center gap-2">
+                            {staffIdParam && (
+                                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                    Staff: {gridData.staff?.find(s => s.id === parseInt(staffIdParam))?.name || `ID ${staffIdParam}`}
+                                </span>
+                            )}
+                            {patientIdParam && (
+                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                    Patient: {navExamples.patient?.name || `ID ${patientIdParam}`}
+                                </span>
+                            )}
                         </span>
                     )}
                 </div>
@@ -321,17 +340,23 @@ const SchedulingPage = ({ isSspoMode = false }) => {
             {/* Navigation Examples Card */}
             <div className="max-w-7xl mx-auto px-6 py-4">
                 <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4">
-                    <h3 className="text-sm font-bold text-slate-700 mb-3">Navigation Examples</h3>
+                    <h3 className="text-sm font-bold text-slate-700 mb-3">Quick Navigation</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Staff-centric view */}
-                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="text-xs font-bold text-blue-800 mb-1">Staff-Centric View</div>
+                        <div className={`p-3 rounded-lg border ${staffIdParam ? 'bg-blue-100 border-blue-400' : 'bg-blue-50 border-blue-200'}`}>
+                            <div className="text-xs font-bold text-blue-800 mb-1">
+                                Staff-Centric View
+                                {staffIdParam && <span className="ml-1 text-blue-600">(Active)</span>}
+                            </div>
                             {navExamples.staff ? (
                                 <button
                                     onClick={() => setSearchParams({ staff_id: navExamples.staff.id })}
-                                    className="text-sm text-blue-600 hover:underline"
+                                    className="text-sm text-blue-600 hover:underline text-left"
                                 >
                                     View {navExamples.staff.name}'s schedule
+                                    {navExamples.staff.role && (
+                                        <span className="block text-xs text-blue-400">({navExamples.staff.role})</span>
+                                    )}
                                 </button>
                             ) : (
                                 <span className="text-sm text-slate-400">No staff available</span>
@@ -339,12 +364,15 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                         </div>
 
                         {/* Patient-centric view */}
-                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                            <div className="text-xs font-bold text-green-800 mb-1">Patient-Centric View</div>
+                        <div className={`p-3 rounded-lg border ${patientIdParam ? 'bg-green-100 border-green-400' : 'bg-green-50 border-green-200'}`}>
+                            <div className="text-xs font-bold text-green-800 mb-1">
+                                Patient-Centric View
+                                {patientIdParam && <span className="ml-1 text-green-600">(Active)</span>}
+                            </div>
                             {navExamples.patient ? (
                                 <button
                                     onClick={() => setSearchParams({ patient_id: navExamples.patient.id })}
-                                    className="text-sm text-green-600 hover:underline"
+                                    className="text-sm text-green-600 hover:underline text-left"
                                 >
                                     View {navExamples.patient.name}'s care
                                 </button>
@@ -354,13 +382,16 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                         </div>
 
                         {/* Full dashboard view */}
-                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                            <div className="text-xs font-bold text-slate-700 mb-1">Full Dashboard View</div>
+                        <div className={`p-3 rounded-lg border ${!hasFilters ? 'bg-slate-100 border-slate-400' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="text-xs font-bold text-slate-700 mb-1">
+                                Full Dashboard View
+                                {!hasFilters && <span className="ml-1 text-slate-500">(Active)</span>}
+                            </div>
                             <button
                                 onClick={clearFilters}
                                 className="text-sm text-slate-600 hover:underline"
                             >
-                                View all schedules
+                                {hasFilters ? 'Clear filters & view all' : 'Viewing all schedules'}
                             </button>
                         </div>
                     </div>

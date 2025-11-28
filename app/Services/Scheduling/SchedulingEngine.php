@@ -342,12 +342,29 @@ class SchedulingEngine
             ->where('staff_status', User::STAFF_STATUS_ACTIVE)
             ->with(['staffRole', 'employmentTypeModel', 'availability']);
 
-        if ($organizationId) {
-            $staffQuery->where('organization_id', $organizationId);
+        // When filtering by patient_id, find staff who have assignments for that patient in this week
+        if ($patientId) {
+            $staffIdsWithPatientAssignments = ServiceAssignment::query()
+                ->where('patient_id', $patientId)
+                ->whereBetween('scheduled_start', [$weekStart, $weekEnd])
+                ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED])
+                ->pluck('assigned_user_id')
+                ->unique()
+                ->toArray();
+
+            // If there are staff with assignments for this patient, filter to them
+            // Otherwise, show all staff so user can assign care
+            if (!empty($staffIdsWithPatientAssignments)) {
+                $staffQuery->whereIn('id', $staffIdsWithPatientAssignments);
+            }
         }
 
+        // When filtering by staff_id, prioritize that filter over org filter
         if ($staffId) {
             $staffQuery->where('id', $staffId);
+        } elseif ($organizationId) {
+            // Only apply org filter if not filtering by specific staff
+            $staffQuery->where('organization_id', $organizationId);
         }
 
         $staff = $staffQuery->orderBy('name')->get();
@@ -358,12 +375,12 @@ class SchedulingEngine
             ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED])
             ->with(['patient.user', 'serviceType', 'assignedUser']);
 
-        if ($organizationId) {
-            $assignmentQuery->where('service_provider_organization_id', $organizationId);
-        }
-
+        // Filter assignments to match the staff we're showing
         if ($staffId) {
             $assignmentQuery->where('assigned_user_id', $staffId);
+        } elseif ($organizationId && !$patientId) {
+            // Only apply org filter if not filtering by patient
+            $assignmentQuery->where('service_provider_organization_id', $organizationId);
         }
 
         if ($patientId) {
