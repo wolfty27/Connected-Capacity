@@ -59,8 +59,8 @@ const PatientsList = () => {
                 pending_intake: 'bg-gray-100 text-gray-700',
                 triage_in_progress: 'bg-yellow-100 text-yellow-700',
                 triage_complete: 'bg-blue-100 text-blue-700',
-                tnp_in_progress: 'bg-yellow-100 text-yellow-700',
-                tnp_complete: 'bg-green-100 text-green-700',
+                assessment_in_progress: 'bg-yellow-100 text-yellow-700',
+                assessment_complete: 'bg-green-100 text-green-700',
                 bundle_building: 'bg-purple-100 text-purple-700',
                 bundle_review: 'bg-orange-100 text-orange-700',
                 bundle_approved: 'bg-emerald-100 text-emerald-700',
@@ -175,10 +175,10 @@ const PatientsList = () => {
                                 <span className="text-gray-500">Hospital</span>
                                 <span className="text-gray-900 font-medium">{patient.hospital || '-'}</span>
                             </div>
-                            {patient.has_tnp && (
+                            {patient.rug_group && (
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">TNP Score</span>
-                                    <span className="text-gray-900 font-medium">{patient.tnp_score || '-'}</span>
+                                    <span className="text-gray-500">RUG Group</span>
+                                    <span className="text-gray-900 font-medium">{patient.rug_group}</span>
                                 </div>
                             )}
                             {patient.is_in_queue && patient.queue_status && (
@@ -192,7 +192,7 @@ const PatientsList = () => {
                         </div>
 
                         <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
-                            {patient.is_in_queue && patient.queue_status === 'tnp_complete' ? (
+                            {patient.is_in_queue && patient.queue_status === 'assessment_complete' ? (
                                 <button
                                     onClick={() => handleStartBundle(patient)}
                                     className="text-sm text-green-600 hover:text-green-800 font-medium flex items-center gap-1"
@@ -203,7 +203,7 @@ const PatientsList = () => {
                             ) : patient.is_in_queue ? (
                                 <span className="text-xs text-gray-400 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
-                                    Complete TNP first
+                                    InterRAI HC Assessment Pending
                                 </span>
                             ) : (
                                 <span></span>

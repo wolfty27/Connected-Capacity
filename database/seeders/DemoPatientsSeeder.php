@@ -13,10 +13,12 @@ use Illuminate\Support\Facades\Hash;
  * DemoPatientsSeeder - Creates 15 demo patients for CC2.1 architecture
  *
  * Creates exactly 15 patients:
- * - 5 in Intake Queue (ready for bundle building, no care plan yet)
- * - 10 Active patients (will have care plans added by DemoBundlesSeeder)
+ * - 5 in Intake Queue:
+ *   - 3 READY (have InterRAI HC Assessment + RUGClassification): assessment_complete status
+ *   - 2 NOT READY (no assessment yet): assessment_in_progress or triage_complete status
+ * - 10 Active patients (have Assessment + RUGClassification + CarePlan)
  *
- * Patient distribution by RUG category target:
+ * Patient distribution by RUG category target (for patients with assessments):
  * - Reduced Physical Function: 3 patients (PA1, PB0, PD0)
  * - Behaviour Problems: 2 patients (BA1, BB0)
  * - Impaired Cognition: 2 patients (IA1, IB0)
@@ -24,6 +26,9 @@ use Illuminate\Support\Facades\Hash;
  * - Special Care: 2 patients (SSA, SSB)
  * - Extensive Services: 2 patients (SE1, SE3)
  * - Special Rehabilitation: 1 patient (RA1)
+ *
+ * IMPORTANT: Readiness for bundle is determined solely by the existence of
+ * InterRAI HC Assessment + RUGClassification records, NOT by queue_status alone.
  *
  * @see docs/CC21_BundleEngine_Architecture.md
  */
@@ -49,15 +54,26 @@ class DemoPatientsSeeder extends Seeder
     }
 
     /**
-     * 5 Intake Queue patients - have InterRAI but no care plan yet.
+     * 5 Intake Queue patients - mixed readiness states.
+     *
+     * - 3 READY: Have InterRAI HC Assessment + RUGClassification
+     *   - Queue status: assessment_complete
+     *   - Will be seeded with assessment by DemoAssessmentsSeeder
+     *
+     * - 2 NOT READY: No assessment yet
+     *   - Queue status: triage_complete or assessment_in_progress
+     *   - Will NOT be seeded with assessment
+     *
      * Covering: Clinically Complex, Impaired Cognition, Behaviour Problems, Special Care, Reduced Physical Function
      */
     protected function createIntakeQueuePatients(Hospital $hospital): void
     {
-        $this->command->info('  Creating 5 intake queue patients...');
+        $this->command->info('  Creating 5 intake queue patients (3 ready, 2 pending)...');
 
         $patients = [
-            // Queue Patient 1: Clinically Complex (CB0)
+            // === READY PATIENTS (3) - Will have InterRAI HC Assessment + RUGClassification ===
+
+            // Queue Patient 1: Clinically Complex (CB0) - READY
             [
                 'name' => 'Eleanor Mitchell',
                 'email' => 'eleanor.mitchell@demo.cc',
@@ -65,8 +81,9 @@ class DemoPatientsSeeder extends Seeder
                 'dob' => '1943-08-17',
                 'ohip' => 'DEMO-Q01-001',
                 'target_rug' => 'CB0', // Clinically Complex
+                'ready' => true,       // Will have assessment seeded
             ],
-            // Queue Patient 2: Impaired Cognition (IB0)
+            // Queue Patient 2: Impaired Cognition (IB0) - READY
             [
                 'name' => 'Harold Peterson',
                 'email' => 'harold.peterson@demo.cc',
@@ -74,8 +91,9 @@ class DemoPatientsSeeder extends Seeder
                 'dob' => '1938-03-25',
                 'ohip' => 'DEMO-Q02-002',
                 'target_rug' => 'IB0', // Impaired Cognition
+                'ready' => true,       // Will have assessment seeded
             ],
-            // Queue Patient 3: Behaviour Problems (BB0)
+            // Queue Patient 3: Behaviour Problems (BB0) - READY
             [
                 'name' => 'Dorothy Flanagan',
                 'email' => 'dorothy.flanagan@demo.cc',
@@ -83,41 +101,64 @@ class DemoPatientsSeeder extends Seeder
                 'dob' => '1945-11-02',
                 'ohip' => 'DEMO-Q03-003',
                 'target_rug' => 'BB0', // Behaviour Problems
+                'ready' => true,       // Will have assessment seeded
             ],
-            // Queue Patient 4: Special Care (SSA)
+
+            // === NOT READY PATIENTS (2) - No assessment yet, InterRAI HC Assessment Pending ===
+
+            // Queue Patient 4: Special Care (SSA) - NOT READY (assessment in progress)
             [
                 'name' => 'Raymond Clarke',
                 'email' => 'raymond.clarke@demo.cc',
                 'gender' => 'Male',
                 'dob' => '1940-06-14',
                 'ohip' => 'DEMO-Q04-004',
-                'target_rug' => 'SSA', // Special Care
+                'target_rug' => null,   // No assessment yet
+                'ready' => false,       // Will NOT have assessment seeded
             ],
-            // Queue Patient 5: Reduced Physical Function (PD0)
+            // Queue Patient 5: Reduced Physical Function (PD0) - NOT READY (triage complete, awaiting assessment)
             [
                 'name' => 'Beatrice Wong',
                 'email' => 'beatrice.wong@demo.cc',
                 'gender' => 'Female',
                 'dob' => '1948-09-30',
                 'ohip' => 'DEMO-Q05-005',
-                'target_rug' => 'PD0', // Reduced Physical Function
+                'target_rug' => null,   // No assessment yet
+                'ready' => false,       // Will NOT have assessment seeded
             ],
         ];
 
         foreach ($patients as $index => $data) {
-            $patient = $this->createPatient($hospital, $data, 'Pending', true);
+            $isReady = $data['ready'];
+            $patient = $this->createPatient($hospital, $data, 'Pending', true, !$isReady);
 
-            // Create queue entry - TNP complete, ready for bundle building
-            PatientQueue::create([
-                'patient_id' => $patient->id,
-                'queue_status' => 'tnp_complete',
-                'priority' => $index + 1,
-                'entered_queue_at' => now()->subDays(rand(7, 21)),
-                'triage_completed_at' => now()->subDays(rand(5, 14)),
-                'tnp_completed_at' => now()->subDays(rand(1, 5)),
-            ]);
-
-            $this->command->info("    [Q{$index}] {$data['name']} -> target RUG: {$data['target_rug']}");
+            if ($isReady) {
+                // READY patient: has InterRAI HC Assessment + RUGClassification
+                // Queue status: assessment_complete
+                PatientQueue::create([
+                    'patient_id' => $patient->id,
+                    'queue_status' => 'assessment_complete',
+                    'priority' => $index + 1,
+                    'entered_queue_at' => now()->subDays(rand(14, 28)),
+                    'triage_completed_at' => now()->subDays(rand(10, 20)),
+                    'assessment_completed_at' => now()->subDays(rand(1, 5)),
+                ]);
+                $this->command->info("    [Q{$index}] {$data['name']} -> READY (assessment_complete), target RUG: {$data['target_rug']}");
+            } else {
+                // NOT READY patient: no InterRAI HC Assessment yet
+                // Alternate between 'triage_complete' and 'assessment_in_progress' for variety
+                $status = ($index % 2 === 0) ? 'assessment_in_progress' : 'triage_complete';
+                PatientQueue::create([
+                    'patient_id' => $patient->id,
+                    'queue_status' => $status,
+                    'priority' => $index + 1,
+                    'entered_queue_at' => now()->subDays(rand(7, 14)),
+                    'triage_completed_at' => ($status === 'triage_complete') ? now()->subDays(rand(1, 3)) : now()->subDays(rand(3, 7)),
+                    'assessment_completed_at' => null, // No assessment completed
+                ]);
+                $statusLabel = ($status === 'triage_complete') ? 'InterRAI HC Assessment Pending' : 'InterRAI HC Assessment In Progress';
+                $this->command->info("    [Q{$index}] {$data['name']} -> NOT READY ({$statusLabel})");
+            }
         }
     }
 
@@ -237,7 +278,7 @@ class DemoPatientsSeeder extends Seeder
                 'priority' => 5,
                 'entered_queue_at' => now()->subDays(rand(30, 60)),
                 'triage_completed_at' => now()->subDays(rand(25, 55)),
-                'tnp_completed_at' => now()->subDays(rand(20, 50)),
+                'assessment_completed_at' => now()->subDays(rand(20, 50)),
                 'bundle_started_at' => now()->subDays(rand(15, 45)),
                 'bundle_completed_at' => now()->subDays(rand(10, 40)),
                 'transitioned_at' => now()->subDays(rand(7, 30)),
@@ -247,7 +288,7 @@ class DemoPatientsSeeder extends Seeder
         }
     }
 
-    protected function createPatient(Hospital $hospital, array $data, string $status, bool $isInQueue): Patient
+    protected function createPatient(Hospital $hospital, array $data, string $status, bool $isInQueue, bool $assessmentPending = false): Patient
     {
         $user = User::create([
             'name' => $data['name'],
@@ -264,7 +305,8 @@ class DemoPatientsSeeder extends Seeder
             'ohip' => $data['ohip'],
             'status' => $status,
             'is_in_queue' => $isInQueue,
-            'interrai_status' => 'completed',
+            // interrai_status reflects whether assessment is completed or pending
+            'interrai_status' => $assessmentPending ? 'pending' : 'completed',
             'activated_at' => $status === 'Active' ? now()->subDays(rand(7, 30)) : null,
         ]);
     }
@@ -273,19 +315,28 @@ class DemoPatientsSeeder extends Seeder
      * Get the target RUG group for a patient by OHIP number.
      * Used by DemoAssessmentsSeeder to generate appropriate assessments.
      *
-     * Diversified distribution showing full range of RUG groups:
-     * - Queue (5): CB0, IB0, BB0, SSA, PD0 (mix of moderate-high complexity)
-     * - Active (10): RB0, SE2, SE3, SSB, CC0, CA2, IA2, BA2, PC0, PA2 (full spectrum)
+     * IMPORTANT: Only returns patients that SHOULD have assessments:
+     * - 3 READY queue patients (have assessment + RUG)
+     * - 10 Active patients (have assessment + RUG + care plan)
+     *
+     * Does NOT include the 2 NOT READY queue patients (Q04, Q05) who are
+     * awaiting InterRAI HC assessment.
+     *
+     * Distribution:
+     * - Queue READY (3): CB0, IB0, BB0
+     * - Active (10): RB0, SE2, SE3, SSB, CC0, CA2, IA2, BA2, PC0, PA2
      */
     public static function getTargetRugGroups(): array
     {
         return [
-            // Queue patients (pending bundle selection)
+            // Queue patients - READY only (3 of 5)
+            // These will have InterRAI HC Assessment + RUGClassification
             'DEMO-Q01-001' => 'CB0',  // Clinically Complex - moderate ADL
             'DEMO-Q02-002' => 'IB0',  // Impaired Cognition - moderate ADL
             'DEMO-Q03-003' => 'BB0',  // Behaviour Problems - moderate ADL
-            'DEMO-Q04-004' => 'SSA',  // Special Care - lower ADL
-            'DEMO-Q05-005' => 'PD0',  // Reduced Physical Function - HIGH ADL
+            // NOTE: DEMO-Q04-004 and DEMO-Q05-005 are NOT included
+            //       They are NOT READY (no assessment yet)
+
             // Active patients (with care plans) - diversified across ADL spectrum
             'DEMO-A01-101' => 'RB0',  // Special Rehabilitation - HIGH ADL (11-18)
             'DEMO-A02-102' => 'SE2',  // Extensive Services - moderate complexity
@@ -297,6 +348,17 @@ class DemoPatientsSeeder extends Seeder
             'DEMO-A08-108' => 'BA2',  // Behaviour Problems - lower ADL, higher IADL
             'DEMO-A09-109' => 'PC0',  // Reduced Physical Function - ADL 9-10
             'DEMO-A10-110' => 'PA2',  // Reduced Physical Function - low ADL, IADL needs
+        ];
+    }
+
+    /**
+     * Get patients that should NOT have assessments (NOT READY queue patients).
+     */
+    public static function getNotReadyPatients(): array
+    {
+        return [
+            'DEMO-Q04-004', // Raymond Clarke - assessment in progress
+            'DEMO-Q05-005', // Beatrice Wong - triage complete, awaiting assessment
         ];
     }
 }

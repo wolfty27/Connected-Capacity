@@ -115,8 +115,8 @@ const PatientQueueList = () => {
         { value: 'pending_intake', label: 'Pending Intake' },
         { value: 'triage_in_progress', label: 'Triage In Progress' },
         { value: 'triage_complete', label: 'Triage Complete' },
-        { value: 'tnp_in_progress', label: 'TNP In Progress' },
-        { value: 'tnp_complete', label: 'Ready for Bundle' },
+        { value: 'assessment_in_progress', label: 'Assessment In Progress' },
+        { value: 'assessment_complete', label: 'Ready for Bundle' },
         { value: 'bundle_building', label: 'Bundle Building' },
         { value: 'bundle_review', label: 'Under Review' },
     ];
@@ -283,7 +283,7 @@ const PatientQueueList = () => {
                                     </td>
                                     <td className="px-4 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            {entry.queue_status === 'tnp_complete' && (
+                                            {entry.queue_status === 'assessment_complete' && (
                                                 <button
                                                     onClick={() => handleStartBundle(entry)}
                                                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
@@ -315,20 +315,20 @@ const PatientQueueList = () => {
 
                                             {entry.queue_status === 'triage_complete' && (
                                                 <button
-                                                    onClick={() => handleTransition(entry, 'tnp_in_progress')}
+                                                    onClick={() => handleTransition(entry, 'assessment_in_progress')}
                                                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
                                                 >
-                                                    Start TNP
+                                                    Start Assessment
                                                     <ArrowRight className="w-4 h-4" />
                                                 </button>
                                             )}
 
-                                            {entry.queue_status === 'tnp_in_progress' && (
+                                            {entry.queue_status === 'assessment_in_progress' && (
                                                 <button
-                                                    onClick={() => handleTransition(entry, 'tnp_complete')}
+                                                    onClick={() => handleTransition(entry, 'assessment_complete')}
                                                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
                                                 >
-                                                    Complete TNP
+                                                    Complete Assessment
                                                     <ArrowRight className="w-4 h-4" />
                                                 </button>
                                             )}
@@ -367,7 +367,7 @@ const PatientQueueList = () => {
                     <ArrowRight className="w-4 h-4" />
                     <span className="px-2 py-1 bg-yellow-200 rounded">Triage</span>
                     <ArrowRight className="w-4 h-4" />
-                    <span className="px-2 py-1 bg-blue-200 rounded">TNP Assessment</span>
+                    <span className="px-2 py-1 bg-blue-200 rounded">InterRAI HC Assessment</span>
                     <ArrowRight className="w-4 h-4" />
                     <span className="px-2 py-1 bg-green-200 rounded">Ready for Bundle</span>
                     <ArrowRight className="w-4 h-4" />

@@ -133,21 +133,21 @@ return new class extends Migration
             $table->id();
             $table->foreignId('patient_id')->constrained()->cascadeOnDelete();
             $table->enum('queue_status', [
-                'pending_intake',       // Just entered system
-                'triage_in_progress',   // Being triaged
-                'triage_complete',      // Triage done, awaiting TNP
-                'tnp_in_progress',      // TNP assessment underway
-                'tnp_complete',         // TNP complete, ready for bundle
-                'bundle_building',      // Care bundle being built
-                'bundle_review',        // Bundle ready for review
-                'bundle_approved',      // Bundle approved, ready to activate
-                'transitioned'          // Moved to active patient profile
+                'pending_intake',           // Just entered system
+                'triage_in_progress',       // Being triaged
+                'triage_complete',          // Triage done, awaiting InterRAI HC assessment
+                'assessment_in_progress',   // InterRAI HC assessment underway
+                'assessment_complete',      // InterRAI HC + RUG complete, ready for bundle
+                'bundle_building',          // Care bundle being built
+                'bundle_review',            // Bundle ready for review
+                'bundle_approved',          // Bundle approved, ready to activate
+                'transitioned'              // Moved to active patient profile
             ])->default('pending_intake');
             $table->foreignId('assigned_coordinator_id')->nullable()->constrained('users')->nullOnDelete();
             $table->integer('priority')->default(5);    // 1=highest, 10=lowest
             $table->timestamp('entered_queue_at');
             $table->timestamp('triage_completed_at')->nullable();
-            $table->timestamp('tnp_completed_at')->nullable();
+            $table->timestamp('assessment_completed_at')->nullable();
             $table->timestamp('bundle_started_at')->nullable();
             $table->timestamp('bundle_completed_at')->nullable();
             $table->timestamp('transitioned_at')->nullable();

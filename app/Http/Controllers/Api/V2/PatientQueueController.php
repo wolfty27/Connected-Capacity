@@ -300,7 +300,8 @@ class PatientQueueController extends Controller
         if (!$queue->isReadyForBundle()) {
             return response()->json([
                 'message' => 'Patient is not ready for bundle building. Current status: ' . $queue->status_label,
-                'required_status' => 'tnp_complete',
+                'required_status' => 'assessment_complete',
+                'has_assessment' => $queue->hasCompletedAssessment(),
             ], 422);
         }
 

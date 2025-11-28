@@ -10,7 +10,14 @@ use Illuminate\Database\Seeder;
 /**
  * DemoAssessmentsSeeder - Creates InterRAI HC assessments and RUG classifications
  *
- * For each of the 15 demo patients created by DemoPatientsSeeder:
+ * Creates assessments ONLY for patients that should have them:
+ * - 3 READY queue patients (assessment_complete status)
+ * - 10 Active patients (transitioned status)
+ *
+ * Does NOT create assessments for the 2 NOT READY queue patients
+ * (Q04, Q05) who are still awaiting InterRAI HC assessment.
+ *
+ * For each patient with assessment:
  * - Creates a realistic InterRAI HC assessment with appropriate scores
  * - Generates RUG classification using RUGClassificationService
  *
@@ -32,6 +39,12 @@ class DemoAssessmentsSeeder extends Seeder
         $this->command->info('Creating InterRAI assessments and RUG classifications...');
 
         $targetRugGroups = DemoPatientsSeeder::getTargetRugGroups();
+        $notReadyPatients = DemoPatientsSeeder::getNotReadyPatients();
+
+        $expectedCount = count($targetRugGroups); // 13 patients (3 ready queue + 10 active)
+        $this->command->info("  Expected: {$expectedCount} patients with assessments (3 ready queue + 10 active)");
+        $this->command->info("  Skipping: " . count($notReadyPatients) . " NOT READY queue patients (no assessment yet)");
+
         $patients = Patient::whereIn('ohip', array_keys($targetRugGroups))->get();
 
         if ($patients->isEmpty()) {
@@ -39,7 +52,14 @@ class DemoAssessmentsSeeder extends Seeder
             return;
         }
 
+        $createdCount = 0;
         foreach ($patients as $patient) {
+            // Skip patients that should NOT have assessments
+            if (in_array($patient->ohip, $notReadyPatients)) {
+                $this->command->warn("  Skipping {$patient->user->name} (NOT READY - no assessment)");
+                continue;
+            }
+
             $targetRug = $targetRugGroups[$patient->ohip] ?? 'PA1';
             $profile = $this->getAssessmentProfile($targetRug);
 
@@ -76,10 +96,14 @@ class DemoAssessmentsSeeder extends Seeder
                 'rai_cha_score' => $profile['adl_hierarchy'],
             ]);
 
+            $createdCount++;
             $this->command->info("  {$patient->user->name}: InterRAI -> RUG {$rug->rug_group} ({$rug->rug_category})");
         }
 
-        $this->command->info('Assessments and RUG classifications created for all 15 patients.');
+        $this->command->info("Assessments and RUG classifications created for {$createdCount} patients.");
+        $this->command->info("  - 3 READY queue patients: will show 'InterRAI HC Assessment Complete - Ready for Bundle'");
+        $this->command->info("  - 10 Active patients: already transitioned with care plans");
+        $this->command->info("  - 2 NOT READY queue patients: will show 'InterRAI HC Assessment Pending'");
     }
 
     /**

@@ -20,11 +20,12 @@ return new class extends Migration
         // 1. Add InterRAI-related queue statuses to patient_queue
         // Laravel uses CHECK constraints for enum columns in PostgreSQL, not native enum types
         // We need to drop the old constraint and create a new one with additional values
+        // NOTE: Status names updated to use assessment_* instead of tnp_*
         if (DB::getDriverName() === 'pgsql') {
             DB::statement("ALTER TABLE patient_queue DROP CONSTRAINT IF EXISTS patient_queue_queue_status_check");
             DB::statement("ALTER TABLE patient_queue ADD CONSTRAINT patient_queue_queue_status_check CHECK (queue_status::text = ANY (ARRAY[
                 'pending_intake', 'triage_in_progress', 'triage_complete',
-                'tnp_in_progress', 'tnp_complete', 'bundle_building',
+                'assessment_in_progress', 'assessment_complete', 'bundle_building',
                 'bundle_review', 'bundle_approved', 'transitioned',
                 'interrai_required', 'interrai_in_progress', 'interrai_complete'
             ]::text[]))");

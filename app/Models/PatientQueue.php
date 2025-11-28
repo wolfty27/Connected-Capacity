@@ -14,8 +14,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * bundle built and transitioning to an active patient profile.
  *
  * Queue Status Flow:
- * pending_intake -> triage_in_progress -> triage_complete -> tnp_in_progress
- *   -> tnp_complete -> bundle_building -> bundle_review -> bundle_approved -> transitioned
+ * pending_intake -> triage_in_progress -> triage_complete -> assessment_in_progress
+ *   -> assessment_complete -> bundle_building -> bundle_review -> bundle_approved -> transitioned
+ *
+ * Readiness for bundle building is determined by:
+ * - Having an InterRAI HC Assessment (type='hc')
+ * - Having a RUGClassification linked to that assessment
  */
 class PatientQueue extends Model
 {
@@ -30,7 +34,7 @@ class PatientQueue extends Model
         'priority',
         'entered_queue_at',
         'triage_completed_at',
-        'tnp_completed_at',
+        'assessment_completed_at',
         'bundle_started_at',
         'bundle_completed_at',
         'transitioned_at',
@@ -42,7 +46,7 @@ class PatientQueue extends Model
         'priority' => 'integer',
         'entered_queue_at' => 'datetime',
         'triage_completed_at' => 'datetime',
-        'tnp_completed_at' => 'datetime',
+        'assessment_completed_at' => 'datetime',
         'bundle_started_at' => 'datetime',
         'bundle_completed_at' => 'datetime',
         'transitioned_at' => 'datetime',
@@ -56,8 +60,8 @@ class PatientQueue extends Model
         'pending_intake',
         'triage_in_progress',
         'triage_complete',
-        'tnp_in_progress',
-        'tnp_complete',
+        'assessment_in_progress',
+        'assessment_complete',
         'bundle_building',
         'bundle_review',
         'bundle_approved',
@@ -71,8 +75,8 @@ class PatientQueue extends Model
         'pending_intake' => 'Pending Intake',
         'triage_in_progress' => 'Triage In Progress',
         'triage_complete' => 'Triage Complete',
-        'tnp_in_progress' => 'TNP Assessment In Progress',
-        'tnp_complete' => 'TNP Complete - Ready for Bundle',
+        'assessment_in_progress' => 'InterRAI HC Assessment In Progress',
+        'assessment_complete' => 'InterRAI HC Assessment Complete - Ready for Bundle',
         'bundle_building' => 'Building Care Bundle',
         'bundle_review' => 'Bundle Under Review',
         'bundle_approved' => 'Bundle Approved',
@@ -85,10 +89,10 @@ class PatientQueue extends Model
     public const VALID_TRANSITIONS = [
         'pending_intake' => ['triage_in_progress'],
         'triage_in_progress' => ['triage_complete', 'pending_intake'],
-        'triage_complete' => ['tnp_in_progress'],
-        'tnp_in_progress' => ['tnp_complete', 'triage_complete'],
-        'tnp_complete' => ['bundle_building'],
-        'bundle_building' => ['bundle_review', 'tnp_complete'],
+        'triage_complete' => ['assessment_in_progress'],
+        'assessment_in_progress' => ['assessment_complete', 'triage_complete'],
+        'assessment_complete' => ['bundle_building'],
+        'bundle_building' => ['bundle_review', 'assessment_complete'],
         'bundle_review' => ['bundle_approved', 'bundle_building'],
         'bundle_approved' => ['transitioned'],
         'transitioned' => [], // Terminal state
@@ -168,7 +172,7 @@ class PatientQueue extends Model
 
         match ($status) {
             'triage_complete' => $this->triage_completed_at = $now,
-            'tnp_complete' => $this->tnp_completed_at = $now,
+            'assessment_complete' => $this->assessment_completed_at = $now,
             'bundle_building' => $this->bundle_started_at = $now,
             'bundle_approved' => $this->bundle_completed_at = $now,
             'transitioned' => $this->transitioned_at = $now,
@@ -194,10 +198,36 @@ class PatientQueue extends Model
 
     /**
      * Check if the patient is ready for bundle building.
+     *
+     * Readiness is determined by:
+     * - Queue status is 'assessment_complete'
+     * - Patient has a completed InterRAI HC Assessment
+     * - Patient has a RUGClassification record
      */
     public function isReadyForBundle(): bool
     {
-        return $this->queue_status === 'tnp_complete';
+        return $this->queue_status === 'assessment_complete';
+    }
+
+    /**
+     * Check if patient has completed InterRAI HC assessment and RUG classification.
+     * This is the ground truth for readiness, independent of queue status.
+     */
+    public function hasCompletedAssessment(): bool
+    {
+        if (!$this->patient) {
+            return false;
+        }
+
+        // Check for InterRAI HC assessment
+        $hasAssessment = $this->patient->interraiAssessments()
+            ->where('assessment_type', 'hc')
+            ->exists();
+
+        // Check for RUG classification
+        $hasRugClassification = $this->patient->rugClassifications()->exists();
+
+        return $hasAssessment && $hasRugClassification;
     }
 
     /**
@@ -226,7 +256,7 @@ class PatientQueue extends Model
      */
     public function scopeReadyForBundle($query)
     {
-        return $query->where('queue_status', 'tnp_complete');
+        return $query->where('queue_status', 'assessment_complete');
     }
 
     /**

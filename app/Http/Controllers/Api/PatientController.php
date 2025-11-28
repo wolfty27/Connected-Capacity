@@ -17,7 +17,7 @@ class PatientController extends Controller
     {
         try {
             $user = Auth::user();
-            $query = Patient::with(['user', 'queueEntry', 'transitionNeedsProfile', 'hospital.user']);
+            $query = Patient::with(['user', 'queueEntry', 'latestRugClassification', 'hospital.user']);
 
             // Filter by queue status if requested
             $showQueue = $request->get('show_queue', null);
@@ -67,9 +67,10 @@ class PatientController extends Controller
                     'queue_status' => $queueEntry ? $queueEntry->queue_status : null,
                     'queue_status_label' => $queueEntry ? PatientQueue::STATUS_LABELS[$queueEntry->queue_status] ?? $queueEntry->queue_status : null,
                     'activated_at' => $patient->activated_at,
-                    // TNP info if available
-                    'has_tnp' => $patient->transitionNeedsProfile !== null,
-                    'tnp_status' => $patient->transitionNeedsProfile?->status,
+                    // RUG classification info (from InterRAI assessment)
+                    'rug_group' => $patient->latestRugClassification?->rug_group,
+                    'rug_category' => $patient->latestRugClassification?->rug_category,
+                    'has_interrai_assessment' => $patient->interraiAssessments()->where('assessment_type', 'hc')->exists(),
                 ];
             });
 
@@ -93,7 +94,7 @@ class PatientController extends Controller
     public function show($id)
     {
         try {
-            $patient = Patient::with(['user', 'queueEntry', 'transitionNeedsProfile', 'carePlans.careBundle'])->find($id);
+            $patient = Patient::with(['user', 'queueEntry', 'latestRugClassification', 'carePlans.careBundle'])->find($id);
             if (!$patient) {
                 return response()->json(['error' => 'Patient not found'], 404);
             }
@@ -127,14 +128,10 @@ class PatientController extends Controller
                         'entered_queue_at' => $queueEntry->entered_queue_at,
                     ] : null,
                     'activated_at' => $patient->activated_at,
-                    // TNP info
-                    'has_tnp' => $patient->transitionNeedsProfile !== null,
-                    'tnp' => $patient->transitionNeedsProfile ? [
-                        'id' => $patient->transitionNeedsProfile->id,
-                        'status' => $patient->transitionNeedsProfile->status,
-                        'clinical_flags' => $patient->transitionNeedsProfile->clinical_flags,
-                        'narrative_summary' => $patient->transitionNeedsProfile->narrative_summary,
-                    ] : null,
+                    // RUG classification info (from InterRAI assessment)
+                    'rug_group' => $patient->latestRugClassification?->rug_group,
+                    'rug_category' => $patient->latestRugClassification?->rug_category,
+                    'has_interrai_assessment' => $patient->interraiAssessments()->where('assessment_type', 'hc')->exists(),
                     // Care plans
                     'care_plans' => $patient->carePlans->map(function ($plan) {
                         return [

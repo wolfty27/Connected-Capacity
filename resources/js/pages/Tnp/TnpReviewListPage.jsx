@@ -18,10 +18,10 @@ const TnpReviewListPage = () => {
                 const data = response.data.data || [];
                 setAllPatients(data);
 
-                // Filter for Intake Queue: patients in queue with intake/TNP statuses
+                // Filter for Intake Queue: patients in queue with intake/assessment statuses
                 const intakePatients = data.filter(p =>
                     p.is_in_queue &&
-                    ['pending_intake', 'triage_in_progress', 'triage_complete', 'tnp_in_progress', 'tnp_complete'].includes(p.queue_status)
+                    ['pending_intake', 'triage_in_progress', 'triage_complete', 'assessment_in_progress', 'assessment_complete'].includes(p.queue_status)
                 );
                 setPatients(intakePatients);
             } catch (error) {
@@ -40,12 +40,12 @@ const TnpReviewListPage = () => {
         const pendingIntake = queuePatients.filter(p =>
             ['pending_intake', 'triage_in_progress'].includes(p.queue_status)
         ).length;
-        const tnpComplete = queuePatients.filter(p => p.queue_status === 'tnp_complete').length;
+        const assessmentComplete = queuePatients.filter(p => p.queue_status === 'assessment_complete').length;
         const activePatients = allPatients.filter(p => !p.is_in_queue && p.status === 'Active').length;
 
         return {
             pendingAcceptance: pendingIntake,
-            readyForBundle: tnpComplete,
+            readyForBundle: assessmentComplete,
             totalInQueue: queuePatients.length,
             activePatients: activePatients,
         };
@@ -56,8 +56,8 @@ const TnpReviewListPage = () => {
         pending_intake: 'bg-gray-100 text-gray-700',
         triage_in_progress: 'bg-yellow-100 text-yellow-700',
         triage_complete: 'bg-blue-100 text-blue-700',
-        tnp_in_progress: 'bg-yellow-100 text-yellow-700',
-        tnp_complete: 'bg-green-100 text-green-700',
+        assessment_in_progress: 'bg-yellow-100 text-yellow-700',
+        assessment_complete: 'bg-green-100 text-green-700',
     };
 
     const columns = [
@@ -89,7 +89,7 @@ const TnpReviewListPage = () => {
             header: 'Action',
             render: (row) => {
                 // Show different action based on queue status
-                if (row.queue_status === 'tnp_complete') {
+                if (row.queue_status === 'assessment_complete') {
                     return (
                         <Link
                             to={`/care-bundles/create/${row.id}`}
@@ -101,10 +101,10 @@ const TnpReviewListPage = () => {
                 }
                 return (
                     <Link
-                        to={`/tnp/${row.id}`}
+                        to={`/patients/${row.id}`}
                         className="font-medium text-teal-600 hover:text-teal-800 text-sm border border-teal-200 bg-teal-50 px-3 py-1 rounded-md transition-colors"
                     >
-                        Review TNP
+                        View Patient
                     </Link>
                 );
             },
@@ -154,7 +154,7 @@ const TnpReviewListPage = () => {
                         <span className={`text-2xl font-bold ${stats.readyForBundle > 0 ? 'text-green-600' : 'text-slate-400'}`}>
                             {stats.readyForBundle}
                         </span>
-                        <span className="text-xs text-slate-500">TNP Complete</span>
+                        <span className="text-xs text-slate-500">Assessment Complete</span>
                     </div>
                     <div className="text-xs text-green-600 mt-2 font-medium">
                         {stats.readyForBundle > 0 ? 'Ready to build' : 'None pending'}
