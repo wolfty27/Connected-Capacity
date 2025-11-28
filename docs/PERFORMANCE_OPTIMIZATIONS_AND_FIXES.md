@@ -16,7 +16,8 @@ A naming conflict existed in the `ServiceType` model. The model had both a strin
     - `App\Services\CareBundleBuilderService`
     - `App\Http\Controllers\Api\V2\BundleTemplateController`
     - `App\Http\Controllers\Api\V2\ServiceTypeController`
-- **Restored Methods:** Restored accidentally deleted helper methods in `CareBundleBuilderService.php` (`buildPatientContext`, `hasCognitiveNeeds`, etc.) which were causing API failures.
+- **Restored Helper Methods:** Restored missing helper methods in `CareBundleBuilderService.php` (`buildPatientContext`, `hasCognitiveNeeds`, etc.) that were causing API failures.
+- **Fixed CSRF 419 Error:** Resolved a persistent 419 Page Expired error during care plan publishing by clearing the `SESSION_DOMAIN` in `.env` (allowing browser default behavior) and verifying cookie generation. This ensures reliable session handling in local development.
 
 **Outcome:**
 Services now correctly eager load their category data and populate the Care Bundle Wizard interface.
