@@ -77,7 +77,11 @@ class VisitVerificationSeeder extends Seeder
         }
 
         // Get service types
-        $serviceTypes = ServiceType::where('is_active', true)->get();
+        $serviceTypes = ServiceType::where('active', true)->get();
+        if ($serviceTypes->isEmpty()) {
+            // Fallback to all service types if none are marked active
+            $serviceTypes = ServiceType::all();
+        }
         if ($serviceTypes->isEmpty()) {
             $this->command->error('No service types found. Run MetadataObjectModelSeeder first.');
             return;
