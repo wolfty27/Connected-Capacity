@@ -31,6 +31,20 @@ class ServiceAssignment extends Model
     public const SOURCE_INTERNAL = 'INTERNAL';  // SPO direct staff
     public const SOURCE_SSPO = 'SSPO';          // Subcontracted SSPO staff
 
+    // Visit verification status constants
+    public const VERIFICATION_PENDING = 'PENDING';
+    public const VERIFICATION_VERIFIED = 'VERIFIED';
+    public const VERIFICATION_MISSED = 'MISSED';
+
+    // Verification source constants
+    public const VERIFICATION_SOURCE_STAFF_MANUAL = 'staff_manual';
+    public const VERIFICATION_SOURCE_SSPO_SYSTEM = 'sspo_system';
+    public const VERIFICATION_SOURCE_DEVICE = 'device';
+    public const VERIFICATION_SOURCE_COORDINATOR = 'coordinator_override';
+
+    // Default grace period in minutes before a visit is considered overdue
+    public const DEFAULT_VERIFICATION_GRACE_MINUTES = 1440; // 24 hours
+
     protected $fillable = [
         'care_plan_id',
         'patient_id',
@@ -61,6 +75,11 @@ class ServiceAssignment extends Model
         'frequency_per_week',
         'duration_minutes',
         'calculated_weekly_cost_cents',
+        // Visit verification fields
+        'verification_status',
+        'verified_at',
+        'verification_source',
+        'verified_by_user_id',
     ];
 
     protected $casts = [
@@ -76,6 +95,8 @@ class ServiceAssignment extends Model
         'frequency_per_week' => 'integer',
         'duration_minutes' => 'integer',
         'calculated_weekly_cost_cents' => 'integer',
+        // Visit verification casts
+        'verified_at' => 'datetime',
     ];
 
     public function carePlan()
@@ -374,6 +395,129 @@ class ServiceAssignment extends Model
             self::SSPO_ACCEPTED => 'Accepted by SSPO',
             self::SSPO_DECLINED => 'Declined by SSPO',
             self::SSPO_NOT_APPLICABLE => 'Internal Assignment',
+            default => 'Unknown',
+        };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Visit Verification Relationships & Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * User who verified the visit.
+     */
+    public function verifiedByUser()
+    {
+        return $this->belongsTo(User::class, 'verified_by_user_id');
+    }
+
+    /**
+     * Scope for assignments pending verification.
+     */
+    public function scopeVerificationPending(Builder $query): Builder
+    {
+        return $query->where('verification_status', self::VERIFICATION_PENDING);
+    }
+
+    /**
+     * Scope for verified assignments.
+     */
+    public function scopeVerified(Builder $query): Builder
+    {
+        return $query->where('verification_status', self::VERIFICATION_VERIFIED);
+    }
+
+    /**
+     * Scope for missed assignments.
+     */
+    public function scopeVerificationMissed(Builder $query): Builder
+    {
+        return $query->where('verification_status', self::VERIFICATION_MISSED);
+    }
+
+    /**
+     * Scope for overdue unverified appointments.
+     * An appointment is overdue if:
+     * - verification_status = PENDING
+     * - scheduled_start + grace period < now
+     */
+    public function scopeOverdueUnverified(Builder $query, int $graceMinutes = null): Builder
+    {
+        $grace = $graceMinutes ?? self::DEFAULT_VERIFICATION_GRACE_MINUTES;
+        $threshold = now()->subMinutes($grace);
+
+        return $query->where('verification_status', self::VERIFICATION_PENDING)
+            ->where('scheduled_start', '<', $threshold);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Visit Verification Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Check if visit verification is pending.
+     */
+    public function isVerificationPending(): bool
+    {
+        return $this->verification_status === self::VERIFICATION_PENDING;
+    }
+
+    /**
+     * Check if visit is verified.
+     */
+    public function isVerified(): bool
+    {
+        return $this->verification_status === self::VERIFICATION_VERIFIED;
+    }
+
+    /**
+     * Check if visit is missed.
+     */
+    public function isVerificationMissed(): bool
+    {
+        return $this->verification_status === self::VERIFICATION_MISSED;
+    }
+
+    /**
+     * Check if this appointment is overdue for verification.
+     */
+    public function isOverdueForVerification(int $graceMinutes = null): bool
+    {
+        if (!$this->isVerificationPending()) {
+            return false;
+        }
+
+        $grace = $graceMinutes ?? self::DEFAULT_VERIFICATION_GRACE_MINUTES;
+        $threshold = now()->subMinutes($grace);
+
+        return $this->scheduled_start && $this->scheduled_start->lt($threshold);
+    }
+
+    /**
+     * Calculate how long ago this appointment should have been verified.
+     */
+    public function getOverdueDurationAttribute(): ?string
+    {
+        if (!$this->scheduled_start) {
+            return null;
+        }
+
+        return $this->scheduled_start->diffForHumans();
+    }
+
+    /**
+     * Get verification status label for display.
+     */
+    public function getVerificationStatusLabelAttribute(): string
+    {
+        return match ($this->verification_status) {
+            self::VERIFICATION_PENDING => 'Pending Verification',
+            self::VERIFICATION_VERIFIED => 'Verified',
+            self::VERIFICATION_MISSED => 'Missed',
             default => 'Unknown',
         };
     }
