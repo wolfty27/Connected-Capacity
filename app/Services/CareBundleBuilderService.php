@@ -531,9 +531,8 @@ class CareBundleBuilderService
             $patient = Patient::findOrFail($patientId);
             $bundle = CareBundle::findOrFail($bundleId);
 
-            // Get latest version for this patient/bundle combination
+            // Get latest version for this patient (version is unique per patient, not per bundle)
             $latestVersion = CarePlan::where('patient_id', $patientId)
-                ->where('care_bundle_id', $bundleId)
                 ->max('version') ?? 0;
 
             // Create the care plan
@@ -696,6 +695,15 @@ class CareBundleBuilderService
     public function publishCarePlan(CarePlan $carePlan, ?int $userId = null): CarePlan
     {
         return DB::transaction(function () use ($carePlan, $userId) {
+            // Archive any existing active care plans for this patient
+            CarePlan::where('patient_id', $carePlan->patient_id)
+                ->where('id', '!=', $carePlan->id)
+                ->where('status', 'active')
+                ->update([
+                    'status' => 'archived',
+                    'notes' => DB::raw("CONCAT(COALESCE(notes, ''), ' | Replaced by plan #" . $carePlan->id . " on " . now()->toDateString() . "')")
+                ]);
+
             // Update care plan status
             $carePlan->update([
                 'status' => 'active',
