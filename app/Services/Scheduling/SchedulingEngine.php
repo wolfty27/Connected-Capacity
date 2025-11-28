@@ -62,9 +62,13 @@ class SchedulingEngine
         $weekStart = $dateTime->copy()->startOfWeek();
         $weekEnd = $dateTime->copy()->endOfWeek();
 
-        // Query staff with matching roles
+        // Query staff with matching roles - include field staff and coordinators
         $query = User::query()
-            ->where('role', User::ROLE_FIELD_STAFF)
+            ->whereIn('role', [
+                User::ROLE_FIELD_STAFF,
+                User::ROLE_SPO_COORDINATOR,
+                User::ROLE_SSPO_COORDINATOR,
+            ])
             ->where('staff_status', User::STAFF_STATUS_ACTIVE)
             ->whereIn('staff_role_id', $eligibleRoleIds)
             ->with(['staffRole', 'employmentTypeModel', 'availability']);
@@ -328,9 +332,13 @@ class SchedulingEngine
         ?int $staffId = null,
         ?int $patientId = null
     ): array {
-        // Get staff
+        // Get staff - include field staff and coordinators who may deliver care
         $staffQuery = User::query()
-            ->where('role', User::ROLE_FIELD_STAFF)
+            ->whereIn('role', [
+                User::ROLE_FIELD_STAFF,
+                User::ROLE_SPO_COORDINATOR,
+                User::ROLE_SSPO_COORDINATOR,
+            ])
             ->where('staff_status', User::STAFF_STATUS_ACTIVE)
             ->with(['staffRole', 'employmentTypeModel', 'availability']);
 

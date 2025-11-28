@@ -298,8 +298,12 @@ class SchedulingController extends Controller
     {
         $organizationId = $request->user()?->organization_id;
 
-        // Get a sample staff member
-        $sampleStaff = User::where('role', User::ROLE_FIELD_STAFF)
+        // Get a sample staff member - include field staff and coordinators
+        $sampleStaff = User::whereIn('role', [
+                User::ROLE_FIELD_STAFF,
+                User::ROLE_SPO_COORDINATOR,
+                User::ROLE_SSPO_COORDINATOR,
+            ])
             ->where('staff_status', User::STAFF_STATUS_ACTIVE)
             ->when($organizationId, fn($q) => $q->where('organization_id', $organizationId))
             ->with('staffRole')
