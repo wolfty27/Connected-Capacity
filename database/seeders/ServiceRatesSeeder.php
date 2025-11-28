@@ -216,7 +216,8 @@ class ServiceRatesSeeder extends Seeder
                 'created_by' => null, // System seeded
             ]);
 
-            $this->command->info("Created rate for '{$serviceCode}': \${$rateData['rate_cents']/100} {$rateData['unit_type']}");
+            $rateDollars = $rateData['rate_cents'] / 100;
+            $this->command->info("Created rate for '{$serviceCode}': \${$rateDollars} {$rateData['unit_type']}");
         }
     }
 }
