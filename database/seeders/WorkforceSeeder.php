@@ -259,11 +259,11 @@ class WorkforceSeeder extends Seeder
             ['slug' => 'care-partners'],
             [
                 'name' => 'Care Partners SSPO',
-                'type' => 'sspo',
+                'type' => 'partner', // Using 'partner' type for SSPO (enum: se_health, partner, external)
                 'address' => '456 Healthcare Ave, Toronto, ON',
                 'contact_email' => 'dispatch@carepartners.ca',
                 'contact_phone' => '416-555-2000',
-                'is_active' => true,
+                'active' => true,
             ]
         );
 
