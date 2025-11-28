@@ -80,7 +80,7 @@ class DemoAssessmentsSeeder extends Seeder
                 'patient_id' => $patient->id,
                 'assessment_type' => 'hc',
                 'assessment_date' => now()->subDays(rand(5, 30)),
-                'source' => 'spo_completed',
+                'source' => 'OHAH',
                 'workflow_status' => 'completed',
                 'is_current' => true,
                 'version' => 1,
