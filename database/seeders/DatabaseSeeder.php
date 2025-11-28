@@ -62,6 +62,9 @@ class DatabaseSeeder extends Seeder
 
             // 8. Care plans for 10 active patients
             DemoBundlesSeeder::class,
+
+            // 9. Patient notes and narrative summaries
+            PatientNotesSeeder::class,
         ]);
     }
 }

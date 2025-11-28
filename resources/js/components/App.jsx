@@ -15,6 +15,7 @@ import FieldStaffWorklistPage from '../pages/CareOps/FieldStaffWorklistPage';
 import RoleRoute from './RouteGuards/RoleRoute';
 import PatientsList from '../pages/Patients/PatientsList';
 import PatientDetailPage from '../pages/Patients/PatientDetailPage';
+import AddPatientPage from '../pages/Patients/AddPatientPage';
 import ProfilePage from '../pages/Organization/ProfilePage';
 import CareAssignmentDetailPage from '../pages/CareOps/CareAssignmentDetailPage';
 
@@ -81,6 +82,7 @@ const AppRoutes = () => {
                     ]} />}>
                         <Route path="/care-dashboard" element={<CareDashboardPage />} />
                         <Route path="/patients" element={<PatientsList />} />
+                        <Route path="/patients/add" element={<AddPatientPage />} />
                         <Route path="/patients/:id" element={<PatientDetailPage />} />
                         <Route path="/referrals/create" element={<CreateReferral />} />
                         <Route path="/organization/profile" element={<ProfilePage />} />

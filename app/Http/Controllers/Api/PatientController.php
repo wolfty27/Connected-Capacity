@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\InterraiSummaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\App;
 
 class PatientController extends Controller
 {
@@ -17,7 +18,13 @@ class PatientController extends Controller
     {
         try {
             $user = Auth::user();
-            $query = Patient::with(['user', 'queueEntry', 'latestRugClassification', 'hospital.user']);
+            $query = Patient::with([
+                'user',
+                'queueEntry',
+                'latestRugClassification',
+                'latestInterraiAssessment',
+                'hospital.user',
+            ]);
 
             // Filter by queue status if requested
             $showQueue = $request->get('show_queue', null);
@@ -41,12 +48,23 @@ class PatientController extends Controller
 
             $patients = $query->get();
 
+            // Get InterRAI summary service for clinical flags
+            $summaryService = App::make(InterraiSummaryService::class);
+
             // Transform data for API
-            $data = $patients->map(function ($patient) {
+            $data = $patients->map(function ($patient) use ($summaryService) {
                 $userObj = $patient->user;
                 $hospitalObj = $patient->hospital;
                 $hospitalUser = $hospitalObj ? $hospitalObj->user : null;
                 $queueEntry = $patient->queueEntry;
+
+                // Get top clinical flags (first 3) for display
+                $topFlags = [];
+                if ($patient->latestInterraiAssessment) {
+                    $summary = $summaryService->generateSummary($patient);
+                    $activeFlags = $summaryService->getActiveFlagsWithLabels($summary['clinical_flags']);
+                    $topFlags = array_slice($activeFlags, 0, 3);
+                }
 
                 return [
                     'id' => $patient->id,
@@ -72,7 +90,10 @@ class PatientController extends Controller
                     'rug_category' => $patient->latestRugClassification?->rug_category,
                     'rug_description' => $patient->latestRugClassification?->rug_description,
                     'rug_label' => $patient->latestRugClassification?->rug_label,
+                    'rug_numeric_rank' => $patient->latestRugClassification?->numeric_rank,
                     'has_interrai_assessment' => $patient->interraiAssessments()->where('assessment_type', 'hc')->exists(),
+                    // Clinical flags (top 3 for display)
+                    'top_clinical_flags' => $topFlags,
                 ];
             });
 

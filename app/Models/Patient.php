@@ -270,6 +270,24 @@ class Patient extends Model
         return $this->hasMany(InterdisciplinaryNote::class);
     }
 
+    /**
+     * Get all patient notes (clinical notes and narratives).
+     */
+    public function patientNotes()
+    {
+        return $this->hasMany(PatientNote::class);
+    }
+
+    /**
+     * Get the summary note for this patient.
+     */
+    public function summaryNote()
+    {
+        return $this->hasOne(PatientNote::class)
+            ->where('note_type', PatientNote::TYPE_SUMMARY)
+            ->oldestOfMany();
+    }
+
     public function rpmDevices()
     {
         return $this->hasMany(RpmDevice::class);

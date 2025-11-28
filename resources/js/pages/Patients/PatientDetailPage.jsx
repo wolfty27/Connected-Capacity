@@ -7,7 +7,7 @@ import Spinner from '../../components/UI/Spinner';
 import Button from '../../components/UI/Button';
 import BundleSummary from '../../components/care/BundleSummary';
 import FullInterraiAssessment from '../../components/InterRAI/FullInterraiAssessment';
-import { X } from 'lucide-react';
+import { X, Send, FileText } from 'lucide-react';
 
 /**
  * PatientDetailPage - Central hub for patient care management
@@ -15,7 +15,8 @@ import { X } from 'lucide-react';
  * Displays:
  * - Patient demographics
  * - Active care plans with services
- * - Transition Needs Profile (TNP)
+ * - Clinical flags and narrative
+ * - Notes / Narrative (replaces TNP)
  * - InterRAI assessment scores
  * - Care bundle creation entry point
  */
@@ -24,27 +25,35 @@ const PatientDetailPage = () => {
     const navigate = useNavigate();
     const [patient, setPatient] = useState(null);
     const [carePlans, setCarePlans] = useState([]);
-    const [tnp, setTnp] = useState(null);
+    const [notesData, setNotesData] = useState({ summary_note: null, notes: [] });
     const [interraiData, setInterraiData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('overview'); // overview | tnp | interrai
+    const [activeTab, setActiveTab] = useState('overview'); // overview | interrai | notes
     const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [newNoteContent, setNewNoteContent] = useState('');
+    const [submittingNote, setSubmittingNote] = useState(false);
 
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
 
             // Fetch all data in parallel
-            const [patientRes, carePlansRes, tnpRes, interraiRes] = await Promise.all([
+            const [patientRes, overviewRes, carePlansRes, notesRes, interraiRes] = await Promise.all([
                 api.get(`/patients/${id}`),
+                api.get(`/v2/patients/${id}/overview`).catch(() => ({ data: { data: null } })),
                 api.get(`/v2/care-plans?patient_id=${id}`).catch(() => ({ data: { data: [] } })),
-                api.get(`/patients/${id}/tnp`).catch(() => ({ data: null })),
+                api.get(`/v2/patients/${id}/notes`).catch(() => ({ data: { data: { summary_note: null, notes: [] } } })),
                 api.get(`/v2/interrai/patients/${id}/status`).catch(() => ({ data: { data: null } })),
             ]);
 
-            setPatient(patientRes.data.data);
+            setPatient({
+                ...patientRes.data.data,
+                // Merge in overview data (clinical flags, narrative, etc.)
+                active_flags: overviewRes.data?.data?.active_flags || [],
+                narrative_summary: overviewRes.data?.data?.narrative_summary || null,
+            });
             setCarePlans(carePlansRes.data.data || carePlansRes.data || []);
-            setTnp(tnpRes.data);
+            setNotesData(notesRes.data?.data || { summary_note: null, notes: [] });
             setInterraiData(interraiRes.data?.data || null);
         } catch (error) {
             console.error('Failed to fetch patient data:', error);
@@ -52,6 +61,30 @@ const PatientDetailPage = () => {
             setLoading(false);
         }
     }, [id]);
+
+    const handleAddNote = async () => {
+        if (!newNoteContent.trim()) return;
+
+        try {
+            setSubmittingNote(true);
+            const response = await api.post(`/v2/patients/${id}/notes`, {
+                content: newNoteContent,
+                note_type: 'update',
+            });
+
+            // Add new note to the list
+            setNotesData(prev => ({
+                ...prev,
+                notes: [response.data.data, ...prev.notes],
+            }));
+            setNewNoteContent('');
+        } catch (error) {
+            console.error('Failed to add note:', error);
+            alert('Failed to add note. Please try again.');
+        } finally {
+            setSubmittingNote(false);
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -140,8 +173,8 @@ const PatientDetailPage = () => {
                 <nav className="-mb-px flex gap-6">
                     {[
                         { id: 'overview', label: 'Overview' },
-                        { id: 'tnp', label: 'Transition Needs', badge: !tnp ? 'Missing' : null },
                         { id: 'interrai', label: 'InterRAI HC', badge: interraiData?.requires_assessment ? 'Action Needed' : null },
+                        { id: 'notes', label: 'Notes / Narrative' },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -354,72 +387,125 @@ const PatientDetailPage = () => {
                                 </button>
                             </Card>
                         )}
+
+                        {/* Clinical Flags */}
+                        <Card title="Clinical Flags">
+                            {patient.active_flags && patient.active_flags.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {patient.active_flags.map((flag, index) => (
+                                        <span
+                                            key={index}
+                                            className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                                flag.severity === 'danger'
+                                                    ? 'bg-rose-100 text-rose-800'
+                                                    : flag.severity === 'warning'
+                                                        ? 'bg-amber-100 text-amber-800'
+                                                        : 'bg-blue-100 text-blue-800'
+                                            }`}
+                                        >
+                                            {flag.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-sm">No major risk flags identified.</p>
+                            )}
+                        </Card>
                     </div>
                 </div>
             )}
 
-            {/* TNP Tab */}
-            {activeTab === 'tnp' && (
+            {/* Notes / Narrative Tab */}
+            {activeTab === 'notes' && (
                 <div className="space-y-6">
-                    {tnp ? (
-                        <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <Card title="Narrative Summary">
-                                    <p className="whitespace-pre-wrap text-slate-700">
-                                        {tnp.narrative_summary || 'No narrative provided.'}
-                                    </p>
-                                </Card>
-                                <Card title="Clinical Flags">
-                                    {tnp.clinical_flags && tnp.clinical_flags.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
-                                            {tnp.clinical_flags.map((flag, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-medium"
-                                                >
-                                                    {flag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-slate-500">No clinical flags identified.</p>
-                                    )}
-                                </Card>
-                            </div>
-
-                            {/* AI Summary */}
-                            {tnp.ai_summary_text && (
-                                <Card title="AI Analysis (SBAR)">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="text-sm text-slate-500">Status:</span>
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${tnp.ai_summary_status === 'completed'
-                                            ? 'bg-emerald-100 text-emerald-800'
-                                            : 'bg-amber-100 text-amber-800'
-                                            }`}>
-                                            {tnp.ai_summary_status}
+                    {/* Narrative Summary */}
+                    {notesData.summary_note && (
+                        <Card title="Narrative Summary">
+                            <div className="flex items-start gap-3 mb-2">
+                                <FileText className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-xs font-medium text-slate-500 uppercase">
+                                            Summary at Intake
+                                        </span>
+                                        <span className="text-xs text-slate-400">
+                                            {notesData.summary_note.created_at_formatted}
                                         </span>
                                     </div>
-                                    <p className="text-slate-700 whitespace-pre-wrap">{tnp.ai_summary_text}</p>
-                                </Card>
-                            )}
-                        </>
-                    ) : (
-                        <Card>
-                            <div className="text-center py-8">
-                                <svg className="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <p className="text-slate-500 font-medium">No Transition Needs Profile</p>
-                                <p className="text-sm text-slate-400 mt-1">A TNP has not been created for this patient yet.</p>
-                                <Button
-                                    className="mt-4"
-                                    onClick={() => alert('Create TNP workflow - coming soon')}
-                                >
-                                    Create TNP
-                                </Button>
+                                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                        {notesData.summary_note.content}
+                                    </p>
+                                    <div className="mt-2 text-xs text-slate-400">
+                                        Source: {notesData.summary_note.source}
+                                    </div>
+                                </div>
                             </div>
                         </Card>
                     )}
+
+                    {/* Add Note Form */}
+                    <Card title="Add Note">
+                        <div className="space-y-3">
+                            <textarea
+                                value={newNoteContent}
+                                onChange={(e) => setNewNoteContent(e.target.value)}
+                                placeholder="Enter a new note or update..."
+                                rows={3}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-200 focus:border-teal-400 resize-none"
+                            />
+                            <div className="flex justify-end">
+                                <Button
+                                    onClick={handleAddNote}
+                                    disabled={submittingNote || !newNoteContent.trim()}
+                                    className="flex items-center gap-2"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    {submittingNote ? 'Saving...' : 'Add Note'}
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Notes List */}
+                    <Card title="Notes & Updates">
+                        {notesData.notes && notesData.notes.length > 0 ? (
+                            <div className="space-y-4">
+                                {notesData.notes.map((note, index) => (
+                                    <div
+                                        key={note.id || index}
+                                        className="p-4 bg-slate-50 rounded-lg border border-slate-200"
+                                    >
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-slate-700">
+                                                    {note.source}
+                                                </span>
+                                                {note.author_name && (
+                                                    <span className="text-xs text-slate-500">
+                                                        by {note.author_name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-xs text-slate-400">
+                                                {note.created_at_formatted}
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-600 text-sm whitespace-pre-wrap">
+                                            {note.content}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6">
+                                <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                                <p className="text-slate-500 text-sm">No notes or updates yet.</p>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    Add a note above to track updates for this patient.
+                                </p>
+                            </div>
+                        )}
+                    </Card>
                 </div>
             )}
 

@@ -57,6 +57,17 @@ class DemoAssessmentsSeeder extends Seeder
         $targetRugGroups = DemoPatientsSeeder::getTargetRugGroups();
         $notReadyPatients = DemoPatientsSeeder::getNotReadyPatients();
 
+        // Define which patients should have OHaH-sourced assessments vs SPO-sourced
+        // Mix it up: approximately half from OHaH, half from SPO
+        $ohahSourcedOhips = [
+            'OHIP-A001', // Albert Singh
+            'OHIP-C001', // Catherine Dubois
+            'OHIP-E001', // Eleanor Roosevelt
+            'OHIP-Q001', // Quinn Harris (queue)
+            'OHIP-H001', // Henry MacDonald
+            'OHIP-J001', // Julia Morrison
+        ];
+
         $expectedCount = count($targetRugGroups); // 13 patients (3 ready queue + 10 active)
         $this->command->info("  Expected: {$expectedCount} patients with assessments (3 ready queue + 10 active)");
         $this->command->info("  Skipping: " . count($notReadyPatients) . " NOT READY queue patients (no assessment yet)");
@@ -83,14 +94,18 @@ class DemoAssessmentsSeeder extends Seeder
             // Get iCODE payload from factory
             $rawItems = DemoInterraiPayloadFactory::forRug($targetRug);
 
+            // Determine source based on patient OHIP
+            $isOhahSource = in_array($patient->ohip, $ohahSourcedOhips);
+            $source = $isOhahSource ? InterraiAssessment::SOURCE_OHAH : InterraiAssessment::SOURCE_SPO;
+            $sourceOrgId = $isOhahSource ? null : $spo->id;
+
             // Create InterRAI assessment with proper iCODE raw_items
-            // Source is SPO (completed by SPO team) with organization set
             $assessment = InterraiAssessment::create([
                 'patient_id' => $patient->id,
                 'assessment_type' => 'hc',
                 'assessment_date' => now()->subDays(rand(5, 30)),
-                'source' => InterraiAssessment::SOURCE_SPO,
-                'source_organization_id' => $spo->id,
+                'source' => $source,
+                'source_organization_id' => $sourceOrgId,
                 'workflow_status' => 'completed',
                 'is_current' => true,
                 'version' => 1,

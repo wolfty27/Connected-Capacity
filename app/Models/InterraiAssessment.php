@@ -404,8 +404,9 @@ class InterraiAssessment extends Model
 
         return match ($this->source) {
             self::SOURCE_HPG => 'HPG Referral',
-            self::SOURCE_SPO => 'SPO Completed',
-            self::SOURCE_OHAH => 'OHaH Provided',
+            self::SOURCE_SPO => $this->sourceOrganization?->name ?? 'Service Provider Organization',
+            self::SOURCE_OHAH => 'Ontario Health atHome',
+            'Ontario Health atHome' => 'Ontario Health atHome',
             default => $this->source ?? 'Unknown',
         };
     }

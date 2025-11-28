@@ -60,6 +60,12 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // Patient assessment history with RUG classifications
     Route::get('/v2/patients/{patient}/assessments', [\App\Http\Controllers\Api\PatientController::class, 'assessments']);
 
+    // Patient Notes API (replaces TNP narrative)
+    Route::get('/v2/patients/{patient}/notes', [\App\Http\Controllers\Api\V2\PatientNotesController::class, 'index']);
+    Route::post('/v2/patients/{patient}/notes', [\App\Http\Controllers\Api\V2\PatientNotesController::class, 'store']);
+    Route::put('/v2/patient-notes/{note}', [\App\Http\Controllers\Api\V2\PatientNotesController::class, 'update']);
+    Route::delete('/v2/patient-notes/{note}', [\App\Http\Controllers\Api\V2\PatientNotesController::class, 'destroy']);
+
     Route::get('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'show']);
     Route::put('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'update']);
 

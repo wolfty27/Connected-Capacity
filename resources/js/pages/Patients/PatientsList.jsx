@@ -129,16 +129,10 @@ const PatientsList = () => {
             title="Patients"
             description="Manage your organization's patients"
             actions={
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => navigate('/tnp')}>
-                        <Clock className="w-4 h-4 mr-2" />
-                        View Intake Queue
-                    </Button>
-                    <Button onClick={() => console.log('Add Patient clicked')}>
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Add Patient
-                    </Button>
-                </div>
+                <Button onClick={() => navigate('/patients/add')}>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Add Patient
+                </Button>
             }
         >
             {/* Summary Stats */}
@@ -241,6 +235,27 @@ const PatientsList = () => {
                                 <div className="flex justify-between text-xs">
                                     <span className="text-gray-500">RUG</span>
                                     <span className="text-gray-400 italic">Not classified</span>
+                                </div>
+                            )}
+                            {/* Clinical Flags */}
+                            {patient.top_clinical_flags && patient.top_clinical_flags.length > 0 && (
+                                <div className="pt-1.5">
+                                    <div className="flex flex-wrap gap-1">
+                                        {patient.top_clinical_flags.map((flag, idx) => (
+                                            <span
+                                                key={idx}
+                                                className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                                                    flag.severity === 'danger'
+                                                        ? 'bg-rose-100 text-rose-700'
+                                                        : flag.severity === 'warning'
+                                                            ? 'bg-amber-100 text-amber-700'
+                                                            : 'bg-blue-100 text-blue-700'
+                                                }`}
+                                            >
+                                                {flag.label}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
