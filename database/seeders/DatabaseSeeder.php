@@ -40,30 +40,33 @@ class DatabaseSeeder extends Seeder
             // 3. Service types, categories, legacy care bundles
             CoreDataSeeder::class,
 
-            // 4. Metadata object model definitions (Workday-style)
+            // 4. Ontario-aligned service billing rates
+            ServiceRatesSeeder::class,
+
+            // 5. Metadata object model definitions (Workday-style)
             MetadataObjectModelSeeder::class,
 
             // ============================================
             // CC2.1 ARCHITECTURE: RUG Templates
             // ============================================
 
-            // 5. RUG-III/HC bundle templates (23 templates)
+            // 6. RUG-III/HC bundle templates (23 templates)
             RUGBundleTemplatesSeeder::class,
 
             // ============================================
             // DEMO DATA: Patients, Assessments, Plans
             // ============================================
 
-            // 6. Demo patients (5 queue + 10 active = 15 total)
+            // 7. Demo patients (5 queue + 10 active = 15 total)
             DemoPatientsSeeder::class,
 
-            // 7. InterRAI assessments + RUG classifications
+            // 8. InterRAI assessments + RUG classifications
             DemoAssessmentsSeeder::class,
 
-            // 8. Care plans for 10 active patients
+            // 9. Care plans for 10 active patients
             DemoBundlesSeeder::class,
 
-            // 9. Patient notes and narrative summaries
+            // 10. Patient notes and narrative summaries
             PatientNotesSeeder::class,
         ]);
     }

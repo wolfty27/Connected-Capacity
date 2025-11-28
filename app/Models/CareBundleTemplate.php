@@ -28,12 +28,54 @@ class CareBundleTemplate extends Model
 {
     use HasFactory;
 
+    /**
+     * Intensity tier constants.
+     */
+    public const TIER_HIGHEST = 4;
+    public const TIER_HIGH = 3;
+    public const TIER_MODERATE = 2;
+    public const TIER_LOWER = 1;
+
+    /**
+     * RUG group to tier mapping.
+     */
+    public const TIER_MAPPINGS = [
+        // Tier 4: Highest intensity
+        'SE3' => self::TIER_HIGHEST,
+        'SE2' => self::TIER_HIGHEST,
+        'SSB' => self::TIER_HIGHEST,
+        // Tier 3: High intensity
+        'SE1' => self::TIER_HIGH,
+        'SSA' => self::TIER_HIGH,
+        'CC0' => self::TIER_HIGH,
+        'CB0' => self::TIER_HIGH,
+        'IB0' => self::TIER_HIGH,
+        'BB0' => self::TIER_HIGH,
+        'PD0' => self::TIER_HIGH,
+        // Tier 2: Moderate intensity
+        'RB0' => self::TIER_MODERATE,
+        'RA2' => self::TIER_MODERATE,
+        'CA2' => self::TIER_MODERATE,
+        'IA2' => self::TIER_MODERATE,
+        'BA2' => self::TIER_MODERATE,
+        'PC0' => self::TIER_MODERATE,
+        'PB0' => self::TIER_MODERATE,
+        // Tier 1: Lower intensity
+        'RA1' => self::TIER_LOWER,
+        'CA1' => self::TIER_LOWER,
+        'IA1' => self::TIER_LOWER,
+        'BA1' => self::TIER_LOWER,
+        'PA2' => self::TIER_LOWER,
+        'PA1' => self::TIER_LOWER,
+    ];
+
     protected $fillable = [
         'code',
         'name',
         'description',
         'rug_group',
         'rug_category',
+        'tier',
         'funding_stream',
         'min_adl_sum',
         'max_adl_sum',
@@ -58,6 +100,7 @@ class CareBundleTemplate extends Model
         'max_adl_sum' => 'integer',
         'min_iadl_sum' => 'integer',
         'max_iadl_sum' => 'integer',
+        'tier' => 'integer',
         'required_flags' => 'array',
         'excluded_flags' => 'array',
         'weekly_cap_cents' => 'integer',
@@ -309,11 +352,43 @@ class CareBundleTemplate extends Model
             'description' => $this->description,
             'rug_group' => $this->rug_group,
             'rug_category' => $this->rug_category,
+            'tier' => $this->tier,
+            'tier_label' => $this->tier_label,
             'funding_stream' => $this->funding_stream,
             'weekly_cap' => $this->weekly_cap,
             'service_count' => $this->services()->count(),
             'estimated_weekly_cost' => $this->calculateEstimatedWeeklyCost() / 100,
             'is_active' => $this->is_active,
         ];
+    }
+
+    /**
+     * Get the tier label for display.
+     */
+    public function getTierLabelAttribute(): string
+    {
+        return match ($this->tier) {
+            self::TIER_HIGHEST => 'Tier 4 - Highest Intensity',
+            self::TIER_HIGH => 'Tier 3 - High Intensity',
+            self::TIER_MODERATE => 'Tier 2 - Moderate Intensity',
+            self::TIER_LOWER => 'Tier 1 - Lower Intensity',
+            default => 'Unknown',
+        };
+    }
+
+    /**
+     * Get the tier for a RUG group.
+     */
+    public static function getTierForRugGroup(string $rugGroup): ?int
+    {
+        return self::TIER_MAPPINGS[$rugGroup] ?? null;
+    }
+
+    /**
+     * Scope for a specific intensity tier.
+     */
+    public function scopeForTier(Builder $query, int $tier): Builder
+    {
+        return $query->where('tier', $tier);
     }
 }

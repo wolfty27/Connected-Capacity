@@ -211,6 +211,19 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::delete('/{id}', [\App\Http\Controllers\Api\V2\SspoCapabilityController::class, 'destroy']);
     });
 
+    // Service Rate Card Admin API (Rate Card Management)
+    Route::prefix('v2/admin/service-rates')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'index']);
+        Route::get('/system-defaults', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'systemDefaults']);
+        Route::get('/organization/{organizationId?}', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'organizationRates']);
+        Route::get('/history/{serviceTypeId}', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'history']);
+        Route::post('/', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'store']);
+        Route::post('/bulk', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'bulkStore']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\V2\Admin\ServiceRateController::class, 'destroy']);
+    });
+
     // Staff Management API (STAFF-008)
     Route::prefix('v2/staff')->group(function () {
         // Staff CRUD

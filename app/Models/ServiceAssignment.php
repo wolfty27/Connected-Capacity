@@ -51,6 +51,12 @@ class ServiceAssignment extends Model
         'sspo_responded_by',
         'sspo_decline_reason',
         'sspo_notified_at',
+        // Billing rate snapshot fields
+        'billing_rate_cents',
+        'billing_unit_type',
+        'frequency_per_week',
+        'duration_minutes',
+        'calculated_weekly_cost_cents',
     ];
 
     protected $casts = [
@@ -61,6 +67,11 @@ class ServiceAssignment extends Model
         'sspo_responded_at' => 'datetime',
         'sspo_notified_at' => 'datetime',
         'after_hours_required' => 'boolean',
+        // Billing rate snapshot casts
+        'billing_rate_cents' => 'integer',
+        'frequency_per_week' => 'integer',
+        'duration_minutes' => 'integer',
+        'calculated_weekly_cost_cents' => 'integer',
     ];
 
     public function carePlan()

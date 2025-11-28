@@ -36,6 +36,7 @@ import SspoCapabilityPage from '../pages/CareOps/SspoCapabilityPage';
 import InterraiCompletionWizard from '../pages/InterRAI/InterraiCompletionWizard';
 import InterraiDashboardPage from '../pages/InterRAI/InterraiDashboardPage';
 import InterraiAssessmentForm from '../pages/InterRAI/InterraiAssessmentForm';
+import ServiceRatesPage from '../pages/Admin/ServiceRatesPage';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -110,6 +111,9 @@ const AppRoutes = () => {
                         <Route path="/interrai/assess/:patientId/:assessmentId" element={<InterraiAssessmentForm />} />
                         <Route path="/interrai/dashboard" element={<InterraiDashboardPage />} />
                         <Route path="/admin/assessments" element={<InterraiDashboardPage />} />
+
+                        {/* Service Rate Card Admin (SPO/SSPO Admin) */}
+                        <Route path="/admin/service-rates" element={<ServiceRatesPage />} />
                     </Route>
 
                     <Route element={<RoleRoute roles={['FIELD_STAFF', 'SPO_ADMIN']} />}>
