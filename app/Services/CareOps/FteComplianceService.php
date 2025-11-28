@@ -83,11 +83,13 @@ class FteComplianceService
             'organization_type' => $organization->type,
             'calculated_at' => Carbon::now()->toIso8601String(),
 
-            // Headcount-based metrics (primary per RFP)
+            // Headcount-based metrics (primary per RFP Q&A)
+            // Note: total_staff = direct staff only (FT + PT + Casual)
             'total_staff' => $staffMetrics['total_staff'],
             'full_time_staff' => $staffMetrics['full_time_staff'],
             'part_time_staff' => $staffMetrics['part_time_staff'],
             'casual_staff' => $staffMetrics['casual_staff'],
+            'sspo_staff' => $staffMetrics['sspo_staff'] ?? 0,
             'headcount_fte_ratio' => round($headcountRatio, 1),
 
             // Hours-based metrics (supplementary tracking)
@@ -96,14 +98,14 @@ class FteComplianceService
             'sspo_hours' => round($hoursMetrics['sspo_hours'], 1),
             'hours_fte_ratio' => round($hoursRatio, 1),
 
-            // Capacity metrics
+            // Capacity metrics (based on direct staff only)
             'total_capacity_hours' => round($staffMetrics['total_capacity_hours'], 1),
             'utilized_hours' => round($hoursMetrics['internal_hours'], 1),
             'utilization_rate' => $staffMetrics['total_capacity_hours'] > 0
                 ? round(($hoursMetrics['internal_hours'] / $staffMetrics['total_capacity_hours']) * 100, 1)
                 : 0,
 
-            // Compliance status
+            // Compliance status (per RFP Q&A: FT / Direct Staff × 100%)
             'fte_ratio' => round($primaryRatio, 1),
             'band' => $band,
             'is_compliant' => $primaryRatio >= self::FTE_COMPLIANCE_TARGET,
@@ -116,32 +118,58 @@ class FteComplianceService
 
     /**
      * Get detailed staff metrics for an organization
+     *
+     * Uses EmploymentType metadata to correctly classify staff:
+     * - is_direct_staff: true for FT, PT, Casual (counts in FTE denominator)
+     * - is_full_time: true for FT only (counts in FTE numerator)
+     * - SSPO staff (is_direct_staff=false) are excluded from FTE ratio
+     *
+     * Per RFP Q&A: FTE ratio = FT direct staff / Total direct staff × 100%
      */
     public function getStaffMetrics(int $organizationId): array
     {
-        $staffQuery = User::where('organization_id', $organizationId)
+        // Get all staff with their employment type relationship
+        $allStaff = User::where('organization_id', $organizationId)
             ->where('role', User::ROLE_FIELD_STAFF)
             ->where(function ($q) {
                 $q->where('staff_status', User::STAFF_STATUS_ACTIVE)
                   ->orWhereNull('staff_status'); // Legacy records
-            });
+            })
+            ->with('employmentTypeModel')
+            ->get();
 
-        $allStaff = $staffQuery->get();
+        // Count staff by employment type using metadata
+        $fullTime = $allStaff->filter(function ($staff) {
+            return $staff->employmentTypeModel?->is_full_time === true
+                && $staff->employmentTypeModel?->is_direct_staff === true;
+        });
 
-        $fullTime = $allStaff->filter(fn($s) =>
-            $s->employment_type === 'full_time' || ($s->fte_value ?? 0) >= 0.8
-        );
+        $partTime = $allStaff->filter(function ($staff) {
+            return $staff->employmentTypeModel?->code === EmploymentType::CODE_PART_TIME
+                && $staff->employmentTypeModel?->is_direct_staff === true;
+        });
 
-        $partTime = $allStaff->filter(fn($s) =>
-            $s->employment_type === 'part_time' && ($s->fte_value ?? 0) < 0.8
-        );
+        $casual = $allStaff->filter(function ($staff) {
+            return $staff->employmentTypeModel?->code === EmploymentType::CODE_CASUAL
+                && $staff->employmentTypeModel?->is_direct_staff === true;
+        });
 
-        $casual = $allStaff->filter(fn($s) =>
-            $s->employment_type === 'casual'
-        );
+        $sspo = $allStaff->filter(function ($staff) {
+            return $staff->employmentTypeModel?->is_direct_staff === false;
+        });
 
-        // Calculate total capacity (sum of max_weekly_hours)
-        $totalCapacity = $allStaff->sum(fn($s) => $s->max_weekly_hours ?? self::FULL_TIME_HOURS_PER_WEEK);
+        // Direct staff = FT + PT + Casual (excludes SSPO)
+        $directStaff = $allStaff->filter(function ($staff) {
+            return $staff->employmentTypeModel?->is_direct_staff === true;
+        });
+
+        // Calculate total capacity from employment type metadata
+        // Use standard_hours_per_week from EmploymentType, fallback to max_weekly_hours
+        $totalCapacity = $directStaff->sum(function ($staff) {
+            return $staff->employmentTypeModel?->standard_hours_per_week
+                ?? $staff->max_weekly_hours
+                ?? self::FULL_TIME_HOURS_PER_WEEK;
+        });
 
         // Count by status
         $byStatus = [
@@ -151,10 +179,14 @@ class FteComplianceService
         ];
 
         return [
-            'total_staff' => $allStaff->count(),
+            // Total direct staff only (for FTE ratio denominator)
+            'total_staff' => $directStaff->count(),
             'full_time_staff' => $fullTime->count(),
             'part_time_staff' => $partTime->count(),
             'casual_staff' => $casual->count(),
+            // SSPO tracked separately, not in FTE ratio
+            'sspo_staff' => $sspo->count(),
+            // Capacity based on direct staff only
             'total_capacity_hours' => $totalCapacity,
             'total_fte' => round($totalCapacity / self::FULL_TIME_HOURS_PER_WEEK, 2),
             'by_status' => $byStatus,
@@ -222,14 +254,44 @@ class FteComplianceService
     }
 
     /**
-     * Calculate projection if adding new staff or changing employment type
+     * Calculate projection if adding new staff or changing employment type.
+     *
+     * Accepts employment type codes: FT, PT, CASUAL, SSPO
+     * or legacy strings: full_time, part_time, casual
+     *
+     * Per RFP Q&A:
+     * - SSPO staff do NOT affect FTE ratio (excluded from both numerator and denominator)
+     * - Only direct staff (FT/PT/Casual) are counted
      */
     public function calculateProjection(string $newStaffType, ?int $organizationId = null): array
     {
         $current = $this->calculateSnapshot($organizationId);
 
+        // Normalize employment type code
+        $typeCode = strtoupper($newStaffType);
+        $isDirectStaff = !in_array($typeCode, [EmploymentType::CODE_SSPO, 'SSPO']);
+        $isFullTime = in_array($typeCode, [EmploymentType::CODE_FULL_TIME, 'FULL_TIME']);
+
+        // SSPO hires don't affect the FTE ratio since they're excluded
+        if (!$isDirectStaff) {
+            return [
+                'current' => [
+                    'ratio' => $current['fte_ratio'],
+                    'band' => $current['band'],
+                    'is_compliant' => $current['is_compliant'],
+                ],
+                'projected' => [
+                    'ratio' => $current['fte_ratio'],
+                    'band' => $current['band'],
+                    'is_compliant' => $current['is_compliant'],
+                ],
+                'impact' => 0,
+                'recommendation' => 'SSPO staff do not affect FTE compliance ratio.',
+            ];
+        }
+
         $newTotal = $current['total_staff'] + 1;
-        $newFullTime = $current['full_time_staff'] + ($newStaffType === 'full_time' ? 1 : 0);
+        $newFullTime = $current['full_time_staff'] + ($isFullTime ? 1 : 0);
 
         $projectedRatio = $newTotal > 0 ? ($newFullTime / $newTotal) * 100 : 0;
         $projectedBand = $this->determineBand($projectedRatio);
@@ -594,12 +656,13 @@ class FteComplianceService
             ],
 
             // Staff Headcount Summary
+            // Note: 'total' is direct staff only (FT + PT + Casual) for FTE ratio compliance
             'headcount' => [
                 'total' => $fteSnapshot['total_staff'],
                 'full_time' => $fteSnapshot['full_time_staff'],
                 'part_time' => $fteSnapshot['part_time_staff'],
                 'casual' => $fteSnapshot['casual_staff'],
-                'sspo' => $hhrComplement['totals']['sspo_staff_total'] ?? 0,
+                'sspo' => $fteSnapshot['sspo_staff'] ?? 0,
             ],
 
             // Hours & Capacity

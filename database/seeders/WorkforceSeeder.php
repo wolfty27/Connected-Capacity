@@ -8,6 +8,7 @@ use App\Models\Patient;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceProviderOrganization;
 use App\Models\ServiceType;
+use App\Models\StaffAvailability;
 use App\Models\StaffRole;
 use App\Models\User;
 use Carbon\Carbon;
@@ -59,6 +60,9 @@ class WorkforceSeeder extends Seeder
 
         // Seed historical service assignments (8 weeks)
         $this->seedHistoricalAssignments($spo);
+
+        // Seed staff availability blocks based on employment type
+        $this->seedStaffAvailability($spo);
 
         $this->command->info('Workforce seeder completed.');
     }
@@ -350,5 +354,84 @@ class WorkforceSeeder extends Seeder
         }
 
         return $days;
+    }
+
+    /**
+     * Seed staff availability blocks based on employment type metadata.
+     *
+     * Creates weekly recurring availability patterns:
+     * - Full-Time (40h): Mon-Fri 08:00-16:00 (8h x 5 days)
+     * - Part-Time (24h): Mon, Wed, Fri 08:00-16:00 (8h x 3 days)
+     * - Casual (16h): Tue, Thu 08:00-16:00 (8h x 2 days)
+     *
+     * Availability is derived from EmploymentType.standard_hours_per_week metadata.
+     */
+    protected function seedStaffAvailability(ServiceProviderOrganization $spo): void
+    {
+        // Define availability patterns based on employment type code
+        // Maps employment type code to [days of week => [start_time, end_time]]
+        $availabilityPatterns = [
+            EmploymentType::CODE_FULL_TIME => [
+                // Mon-Fri 08:00-16:00 (40h/week)
+                StaffAvailability::MONDAY => ['08:00', '16:00'],
+                StaffAvailability::TUESDAY => ['08:00', '16:00'],
+                StaffAvailability::WEDNESDAY => ['08:00', '16:00'],
+                StaffAvailability::THURSDAY => ['08:00', '16:00'],
+                StaffAvailability::FRIDAY => ['08:00', '16:00'],
+            ],
+            EmploymentType::CODE_PART_TIME => [
+                // Mon, Wed, Fri 08:00-16:00 (24h/week)
+                StaffAvailability::MONDAY => ['08:00', '16:00'],
+                StaffAvailability::WEDNESDAY => ['08:00', '16:00'],
+                StaffAvailability::FRIDAY => ['08:00', '16:00'],
+            ],
+            EmploymentType::CODE_CASUAL => [
+                // Tue, Thu 08:00-16:00 (16h/week)
+                StaffAvailability::TUESDAY => ['08:00', '16:00'],
+                StaffAvailability::THURSDAY => ['08:00', '16:00'],
+            ],
+            // SSPO staff don't have defined availability (variable/as-needed)
+        ];
+
+        // Get all active staff in the organization with employment type
+        $staff = User::where('organization_id', $spo->id)
+            ->where('role', User::ROLE_FIELD_STAFF)
+            ->where('staff_status', User::STAFF_STATUS_ACTIVE)
+            ->with('employmentTypeModel')
+            ->get();
+
+        $effectiveFrom = Carbon::now()->subMonths(3)->startOfWeek();
+        $createdCount = 0;
+
+        foreach ($staff as $member) {
+            $empTypeCode = $member->employmentTypeModel?->code;
+
+            // Skip if no pattern defined for this employment type (e.g., SSPO)
+            if (!isset($availabilityPatterns[$empTypeCode])) {
+                continue;
+            }
+
+            $pattern = $availabilityPatterns[$empTypeCode];
+
+            foreach ($pattern as $dayOfWeek => $times) {
+                StaffAvailability::updateOrCreate(
+                    [
+                        'user_id' => $member->id,
+                        'day_of_week' => $dayOfWeek,
+                    ],
+                    [
+                        'start_time' => $times[0],
+                        'end_time' => $times[1],
+                        'effective_from' => $effectiveFrom,
+                        'effective_until' => null, // Ongoing
+                        'is_recurring' => true,
+                        'notes' => "Default {$empTypeCode} schedule",
+                    ]
+                );
+                $createdCount++;
+            }
+        }
+
+        $this->command->info("Seeded {$createdCount} staff availability blocks.");
     }
 }

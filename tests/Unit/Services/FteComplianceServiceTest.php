@@ -301,9 +301,66 @@ class FteComplianceServiceTest extends TestCase
 
         $projection = $this->service->calculateProjection('part_time', $this->spo->id);
 
-        // Adding PT: 4/7 = 57.1%
+        // Adding PT: 4/6 = 66.7%
         $this->assertLessThan(80.0, $projection['projected']['ratio']);
         $this->assertLessThan(0, $projection['impact']);
+    }
+
+    /**
+     * Test hire projection for SSPO hire has no impact on FTE ratio.
+     *
+     * Per RFP Q&A: SSPO staff are excluded from FTE ratio calculation.
+     */
+    public function test_hire_projection_sspo_has_no_impact(): void
+    {
+        // Create 4 FT + 1 PT = 80% FTE ratio
+        $this->createStaff(4, $this->ftType);
+        $this->createStaff(1, $this->ptType);
+
+        $projection = $this->service->calculateProjection('SSPO', $this->spo->id);
+
+        // Adding SSPO should not change the ratio
+        $this->assertEquals(80.0, $projection['current']['ratio']);
+        $this->assertEquals(80.0, $projection['projected']['ratio']);
+        $this->assertEquals(0, $projection['impact']);
+        $this->assertStringContainsString('SSPO', $projection['recommendation']);
+    }
+
+    /**
+     * Test capacity calculation uses EmploymentType metadata.
+     */
+    public function test_capacity_uses_employment_type_hours(): void
+    {
+        // Create 2 FT (40h each) + 1 PT (24h) + 1 Casual (16h)
+        $this->createStaff(2, $this->ftType);
+        $this->createStaff(1, $this->ptType);
+        $this->createStaff(1, $this->casualType);
+
+        $snapshot = $this->service->calculateSnapshot($this->spo->id);
+
+        // Expected capacity: 2*40 + 1*24 + 1*16 = 120h
+        $this->assertEquals(120.0, $snapshot['total_capacity_hours']);
+    }
+
+    /**
+     * Test staff metrics returns correct breakdown.
+     */
+    public function test_staff_metrics_returns_correct_breakdown(): void
+    {
+        // Create mixed staff: 3 FT, 2 PT, 1 Casual, 2 SSPO
+        $this->createStaff(3, $this->ftType);
+        $this->createStaff(2, $this->ptType);
+        $this->createStaff(1, $this->casualType);
+        $this->createStaff(2, $this->sspoType);
+
+        $metrics = $this->service->getStaffMetrics($this->spo->id);
+
+        // Direct staff only: 3 + 2 + 1 = 6
+        $this->assertEquals(6, $metrics['total_staff']);
+        $this->assertEquals(3, $metrics['full_time_staff']);
+        $this->assertEquals(2, $metrics['part_time_staff']);
+        $this->assertEquals(1, $metrics['casual_staff']);
+        $this->assertEquals(2, $metrics['sspo_staff']);
     }
 
     /**
