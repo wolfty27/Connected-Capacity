@@ -327,10 +327,16 @@ class VisitVerificationSeeder extends Seeder
         $missedCount = 0;
         $pendingCount = 0;
 
-        // Get all assignments
-        $assignments = ServiceAssignment::all();
+        // Get all assignments that have a scheduled_start
+        $assignments = ServiceAssignment::whereNotNull('scheduled_start')->get();
 
         foreach ($assignments as $assignment) {
+            // Skip if scheduled_start is somehow still null (defensive check)
+            if (!$assignment->scheduled_start) {
+                $pendingCount++;
+                continue;
+            }
+
             $isPast = $assignment->scheduled_start->lt(Carbon::now());
             $isPastWeek = $assignment->scheduled_start->lt(Carbon::now()->startOfWeek());
             $isCurrentWeek = $assignment->scheduled_start->isBetween(
