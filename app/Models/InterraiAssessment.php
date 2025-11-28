@@ -198,6 +198,24 @@ class InterraiAssessment extends Model
         return $this->hasMany(ReassessmentTrigger::class, 'resolution_assessment_id');
     }
 
+    /**
+     * Get RUG classifications derived from this assessment.
+     */
+    public function rugClassifications()
+    {
+        return $this->hasMany(RUGClassification::class, 'assessment_id');
+    }
+
+    /**
+     * Get the latest RUG classification for this assessment.
+     */
+    public function latestRugClassification()
+    {
+        return $this->hasOne(RUGClassification::class, 'assessment_id')
+            ->where('is_current', true)
+            ->latestOfMany();
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Scopes

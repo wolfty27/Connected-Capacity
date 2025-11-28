@@ -98,6 +98,32 @@ class Patient extends Model
     }
 
     /**
+     * Get all RUG classifications for this patient.
+     */
+    public function rugClassifications()
+    {
+        return $this->hasMany(RUGClassification::class);
+    }
+
+    /**
+     * Get the latest/current RUG classification.
+     */
+    public function latestRugClassification()
+    {
+        return $this->hasOne(RUGClassification::class)
+            ->where('is_current', true)
+            ->latestOfMany();
+    }
+
+    /**
+     * Check if patient has a current RUG classification.
+     */
+    public function hasCurrentRugClassification(): bool
+    {
+        return $this->rugClassifications()->where('is_current', true)->exists();
+    }
+
+    /**
      * Get reassessment triggers for this patient.
      */
     public function reassessmentTriggers()
