@@ -264,6 +264,98 @@ class PatientController extends Controller
     }
 
     /**
+     * Get assessment history for a patient.
+     *
+     * Returns all InterRAI assessments and their RUG classifications,
+     * ordered by assessment date descending (newest first).
+     *
+     * @param int $id Patient ID
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function assessments($id)
+    {
+        try {
+            $patient = Patient::with([
+                'interraiAssessments' => function ($q) {
+                    $q->orderBy('assessment_date', 'desc');
+                },
+                'rugClassifications' => function ($q) {
+                    $q->orderBy('created_at', 'desc');
+                },
+            ])->find($id);
+
+            if (!$patient) {
+                return response()->json(['error' => 'Patient not found'], 404);
+            }
+
+            // Map assessments with their classifications
+            $assessmentsData = $patient->interraiAssessments->map(function ($assessment) {
+                // Find the RUG classification for this assessment (via relationship)
+                $rugClassification = $assessment->rugClassifications()->first();
+
+                return [
+                    'id' => $assessment->id,
+                    'assessment_date' => $assessment->assessment_date?->toIso8601String(),
+                    'assessment_type' => $assessment->assessment_type,
+                    'source' => $assessment->source,
+                    'workflow_status' => $assessment->workflow_status,
+                    'is_current' => $assessment->is_current,
+                    'is_stale' => $assessment->isStale(),
+
+                    // Core scores
+                    'maple_score' => $assessment->maple_score,
+                    'maple_description' => $assessment->maple_description,
+                    'adl_hierarchy' => $assessment->adl_hierarchy,
+                    'iadl_difficulty' => $assessment->iadl_difficulty,
+                    'cognitive_performance_scale' => $assessment->cognitive_performance_scale,
+                    'chess_score' => $assessment->chess_score,
+                    'depression_rating_scale' => $assessment->depression_rating_scale,
+                    'pain_scale' => $assessment->pain_scale,
+
+                    // Flags
+                    'falls_in_last_90_days' => $assessment->falls_in_last_90_days,
+                    'wandering_flag' => $assessment->wandering_flag,
+
+                    // Clinical
+                    'primary_diagnosis_icd10' => $assessment->primary_diagnosis_icd10,
+                    'caps_triggered' => $assessment->caps_triggered,
+
+                    // RUG Classification (if computed)
+                    'rug_classification' => $rugClassification ? [
+                        'id' => $rugClassification->id,
+                        'rug_group' => $rugClassification->rug_group,
+                        'rug_category' => $rugClassification->rug_category,
+                        'category_description' => $rugClassification->category_description,
+                        'adl_sum' => $rugClassification->adl_sum,
+                        'adl_level' => $rugClassification->adl_level,
+                        'iadl_sum' => $rugClassification->iadl_sum,
+                        'cps_score' => $rugClassification->cps_score,
+                        'cps_level' => $rugClassification->cps_level,
+                        'numeric_rank' => $rugClassification->numeric_rank,
+                        'flags' => $rugClassification->flags,
+                        'is_current' => $rugClassification->is_current,
+                        'computed_at' => $rugClassification->created_at?->toIso8601String(),
+                    ] : null,
+
+                    // Timestamps
+                    'created_at' => $assessment->created_at?->toIso8601String(),
+                ];
+            });
+
+            return response()->json([
+                'data' => [
+                    'patient_id' => $patient->id,
+                    'patient_name' => $patient->user?->name,
+                    'total_assessments' => $assessmentsData->count(),
+                    'assessments' => $assessmentsData,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Get patient overview with InterRAI-driven summary and clinical flags.
      *
      * This endpoint returns comprehensive patient overview data including:
