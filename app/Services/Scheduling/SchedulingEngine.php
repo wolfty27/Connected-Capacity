@@ -71,7 +71,7 @@ class SchedulingEngine
             ])
             ->where('staff_status', User::STAFF_STATUS_ACTIVE)
             ->whereIn('staff_role_id', $eligibleRoleIds)
-            ->with(['staffRole', 'employmentTypeModel', 'availability']);
+            ->with(['staffRole', 'employmentTypeModel', 'availabilities']);
 
         if ($organizationId) {
             $query->where('organization_id', $organizationId);
@@ -340,7 +340,7 @@ class SchedulingEngine
                 User::ROLE_SSPO_COORDINATOR,
             ])
             ->where('staff_status', User::STAFF_STATUS_ACTIVE)
-            ->with(['staffRole', 'employmentTypeModel', 'availability']);
+            ->with(['staffRole', 'employmentTypeModel', 'availabilities']);
 
         // When filtering by patient_id, find staff who have assignments for that patient in this week
         if ($patientId) {
@@ -411,7 +411,7 @@ class SchedulingEngine
                 'weekly_capacity_hours' => $user->max_weekly_hours ?? 40,
                 'status' => $user->staff_status,
                 'utilization' => $utilization,
-                'availability' => $user->availability->map(fn($a) => [
+                'availability' => $user->availabilities->map(fn($a) => [
                     'day_of_week' => $a->day_of_week,
                     'start_time' => Carbon::parse($a->start_time)->format('H:i'),
                     'end_time' => Carbon::parse($a->end_time)->format('H:i'),

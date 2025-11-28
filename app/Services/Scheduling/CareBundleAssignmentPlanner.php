@@ -72,7 +72,7 @@ class CareBundleAssignmentPlanner
             ->whereBetween('scheduled_start', [$startDate, $endDate])
             ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
             ->select('patient_id', 'service_type_id')
-            ->selectRaw('SUM(COALESCE(duration_minutes, TIMESTAMPDIFF(MINUTE, scheduled_start, scheduled_end))) as total_minutes')
+            ->selectRaw('SUM(COALESCE(duration_minutes, EXTRACT(EPOCH FROM (scheduled_end - scheduled_start)) / 60)) as total_minutes')
             ->selectRaw('COUNT(*) as total_visits')
             ->groupBy('patient_id', 'service_type_id');
 
