@@ -29,6 +29,49 @@ class CarePlanController extends Controller
 
         // Transform for UI
         $data = $plans->map(function ($plan) {
+            // Group service assignments by service_type_id to get unique services
+            // This prevents duplicate chips when multiple visits are scheduled for the same service
+            $groupedServices = $plan->serviceAssignments
+                ->groupBy('service_type_id')
+                ->map(function ($assignments) {
+                    $first = $assignments->first();
+                    $serviceType = $first->serviceType;
+
+                    // Parse frequency from first assignment's frequency_rule
+                    $frequencyPerWeek = 1;
+                    if ($first->frequency_rule) {
+                        preg_match('/(\d+)/', $first->frequency_rule, $matches);
+                        $frequencyPerWeek = isset($matches[1]) ? (int) $matches[1] : 1;
+                    }
+
+                    // Sum up estimated hours across all assignments of this type
+                    $totalEstimatedHours = $assignments->sum('estimated_hours_per_week');
+
+                    // Get duration from first assignment or default to 12 weeks
+                    $durationWeeks = 12;
+                    if ($first->scheduled_start && $first->scheduled_end) {
+                        $days = $first->scheduled_start->diffInDays($first->scheduled_end);
+                        $durationWeeks = max(1, ceil($days / 7));
+                    }
+
+                    return [
+                        'id' => $first->id,
+                        'service_type_id' => $first->service_type_id,
+                        'name' => $serviceType->name ?? 'Unknown',
+                        'code' => $serviceType->code ?? null,
+                        'category' => $serviceType->category ?? 'Clinical Services',
+                        'status' => $first->status,
+                        'cost_per_visit' => (float) ($serviceType->cost_per_visit ?? 0),
+                        'frequency' => $frequencyPerWeek,
+                        'frequency_rule' => $first->frequency_rule,
+                        'duration' => $durationWeeks,
+                        'estimated_hours_per_week' => $totalEstimatedHours,
+                        'assignment_count' => $assignments->count(),
+                    ];
+                })
+                ->values()
+                ->toArray();
+
             return [
                 'id' => $plan->id,
                 'patient_id' => $plan->patient_id,
@@ -38,42 +81,9 @@ class CarePlanController extends Controller
                 'status' => $plan->status, // Keep lowercase for frontend filtering
                 'start_date' => $plan->created_at->format('Y-m-d'),
                 'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),
-                'services' => $plan->serviceAssignments->map(function ($sa) {
-                    // Parse frequency from frequency_rule (e.g., "2x per week" -> 2)
-                    $frequencyPerWeek = 1;
-                    if ($sa->frequency_rule) {
-                        preg_match('/(\d+)/', $sa->frequency_rule, $matches);
-                        $frequencyPerWeek = isset($matches[1]) ? (int) $matches[1] : 1;
-                    }
-
-                    // Calculate duration in weeks from scheduled dates, or default to 12
-                    $durationWeeks = 12;
-                    if ($sa->scheduled_start && $sa->scheduled_end) {
-                        $days = $sa->scheduled_start->diffInDays($sa->scheduled_end);
-                        $durationWeeks = max(1, ceil($days / 7));
-                    }
-
-                    return [
-                        'id' => $sa->id,
-                        'service_type_id' => $sa->service_type_id,
-                        'name' => $sa->serviceType->name ?? 'Unknown',
-                        'code' => $sa->serviceType->code ?? null,
-                        'category' => $sa->serviceType->category ?? 'Clinical Services',
-                        'status' => $sa->status,
-                        'cost_per_visit' => (float) ($sa->serviceType->cost_per_visit ?? 0),
-                        'frequency' => $frequencyPerWeek,
-                        'frequency_rule' => $sa->frequency_rule,
-                        'duration' => $durationWeeks,
-                        'estimated_hours_per_week' => $sa->estimated_hours_per_week,
-                    ];
-                })->toArray(),
-                'total_cost' => $plan->serviceAssignments->sum(function ($sa) {
-                    $frequencyPerWeek = 1;
-                    if ($sa->frequency_rule) {
-                        preg_match('/(\d+)/', $sa->frequency_rule, $matches);
-                        $frequencyPerWeek = isset($matches[1]) ? (int) $matches[1] : 1;
-                    }
-                    return ($sa->serviceType->cost_per_visit ?? 0) * $frequencyPerWeek;
+                'services' => $groupedServices,
+                'total_cost' => collect($groupedServices)->sum(function ($service) {
+                    return ($service['cost_per_visit'] ?? 0) * ($service['frequency'] ?? 1);
                 }),
             ];
         });
@@ -95,6 +105,40 @@ class CarePlanController extends Controller
             return 1;
         };
 
+        // Group service assignments by service_type_id to get unique services
+        $groupedServices = $plan->serviceAssignments
+            ->groupBy('service_type_id')
+            ->map(function ($assignments) use ($parseFrequency) {
+                $first = $assignments->first();
+                $serviceType = $first->serviceType;
+
+                $frequencyPerWeek = $parseFrequency($first->frequency_rule);
+                $totalEstimatedHours = $assignments->sum('estimated_hours_per_week');
+
+                $durationWeeks = 12;
+                if ($first->scheduled_start && $first->scheduled_end) {
+                    $days = $first->scheduled_start->diffInDays($first->scheduled_end);
+                    $durationWeeks = max(1, ceil($days / 7));
+                }
+
+                return [
+                    'id' => $first->id,
+                    'service_type_id' => $first->service_type_id,
+                    'name' => $serviceType->name ?? 'Unknown',
+                    'code' => $serviceType->code ?? null,
+                    'category' => $serviceType->category ?? 'Clinical Services',
+                    'status' => $first->status,
+                    'cost_per_visit' => (float) ($serviceType->cost_per_visit ?? 0),
+                    'frequency' => $frequencyPerWeek,
+                    'frequency_rule' => $first->frequency_rule,
+                    'duration' => $durationWeeks,
+                    'estimated_hours_per_week' => $totalEstimatedHours,
+                    'assignment_count' => $assignments->count(),
+                ];
+            })
+            ->values()
+            ->toArray();
+
         return response()->json([
             'data' => [
                 'id' => $plan->id,
@@ -105,31 +149,9 @@ class CarePlanController extends Controller
                 'status' => $plan->status,
                 'start_date' => $plan->created_at->format('Y-m-d'),
                 'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),
-                'services' => $plan->serviceAssignments->map(function ($sa) use ($parseFrequency) {
-                    $frequencyPerWeek = $parseFrequency($sa->frequency_rule);
-                    $durationWeeks = 12;
-                    if ($sa->scheduled_start && $sa->scheduled_end) {
-                        $days = $sa->scheduled_start->diffInDays($sa->scheduled_end);
-                        $durationWeeks = max(1, ceil($days / 7));
-                    }
-
-                    return [
-                        'id' => $sa->id,
-                        'service_type_id' => $sa->service_type_id,
-                        'name' => $sa->serviceType->name ?? 'Unknown',
-                        'code' => $sa->serviceType->code ?? null,
-                        'category' => $sa->serviceType->category ?? 'Clinical Services',
-                        'status' => $sa->status,
-                        'cost_per_visit' => (float) ($sa->serviceType->cost_per_visit ?? 0),
-                        'frequency' => $frequencyPerWeek,
-                        'frequency_rule' => $sa->frequency_rule,
-                        'duration' => $durationWeeks,
-                        'estimated_hours_per_week' => $sa->estimated_hours_per_week,
-                    ];
-                })->toArray(),
-                'total_cost' => $plan->serviceAssignments->sum(function ($sa) use ($parseFrequency) {
-                    $frequencyPerWeek = $parseFrequency($sa->frequency_rule);
-                    return ($sa->serviceType->cost_per_visit ?? 0) * $frequencyPerWeek;
+                'services' => $groupedServices,
+                'total_cost' => collect($groupedServices)->sum(function ($service) {
+                    return ($service['cost_per_visit'] ?? 0) * ($service['frequency'] ?? 1);
                 }),
             ]
         ]);
