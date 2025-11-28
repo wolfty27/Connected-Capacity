@@ -5,44 +5,63 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 
 /**
- * DatabaseSeeder - Main seeder for the metadata-object-model architecture
+ * DatabaseSeeder - Main seeder for Connected Capacity 2.1
  *
- * This seeder sets up the complete application state using the Workday-style
- * metadata-driven architecture. All seeders here work together to create
- * a consistent data model with proper queue workflow support.
+ * Creates a complete demo environment with:
+ * - 15 patients total (5 in intake queue, 10 active with care plans)
+ * - InterRAI HC assessments and RUG-III/HC classifications
+ * - RUG-based bundle templates (23 templates covering all categories)
+ * - Care plans for active patients using the new Bundle Engine
+ *
+ * Run with: php artisan migrate:fresh --seed
+ *
+ * @see docs/CC21_BundleEngine_Architecture.md
  */
 class DatabaseSeeder extends Seeder
 {
     /**
      * Seed the application's database.
      *
-     * Order matters - each seeder may depend on data from previous seeders.
-     *
-     * @return void
+     * Order matters - each seeder depends on data from previous seeders.
      */
-    public function run()
+    public function run(): void
     {
         $this->call([
-            // 1. Core users (admin, hospital staff, SPO admin, field staff)
+            // ============================================
+            // FOUNDATION: Users, Organizations, Config
+            // ============================================
+
+            // 1. Core users (admin, hospital, SPO admin, field staff)
             DemoSeeder::class,
 
             // 2. Master admin user (super admin)
             MasterUserSeeder::class,
 
-            // 3. Service types, care bundles, and categories (required first)
+            // 3. Service types, categories, legacy care bundles
             CoreDataSeeder::class,
 
-            // 4. Workday-style metadata object model definitions
+            // 4. Metadata object model definitions (Workday-style)
             MetadataObjectModelSeeder::class,
 
-            // 5. Patient workflow test data with queue statuses
-            QueueWorkflowSeeder::class,
+            // ============================================
+            // CC2.1 ARCHITECTURE: RUG Templates
+            // ============================================
 
-            // 6. RUG-III/HC bundle templates (CC2.1 Architecture)
+            // 5. RUG-III/HC bundle templates (23 templates)
             RUGBundleTemplatesSeeder::class,
 
-            // 7. RUG demo patients with InterRAI assessments
-            RugDemoSeeder::class,
+            // ============================================
+            // DEMO DATA: Patients, Assessments, Plans
+            // ============================================
+
+            // 6. Demo patients (5 queue + 10 active = 15 total)
+            DemoPatientsSeeder::class,
+
+            // 7. InterRAI assessments + RUG classifications
+            DemoAssessmentsSeeder::class,
+
+            // 8. Care plans for 10 active patients
+            DemoBundlesSeeder::class,
         ]);
     }
 }
