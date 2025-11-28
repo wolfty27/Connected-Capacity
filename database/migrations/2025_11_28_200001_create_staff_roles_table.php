@@ -38,6 +38,7 @@ return new class extends Migration
             $table->boolean('counts_for_fte')->default(true)->comment('Whether this role counts in FTE calculations');
 
             // Display and ordering
+            $table->string('badge_color', 20)->nullable()->comment('UI badge color: blue, green, purple, teal, etc.');
             $table->integer('sort_order')->default(100);
             $table->boolean('is_active')->default(true);
 
