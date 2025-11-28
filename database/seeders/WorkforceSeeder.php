@@ -110,8 +110,9 @@ class WorkforceSeeder extends Seeder
                 $updates['employment_type_id'] = $empTypeMapping[$member->employment_type];
             }
 
-            // Add satisfaction score (random 75-100 for demo)
-            $updates['job_satisfaction'] = rand(75, 100);
+            // Add satisfaction (enum: excellent, good, neutral, poor)
+            $satisfactionOptions = ['excellent', 'good', 'good', 'excellent']; // Bias toward positive
+            $updates['job_satisfaction'] = $satisfactionOptions[array_rand($satisfactionOptions)];
             $updates['job_satisfaction_recorded_at'] = Carbon::now()->subDays(rand(1, 30));
 
             if (!empty($updates)) {
@@ -177,7 +178,7 @@ class WorkforceSeeder extends Seeder
                     'max_weekly_hours' => $data['hours'],
                     'staff_status' => User::STAFF_STATUS_ACTIVE,
                     'hire_date' => Carbon::now()->subMonths(rand(1, 24)),
-                    'job_satisfaction' => rand(80, 100), // Higher satisfaction for new hires
+                    'job_satisfaction' => ['excellent', 'good', 'excellent'][rand(0, 2)], // Higher satisfaction for new hires
                     'job_satisfaction_recorded_at' => Carbon::now()->subDays(rand(1, 14)),
                 ]
             );
