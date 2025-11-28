@@ -63,12 +63,15 @@ class DemoAssessmentsSeeder extends Seeder
             $targetRug = $targetRugGroups[$patient->ohip] ?? 'PA1';
             $profile = $this->getAssessmentProfile($targetRug);
 
+            // Generate comprehensive raw_items from profile
+            $comprehensiveRawItems = $this->generateComprehensiveRawItems($profile);
+
             // Create InterRAI assessment
             $assessment = InterraiAssessment::create([
                 'patient_id' => $patient->id,
                 'assessment_type' => 'hc',
                 'assessment_date' => now()->subDays(rand(5, 30)),
-                'source' => 'ohah_provided',
+                'source' => 'spo_completed',
                 'workflow_status' => 'completed',
                 'is_current' => true,
                 'version' => 1,
@@ -82,7 +85,7 @@ class DemoAssessmentsSeeder extends Seeder
                 'falls_in_last_90_days' => $profile['falls'],
                 'wandering_flag' => $profile['wandering'],
                 'primary_diagnosis_icd10' => $profile['diagnosis'],
-                'raw_items' => $profile['raw_items'],
+                'raw_items' => $comprehensiveRawItems,
                 'iar_upload_status' => 'uploaded',
                 'chris_sync_status' => 'synced',
             ]);
@@ -535,27 +538,186 @@ class DemoAssessmentsSeeder extends Seeder
     protected function buildRawItems(array $items): array
     {
         $defaults = [
-            // ADL items
-            'adl_bathing' => 0, 'adl_hygiene' => 0, 'adl_locomotion' => 0, 'adl_eating' => 0,
-            'adl_toilet_use' => 0, 'adl_bed_mobility' => 0, 'adl_transfer' => 0,
-            // IADL items
-            'iadl_meal_prep' => 0, 'iadl_housework' => 0, 'iadl_shopping' => 0, 'iadl_medications' => 0,
-            // Cognition
-            'cps_decision_making' => 0, 'cps_short_term_memory' => 0, 'cps_communication' => 0,
+            // ADL items (Section G)
+            'adl_bathing' => 0,
+            'adl_hygiene' => 0,
+            'adl_locomotion' => 0,
+            'adl_eating' => 0,
+            'adl_toilet_use' => 0,
+            'adl_bed_mobility' => 0,
+            'adl_transfer' => 0,
+            'adl_dressing_upper' => 0,
+            'adl_dressing_lower' => 0,
+
+            // IADL items (Section G)
+            'iadl_meal_prep' => 0,
+            'iadl_housework' => 0,
+            'iadl_shopping' => 0,
+            'iadl_medications' => 0,
+            'iadl_finances' => 0,
+            'iadl_phone' => 0,
+            'iadl_transportation' => 0,
+
+            // Cognition (Section C)
+            'cps_decision_making' => 0,
+            'cps_short_term_memory' => 0,
+            'cps_communication' => 0,
+
+            // Communication (Section D)
+            'hearing' => 0,
+            'vision' => 0,
+
+            // Mood (Section E)
+            'mood_negative_statements' => 0,
+            'mood_persistent_anger' => 0,
+            'mood_unrealistic_fears' => 0,
+            'mood_sad_expressions' => 0,
+            'mood_crying' => 0,
+
             // Behaviour
-            'behaviour_verbal' => 0, 'behaviour_physical' => 0, 'behaviour_wandering' => 0,
-            'behaviour_resists_care' => 0, 'behaviour_socially_inappropriate' => 0,
+            'behaviour_verbal' => 0,
+            'behaviour_physical' => 0,
+            'behaviour_wandering' => 0,
+            'behaviour_resists_care' => 0,
+            'behaviour_socially_inappropriate' => 0,
+
+            // Continence (Section H)
+            'bladder_continence' => 0,
+            'bowel_continence' => 0,
+
+            // Health conditions (Section J)
+            'pain_frequency' => 0,
+            'pain_intensity' => 1,
+            'dyspnea' => 0,
+            'fatigue' => 0,
+            'edema' => 0,
+            'dizziness' => 0,
+            'chest_pain' => 0,
+            'fall_history' => 0,
+            'weight_loss' => 0,
+            'vomiting' => 0,
+            'dehydration' => 0,
+
             // Clinical conditions
-            'clinical_diabetes' => 0, 'clinical_chf' => 0, 'clinical_copd' => 0, 'clinical_pneumonia' => 0,
-            'clinical_wound' => 0, 'clinical_tube_feeding' => 0, 'clinical_oxygen' => 0, 'clinical_dialysis' => 0,
+            'clinical_diabetes' => 0,
+            'clinical_chf' => 0,
+            'clinical_copd' => 0,
+            'clinical_pneumonia' => 0,
+            'clinical_wound' => 0,
+            'clinical_tube_feeding' => 0,
+            'clinical_oxygen' => 0,
+            'clinical_dialysis' => 0,
+
             // Special conditions
-            'special_ms' => 0, 'special_quadriplegia' => 0, 'special_burns' => 0, 'special_coma' => 0,
+            'special_ms' => 0,
+            'special_quadriplegia' => 0,
+            'special_burns' => 0,
+            'special_coma' => 0,
+
             // Extensive services
-            'extensive_iv' => 0, 'extensive_ventilator' => 0, 'extensive_trach' => 0, 'extensive_dialysis' => 0,
+            'extensive_iv' => 0,
+            'extensive_ventilator' => 0,
+            'extensive_trach' => 0,
+            'extensive_dialysis' => 0,
+
             // Therapy
-            'therapy_pt' => 0, 'therapy_ot' => 0, 'therapy_slp' => 0,
+            'therapy_pt' => 0,
+            'therapy_ot' => 0,
+            'therapy_slp' => 0,
+
+            // Social supports (Section P)
+            'caregiver_lives_with' => 0,
+            'caregiver_stress' => 0,
         ];
 
         return array_merge($defaults, $items);
+    }
+
+    /**
+     * Generate comprehensive raw_items for a complete-looking assessment.
+     */
+    protected function generateComprehensiveRawItems(array $profile): array
+    {
+        $items = $profile['raw_items'] ?? [];
+
+        // Derive ADL values from adl_hierarchy score
+        $adlHierarchy = $profile['adl_hierarchy'] ?? 0;
+        $items['adl_hygiene'] = $items['adl_hygiene'] ?? max(0, $adlHierarchy - 1);
+        $items['adl_dressing_upper'] = $items['adl_dressing_upper'] ?? $adlHierarchy;
+        $items['adl_dressing_lower'] = $items['adl_dressing_lower'] ?? min(6, $adlHierarchy + 1);
+        $items['adl_transfer'] = $items['adl_transfer'] ?? max(0, $adlHierarchy - 1);
+        $items['adl_toilet_use'] = $items['adl_toilet_use'] ?? $adlHierarchy;
+        $items['adl_bed_mobility'] = $items['adl_bed_mobility'] ?? max(0, $adlHierarchy - 1);
+
+        // Derive IADL values from iadl_difficulty score
+        $iadlDifficulty = $profile['iadl_difficulty'] ?? 0;
+        $items['iadl_meal_prep'] = $items['iadl_meal_prep'] ?? $iadlDifficulty;
+        $items['iadl_housework'] = $items['iadl_housework'] ?? min(6, $iadlDifficulty + 1);
+        $items['iadl_finances'] = $items['iadl_finances'] ?? max(0, $iadlDifficulty - 1);
+        $items['iadl_medications'] = $items['iadl_medications'] ?? $iadlDifficulty;
+        $items['iadl_phone'] = $items['iadl_phone'] ?? max(0, $iadlDifficulty - 2);
+        $items['iadl_shopping'] = $items['iadl_shopping'] ?? min(6, $iadlDifficulty + 1);
+        $items['iadl_transportation'] = $items['iadl_transportation'] ?? min(6, $iadlDifficulty + 1);
+
+        // Derive cognition values from CPS
+        $cps = $profile['cps'] ?? 0;
+        $items['cps_decision_making'] = $items['cps_decision_making'] ?? $cps;
+        $items['cps_short_term_memory'] = $items['cps_short_term_memory'] ?? ($cps >= 2 ? 1 : 0);
+        $items['cps_communication'] = $items['cps_communication'] ?? min(4, max(0, $cps - 1));
+
+        // Derive communication values
+        $items['hearing'] = $items['hearing'] ?? ($cps >= 3 ? 1 : 0);
+        $items['vision'] = $items['vision'] ?? ($adlHierarchy >= 3 ? 1 : 0);
+
+        // Derive mood indicators from depression rating scale
+        $drs = $profile['drs'] ?? 0;
+        if ($drs >= 1) {
+            $items['mood_negative_statements'] = $items['mood_negative_statements'] ?? 1;
+        }
+        if ($drs >= 2) {
+            $items['mood_sad_expressions'] = $items['mood_sad_expressions'] ?? 1;
+        }
+        if ($drs >= 3) {
+            $items['mood_persistent_anger'] = $items['mood_persistent_anger'] ?? 1;
+            $items['mood_crying'] = $items['mood_crying'] ?? 1;
+        }
+        if ($drs >= 4) {
+            $items['mood_unrealistic_fears'] = $items['mood_unrealistic_fears'] ?? 2;
+        }
+
+        // Derive continence from ADL hierarchy
+        $items['bladder_continence'] = $items['bladder_continence'] ?? min(5, max(0, $adlHierarchy - 1));
+        $items['bowel_continence'] = $items['bowel_continence'] ?? min(5, max(0, $adlHierarchy - 2));
+
+        // Derive health conditions from CHESS and pain
+        $chess = $profile['chess'] ?? 0;
+        $pain = $profile['pain'] ?? 0;
+
+        $items['pain_frequency'] = $items['pain_frequency'] ?? min(3, $pain);
+        $items['pain_intensity'] = $items['pain_intensity'] ?? max(1, $pain);
+
+        if ($chess >= 2) {
+            $items['dyspnea'] = $items['dyspnea'] ?? 1;
+            $items['fatigue'] = $items['fatigue'] ?? 1;
+        }
+        if ($chess >= 3) {
+            $items['edema'] = $items['edema'] ?? 1;
+            $items['weight_loss'] = $items['weight_loss'] ?? 1;
+        }
+        if ($chess >= 4) {
+            $items['dehydration'] = $items['dehydration'] ?? 1;
+            $items['vomiting'] = $items['vomiting'] ?? 1;
+        }
+
+        // Falls
+        if ($profile['falls'] ?? false) {
+            $items['fall_history'] = $items['fall_history'] ?? 1;
+        }
+
+        // Social supports
+        $items['caregiver_lives_with'] = $items['caregiver_lives_with'] ?? ($adlHierarchy >= 3 ? 1 : 0);
+        $items['caregiver_stress'] = $items['caregiver_stress'] ?? ($adlHierarchy >= 5 ? 1 : 0);
+
+        return $this->buildRawItems($items);
     }
 }

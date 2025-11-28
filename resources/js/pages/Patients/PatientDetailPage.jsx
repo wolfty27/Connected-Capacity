@@ -6,6 +6,7 @@ import Card from '../../components/UI/Card';
 import Spinner from '../../components/UI/Spinner';
 import Button from '../../components/UI/Button';
 import BundleSummary from '../../components/care/BundleSummary';
+import FullInterraiAssessment from '../../components/InterRAI/FullInterraiAssessment';
 import { X } from 'lucide-react';
 
 /**
@@ -549,6 +550,13 @@ const PatientDetailPage = () => {
                                             </span>
                                         ))}
                                     </div>
+                                </Card>
+                            )}
+
+                            {/* Full Assessment Sections */}
+                            {latestAssessment.sections && Object.keys(latestAssessment.sections).length > 0 && (
+                                <Card>
+                                    <FullInterraiAssessment assessment={latestAssessment} />
                                 </Card>
                             )}
 

@@ -520,6 +520,412 @@ class InterraiAssessment extends Model
                 'adl_sum' => $rugClassification->adl_sum,
                 'numeric_rank' => $rugClassification->numeric_rank,
             ] : null,
+            // Full assessment sections derived from raw_items
+            'sections' => $this->getAssessmentSections(),
+        ];
+    }
+
+    /**
+     * Map raw_items to structured assessment sections.
+     *
+     * Transforms iCODE-keyed raw items into human-readable sections
+     * for display in the full InterRAI HC assessment view.
+     */
+    public function getAssessmentSections(): array
+    {
+        $raw = $this->raw_items ?? [];
+
+        if (empty($raw)) {
+            return [];
+        }
+
+        return [
+            'identification' => $this->mapIdentificationSection($raw),
+            'cognition' => $this->mapCognitionSection($raw),
+            'communication' => $this->mapCommunicationSection($raw),
+            'mood' => $this->mapMoodSection($raw),
+            'adl' => $this->mapAdlSection($raw),
+            'iadl' => $this->mapIadlSection($raw),
+            'continence' => $this->mapContinenceSection($raw),
+            'health_conditions' => $this->mapHealthConditionsSection($raw),
+            'diseases' => $this->mapDiseasesSection($raw),
+            'treatments' => $this->mapTreatmentsSection($raw),
+            'social_supports' => $this->mapSocialSupportsSection($raw),
+        ];
+    }
+
+    /**
+     * Map identification section.
+     */
+    protected function mapIdentificationSection(array $raw): array
+    {
+        return [
+            'assessment_type' => match ($this->assessment_type) {
+                'hc' => 'Home Care (RAI-HC)',
+                'cha' => 'Contact Assessment (RAI-CHA)',
+                'contact' => 'Contact',
+                default => $this->assessment_type,
+            },
+            'assessment_date' => $this->assessment_date?->format('Y-m-d'),
+            'source' => match ($this->source) {
+                'hpg_referral' => 'HPG Referral',
+                'spo_completed' => 'SPO Completed',
+                'ohah_provided' => 'OHaH Provided',
+                default => $this->source,
+            },
+            'assessor_role' => $this->assessor_role,
+            'primary_diagnosis' => $this->primary_diagnosis_icd10,
+        ];
+    }
+
+    /**
+     * Map cognition section (Section C).
+     */
+    protected function mapCognitionSection(array $raw): array
+    {
+        $cpsLabels = [
+            0 => 'Independent',
+            1 => 'Modified Independence',
+            2 => 'Minimally Impaired',
+            3 => 'Moderately Impaired',
+            4 => 'Severely Impaired',
+            5 => 'No Discernible Consciousness',
+        ];
+
+        $memoryLabels = [
+            0 => 'Memory OK',
+            1 => 'Memory Problem',
+        ];
+
+        $communicationLabels = [
+            0 => 'Understood',
+            1 => 'Usually Understood',
+            2 => 'Often Understood',
+            3 => 'Sometimes Understood',
+            4 => 'Rarely/Never Understood',
+        ];
+
+        return [
+            'cps_score' => $this->cognitive_performance_scale,
+            'cps_description' => $this->cps_description,
+            'decision_making' => [
+                'value' => $raw['cps_decision_making'] ?? null,
+                'label' => $cpsLabels[$raw['cps_decision_making'] ?? 0] ?? null,
+            ],
+            'short_term_memory' => [
+                'value' => $raw['cps_short_term_memory'] ?? null,
+                'label' => $memoryLabels[$raw['cps_short_term_memory'] ?? 0] ?? null,
+            ],
+            'making_self_understood' => [
+                'value' => $raw['cps_communication'] ?? null,
+                'label' => $communicationLabels[$raw['cps_communication'] ?? 0] ?? null,
+            ],
+        ];
+    }
+
+    /**
+     * Map communication section (Section D).
+     */
+    protected function mapCommunicationSection(array $raw): array
+    {
+        $hearingLabels = [
+            0 => 'Adequate',
+            1 => 'Minimal Difficulty',
+            2 => 'Moderate Difficulty',
+            3 => 'Severe Difficulty',
+            4 => 'No Hearing',
+        ];
+
+        $visionLabels = [
+            0 => 'Adequate',
+            1 => 'Impaired',
+            2 => 'Moderately Impaired',
+            3 => 'Severely Impaired',
+            4 => 'No Vision',
+        ];
+
+        return [
+            'hearing' => [
+                'value' => $raw['hearing'] ?? null,
+                'label' => $hearingLabels[$raw['hearing'] ?? 0] ?? null,
+            ],
+            'vision' => [
+                'value' => $raw['vision'] ?? null,
+                'label' => $visionLabels[$raw['vision'] ?? 0] ?? null,
+            ],
+        ];
+    }
+
+    /**
+     * Map mood/behaviour section (Section E).
+     */
+    protected function mapMoodSection(array $raw): array
+    {
+        $presenceLabels = [
+            0 => 'Not Present',
+            1 => 'Present 1-2 days',
+            2 => 'Present Daily',
+        ];
+
+        return [
+            'depression_rating_scale' => $this->depression_rating_scale,
+            'indicators' => [
+                'negative_statements' => [
+                    'value' => $raw['mood_negative_statements'] ?? null,
+                    'label' => $presenceLabels[$raw['mood_negative_statements'] ?? 0] ?? null,
+                ],
+                'persistent_anger' => [
+                    'value' => $raw['mood_persistent_anger'] ?? null,
+                    'label' => $presenceLabels[$raw['mood_persistent_anger'] ?? 0] ?? null,
+                ],
+                'unrealistic_fears' => [
+                    'value' => $raw['mood_unrealistic_fears'] ?? null,
+                    'label' => $presenceLabels[$raw['mood_unrealistic_fears'] ?? 0] ?? null,
+                ],
+                'sad_expressions' => [
+                    'value' => $raw['mood_sad_expressions'] ?? null,
+                    'label' => $presenceLabels[$raw['mood_sad_expressions'] ?? 0] ?? null,
+                ],
+                'crying' => [
+                    'value' => $raw['mood_crying'] ?? null,
+                    'label' => $presenceLabels[$raw['mood_crying'] ?? 0] ?? null,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Map ADL (Activities of Daily Living) section.
+     */
+    protected function mapAdlSection(array $raw): array
+    {
+        $adlLabels = [
+            0 => 'Independent',
+            1 => 'Setup Help Only',
+            2 => 'Supervision',
+            3 => 'Limited Assistance',
+            4 => 'Extensive Assistance',
+            5 => 'Maximal Assistance',
+            6 => 'Total Dependence',
+            8 => 'Activity Did Not Occur',
+        ];
+
+        $mapAdlValue = function ($key) use ($raw, $adlLabels) {
+            $value = $raw[$key] ?? null;
+            return [
+                'value' => $value,
+                'label' => $adlLabels[$value] ?? null,
+            ];
+        };
+
+        return [
+            'adl_hierarchy_score' => $this->adl_hierarchy,
+            'adl_hierarchy_description' => $this->adl_description,
+            'activities' => [
+                'bathing' => $mapAdlValue('adl_bathing'),
+                'personal_hygiene' => $mapAdlValue('adl_hygiene'),
+                'dressing_upper' => $mapAdlValue('adl_dressing_upper'),
+                'dressing_lower' => $mapAdlValue('adl_dressing_lower'),
+                'locomotion' => $mapAdlValue('adl_locomotion'),
+                'transfer' => $mapAdlValue('adl_transfer'),
+                'toilet_use' => $mapAdlValue('adl_toilet_use'),
+                'bed_mobility' => $mapAdlValue('adl_bed_mobility'),
+                'eating' => $mapAdlValue('adl_eating'),
+            ],
+        ];
+    }
+
+    /**
+     * Map IADL (Instrumental Activities of Daily Living) section.
+     */
+    protected function mapIadlSection(array $raw): array
+    {
+        $iadlLabels = [
+            0 => 'Independent',
+            1 => 'Setup Help Only',
+            2 => 'Supervision',
+            3 => 'Limited Assistance',
+            4 => 'Extensive Assistance',
+            5 => 'Maximal Assistance',
+            6 => 'Total Dependence',
+            8 => 'Activity Did Not Occur',
+        ];
+
+        $mapIadlValue = function ($key) use ($raw, $iadlLabels) {
+            $value = $raw[$key] ?? null;
+            return [
+                'value' => $value,
+                'label' => $iadlLabels[$value] ?? null,
+            ];
+        };
+
+        return [
+            'iadl_difficulty_score' => $this->iadl_difficulty,
+            'activities' => [
+                'meal_preparation' => $mapIadlValue('iadl_meal_prep'),
+                'housework' => $mapIadlValue('iadl_housework'),
+                'managing_finances' => $mapIadlValue('iadl_finances'),
+                'managing_medications' => $mapIadlValue('iadl_medications'),
+                'phone_use' => $mapIadlValue('iadl_phone'),
+                'shopping' => $mapIadlValue('iadl_shopping'),
+                'transportation' => $mapIadlValue('iadl_transportation'),
+            ],
+        ];
+    }
+
+    /**
+     * Map continence section (Section H).
+     */
+    protected function mapContinenceSection(array $raw): array
+    {
+        $continenceLabels = [
+            0 => 'Continent',
+            1 => 'Control with Device',
+            2 => 'Infrequently Incontinent',
+            3 => 'Occasionally Incontinent',
+            4 => 'Frequently Incontinent',
+            5 => 'Incontinent',
+        ];
+
+        return [
+            'bladder_continence' => [
+                'value' => $raw['bladder_continence'] ?? null,
+                'label' => $continenceLabels[$raw['bladder_continence'] ?? 0] ?? null,
+            ],
+            'bowel_continence' => [
+                'value' => $raw['bowel_continence'] ?? null,
+                'label' => $continenceLabels[$raw['bowel_continence'] ?? 0] ?? null,
+            ],
+        ];
+    }
+
+    /**
+     * Map health conditions section (Section J).
+     */
+    protected function mapHealthConditionsSection(array $raw): array
+    {
+        $painFreqLabels = [
+            0 => 'No Pain',
+            1 => 'Not in Last 3 Days',
+            2 => 'Less Than Daily',
+            3 => 'Daily',
+        ];
+
+        $painIntensityLabels = [
+            1 => 'Mild',
+            2 => 'Moderate',
+            3 => 'Severe',
+            4 => 'Horrible/Excruciating',
+        ];
+
+        $fallLabels = [
+            0 => 'No Falls',
+            1 => 'Fall, No Injury',
+            2 => 'Fall with Injury',
+        ];
+
+        return [
+            'pain' => [
+                'pain_scale' => $this->pain_scale,
+                'frequency' => [
+                    'value' => $raw['pain_frequency'] ?? null,
+                    'label' => $painFreqLabels[$raw['pain_frequency'] ?? 0] ?? null,
+                ],
+                'intensity' => [
+                    'value' => $raw['pain_intensity'] ?? null,
+                    'label' => $painIntensityLabels[$raw['pain_intensity'] ?? 1] ?? null,
+                ],
+            ],
+            'chess_score' => $this->chess_score,
+            'symptoms' => [
+                'shortness_of_breath' => (bool) ($raw['dyspnea'] ?? false),
+                'fatigue' => (bool) ($raw['fatigue'] ?? false),
+                'edema' => (bool) ($raw['edema'] ?? false),
+                'dizziness' => (bool) ($raw['dizziness'] ?? false),
+                'chest_pain' => (bool) ($raw['chest_pain'] ?? false),
+            ],
+            'falls' => [
+                'value' => $raw['fall_history'] ?? null,
+                'label' => $fallLabels[$raw['fall_history'] ?? 0] ?? null,
+                'in_last_90_days' => $this->falls_in_last_90_days,
+            ],
+            'weight_loss' => (bool) ($raw['weight_loss'] ?? false),
+            'dehydration' => (bool) ($raw['dehydration'] ?? false),
+            'vomiting' => (bool) ($raw['vomiting'] ?? false),
+        ];
+    }
+
+    /**
+     * Map diseases/diagnoses section.
+     */
+    protected function mapDiseasesSection(array $raw): array
+    {
+        $diseases = [];
+
+        // Neurological
+        $neurological = [];
+        if ($raw['special_ms'] ?? false) $neurological[] = 'Multiple Sclerosis';
+        if ($raw['special_quadriplegia'] ?? false) $neurological[] = 'Quadriplegia';
+        if ($raw['special_coma'] ?? false) $neurological[] = 'Coma';
+
+        // Cardiac/Respiratory
+        $cardiac = [];
+        if ($raw['clinical_chf'] ?? false) $cardiac[] = 'Congestive Heart Failure';
+        if ($raw['clinical_copd'] ?? false) $cardiac[] = 'COPD';
+        if ($raw['clinical_pneumonia'] ?? false) $cardiac[] = 'Pneumonia';
+
+        // Other conditions
+        $other = [];
+        if ($raw['clinical_diabetes'] ?? false) $other[] = 'Diabetes';
+        if ($raw['clinical_wound'] ?? false) $other[] = 'Wound/Pressure Ulcer';
+        if ($raw['special_burns'] ?? false) $other[] = 'Burns';
+
+        return [
+            'primary_diagnosis_icd10' => $this->primary_diagnosis_icd10,
+            'secondary_diagnoses' => $this->secondary_diagnoses ?? [],
+            'categories' => [
+                'neurological' => $neurological,
+                'cardiac_respiratory' => $cardiac,
+                'other' => $other,
+            ],
+        ];
+    }
+
+    /**
+     * Map treatments/procedures section.
+     */
+    protected function mapTreatmentsSection(array $raw): array
+    {
+        return [
+            'extensive_services' => [
+                'dialysis' => (bool) ($raw['extensive_dialysis'] ?? false),
+                'iv_therapy' => (bool) ($raw['extensive_iv'] ?? false),
+                'ventilator' => (bool) ($raw['extensive_ventilator'] ?? false),
+                'tracheostomy' => (bool) ($raw['extensive_trach'] ?? false),
+            ],
+            'clinical_treatments' => [
+                'oxygen_therapy' => (bool) ($raw['clinical_oxygen'] ?? false),
+                'tube_feeding' => (bool) ($raw['clinical_tube_feeding'] ?? false),
+                'wound_care' => (bool) ($raw['clinical_wound'] ?? false),
+                'dialysis' => (bool) ($raw['clinical_dialysis'] ?? false),
+            ],
+            'therapy_services' => [
+                'physical_therapy_minutes' => $raw['therapy_pt'] ?? 0,
+                'occupational_therapy_minutes' => $raw['therapy_ot'] ?? 0,
+                'speech_language_therapy_minutes' => $raw['therapy_slp'] ?? 0,
+            ],
+        ];
+    }
+
+    /**
+     * Map social supports section (Section P).
+     */
+    protected function mapSocialSupportsSection(array $raw): array
+    {
+        return [
+            'primary_caregiver_lives_with_client' => (bool) ($raw['caregiver_lives_with'] ?? false),
+            'caregiver_unable_to_continue' => (bool) ($raw['caregiver_stress'] ?? false),
+            'wandering_behaviour' => $this->wandering_flag,
         ];
     }
 }
