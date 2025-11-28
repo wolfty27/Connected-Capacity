@@ -28,7 +28,7 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             // Hours and capacity
-            $table->decimal('standard_hours_per_week', 5, 2)->default(40.00)->comment('Standard weekly hours for this type');
+            $table->decimal('standard_hours_per_week', 5, 2)->nullable()->comment('Standard weekly hours for this type (null for SSPO)');
             $table->decimal('min_hours_per_week', 5, 2)->nullable()->comment('Minimum weekly hours (for PT/Casual)');
             $table->decimal('max_hours_per_week', 5, 2)->nullable()->comment('Maximum weekly hours');
 
