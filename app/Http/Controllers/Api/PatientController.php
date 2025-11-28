@@ -186,6 +186,35 @@ class PatientController extends Controller
         ]);
 
         try {
+            // Determine hospital_id: use provided value, or default to user's hospital, or first available
+            $hospitalId = $request->hospital_id;
+
+            if (!$hospitalId) {
+                $user = Auth::user();
+                // If user has role 'hospital', look up their hospital
+                if ($user && $user->role === 'hospital') {
+                    $userHospital = Hospital::where('user_id', $user->id)->first();
+                    if ($userHospital) {
+                        $hospitalId = $userHospital->id;
+                    }
+                }
+            }
+
+            // If still no hospital_id, use the first available hospital as fallback
+            if (!$hospitalId) {
+                $firstHospital = Hospital::first();
+                if ($firstHospital) {
+                    $hospitalId = $firstHospital->id;
+                }
+            }
+
+            // Ensure we have a valid hospital_id (database requires it)
+            if (!$hospitalId) {
+                return response()->json([
+                    'error' => 'No hospital available. Please create a hospital first or specify a hospital_id.',
+                ], 422);
+            }
+
             // Create user account for patient
             $user = User::create([
                 'name' => $request->name,
@@ -200,7 +229,7 @@ class PatientController extends Controller
                 'gender' => $request->gender,
                 'date_of_birth' => $request->date_of_birth,
                 'ohip' => $request->ohip,
-                'hospital_id' => $request->hospital_id,
+                'hospital_id' => $hospitalId,
                 'status' => $request->add_to_queue ? 'Pending' : 'Active',
                 'is_in_queue' => $request->add_to_queue ?? false,
             ]);
