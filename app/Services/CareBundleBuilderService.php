@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Models\BundleConfigurationRule;
 use App\Models\CareBundle;
+use App\Models\CareBundleTemplate;
 use App\Models\CarePlan;
 use App\Models\Patient;
 use App\Models\PatientQueue;
+use App\Models\RUGClassification;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceType;
 use App\Models\TransitionNeedsProfile;
@@ -30,11 +32,352 @@ use Illuminate\Support\Facades\Log;
 class CareBundleBuilderService
 {
     protected MetadataEngine $metadataEngine;
+    protected CareBundleTemplateRepository $templateRepository;
+    protected RUGClassificationService $rugService;
 
-    public function __construct(MetadataEngine $metadataEngine)
-    {
+    public function __construct(
+        MetadataEngine $metadataEngine,
+        ?CareBundleTemplateRepository $templateRepository = null,
+        ?RUGClassificationService $rugService = null
+    ) {
         $this->metadataEngine = $metadataEngine;
+        $this->templateRepository = $templateRepository ?? new CareBundleTemplateRepository();
+        $this->rugService = $rugService ?? new RUGClassificationService();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RUG-BASED BUNDLE METHODS (CC2.1 Architecture)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get RUG-based bundle recommendations for a patient.
+     *
+     * This is the new primary method for getting bundle recommendations.
+     * It uses the patient's RUG classification to find matching templates.
+     *
+     * @param int $patientId
+     * @return array
+     */
+    public function getRugBasedBundles(int $patientId): array
+    {
+        $patient = Patient::with([
+            'latestInterraiAssessment',
+            'latestRugClassification',
+        ])->find($patientId);
+
+        if (!$patient) {
+            return ['error' => 'Patient not found', 'bundles' => []];
+        }
+
+        // Check for RUG classification
+        $rug = $patient->latestRugClassification;
+
+        if (!$rug) {
+            // Try to generate classification from assessment
+            $assessment = $patient->latestInterraiAssessment;
+            if ($assessment) {
+                $rug = $this->rugService->classify($assessment);
+            } else {
+                return [
+                    'error' => 'No InterRAI assessment available',
+                    'message' => 'Patient requires InterRAI HC assessment before bundle selection',
+                    'bundles' => [],
+                ];
+            }
+        }
+
+        // Get matching templates
+        $matches = $this->templateRepository->findAllMatchingTemplates($rug);
+
+        // Build response with configured bundles
+        $bundles = $matches->map(function ($match) use ($patient, $rug) {
+            return $this->configureTemplateForPatient(
+                $match['template'],
+                $patient,
+                $rug,
+                $match['is_recommended'],
+                $match['match_score'],
+                $match['match_type']
+            );
+        })->toArray();
+
+        return [
+            'patient_id' => $patientId,
+            'rug_classification' => $rug->toSummaryArray(),
+            'bundles' => $bundles,
+        ];
+    }
+
+    /**
+     * Get a specific RUG template configured for a patient.
+     *
+     * @param int $templateId
+     * @param int $patientId
+     * @return array|null
+     */
+    public function getRugTemplateForPatient(int $templateId, int $patientId): ?array
+    {
+        $patient = Patient::with([
+            'latestInterraiAssessment',
+            'latestRugClassification',
+        ])->find($patientId);
+
+        if (!$patient) {
+            return null;
+        }
+
+        $template = $this->templateRepository->findById($templateId);
+        if (!$template) {
+            return null;
+        }
+
+        $rug = $patient->latestRugClassification;
+        $isRecommended = $rug && $template->rug_group === $rug->rug_group;
+        $matchScore = $rug ? $this->calculateTemplateMatchScore($template, $rug) : 50;
+
+        return $this->configureTemplateForPatient(
+            $template,
+            $patient,
+            $rug,
+            $isRecommended,
+            $matchScore,
+            $isRecommended ? 'exact' : 'manual'
+        );
+    }
+
+    /**
+     * Configure a template's services for a specific patient.
+     */
+    protected function configureTemplateForPatient(
+        CareBundleTemplate $template,
+        Patient $patient,
+        ?RUGClassification $rug,
+        bool $isRecommended,
+        int $matchScore,
+        string $matchType
+    ): array {
+        $services = [];
+        $flags = $rug?->flags ?? [];
+
+        // Get services applicable for this patient's flags
+        $templateServices = $template->getServicesForFlags($flags);
+
+        foreach ($templateServices as $templateService) {
+            $serviceType = $templateService->serviceType;
+            if (!$serviceType) {
+                continue;
+            }
+
+            $services[] = [
+                'id' => (string) $serviceType->id,
+                'service_type_id' => $serviceType->id,
+                'category' => $serviceType->serviceCategory?->code ?? $serviceType->category ?? 'OTHER',
+                'name' => $serviceType->name,
+                'code' => $serviceType->code,
+                'description' => $serviceType->description,
+                'defaultFrequency' => $templateService->default_frequency_per_week,
+                'defaultDuration' => $templateService->default_duration_weeks,
+                'defaultDurationMinutes' => $templateService->default_duration_minutes,
+                'currentFrequency' => $templateService->default_frequency_per_week,
+                'currentDuration' => $templateService->default_duration_weeks,
+                'provider' => '',
+                'provider_id' => null,
+                'costPerVisit' => $templateService->getEffectiveCostPerVisit() / 100,
+                'weeklyCost' => $templateService->calculateWeeklyCost() / 100,
+                'assignment_type' => $templateService->assignment_type,
+                'role_required' => $templateService->role_required,
+                'is_required' => $templateService->is_required,
+                'is_conditional' => $templateService->is_conditional,
+                'condition_flags' => $templateService->condition_flags,
+            ];
+        }
+
+        // Calculate costs
+        $estimatedWeeklyCost = array_sum(array_column($services, 'weeklyCost'));
+        $estimatedMonthlyCost = $estimatedWeeklyCost * 4;
+
+        return [
+            'id' => $template->id,
+            'code' => $template->code,
+            'name' => $template->name,
+            'description' => $template->description,
+            'rug_group' => $template->rug_group,
+            'rug_category' => $template->rug_category,
+            'funding_stream' => $template->funding_stream,
+            'weekly_cap' => $template->weekly_cap,
+            'colorTheme' => $this->getRugColorTheme($template->rug_category),
+            'band' => $this->getRugBand($template->rug_category),
+            'isRecommended' => $isRecommended,
+            'matchScore' => $matchScore,
+            'matchType' => $matchType,
+            'recommendationReason' => $isRecommended
+                ? $this->getRugRecommendationReason($template, $rug)
+                : null,
+            'services' => $services,
+            'serviceCount' => count($services),
+            'estimatedWeeklyCost' => $estimatedWeeklyCost,
+            'estimatedMonthlyCost' => $estimatedMonthlyCost,
+            'withinBudget' => $estimatedWeeklyCost <= $template->weekly_cap,
+            'clinical_notes' => $template->clinical_notes,
+        ];
+    }
+
+    /**
+     * Calculate template match score.
+     */
+    protected function calculateTemplateMatchScore(CareBundleTemplate $template, RUGClassification $rug): int
+    {
+        $score = 50; // Base score
+
+        if ($template->rug_group === $rug->rug_group) {
+            $score += 50;
+        } elseif ($template->rug_category === $rug->rug_category) {
+            $score += 25;
+        }
+
+        if ($template->matchesFlags($rug->flags ?? [])) {
+            $score += 10;
+        }
+
+        return min(100, $score);
+    }
+
+    /**
+     * Get RUG-based color theme.
+     */
+    protected function getRugColorTheme(?string $category): string
+    {
+        return match ($category) {
+            RUGClassification::CATEGORY_SPECIAL_REHABILITATION => 'green',
+            RUGClassification::CATEGORY_EXTENSIVE_SERVICES => 'red',
+            RUGClassification::CATEGORY_SPECIAL_CARE => 'orange',
+            RUGClassification::CATEGORY_CLINICALLY_COMPLEX => 'purple',
+            RUGClassification::CATEGORY_IMPAIRED_COGNITION => 'amber',
+            RUGClassification::CATEGORY_BEHAVIOUR_PROBLEMS => 'pink',
+            RUGClassification::CATEGORY_REDUCED_PHYSICAL_FUNCTION => 'blue',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Get RUG-based band.
+     */
+    protected function getRugBand(?string $category): string
+    {
+        return match ($category) {
+            RUGClassification::CATEGORY_SPECIAL_REHABILITATION,
+            RUGClassification::CATEGORY_EXTENSIVE_SERVICES => 'Band C',
+            RUGClassification::CATEGORY_SPECIAL_CARE,
+            RUGClassification::CATEGORY_CLINICALLY_COMPLEX => 'Band B',
+            default => 'Band A',
+        };
+    }
+
+    /**
+     * Get RUG-based recommendation reason.
+     */
+    protected function getRugRecommendationReason(CareBundleTemplate $template, ?RUGClassification $rug): string
+    {
+        if (!$rug) {
+            return 'Default template for patient profile';
+        }
+
+        $category = $rug->rug_category;
+        $group = $rug->rug_group;
+        $adl = $rug->adl_level;
+        $cps = $rug->cps_level;
+
+        return "RUG classification {$group} ({$category}) with {$adl} and {$cps}. " .
+            "Template matched based on clinical indicators and ADL/IADL scores.";
+    }
+
+    /**
+     * Build care plan from RUG template.
+     *
+     * @param int $patientId
+     * @param int $templateId
+     * @param array $serviceConfigurations
+     * @param int|null $userId
+     * @return CarePlan
+     */
+    public function buildCarePlanFromTemplate(
+        int $patientId,
+        int $templateId,
+        array $serviceConfigurations,
+        ?int $userId = null
+    ): CarePlan {
+        return DB::transaction(function () use ($patientId, $templateId, $serviceConfigurations, $userId) {
+            $patient = Patient::findOrFail($patientId);
+            $template = CareBundleTemplate::findOrFail($templateId);
+
+            // Get or create the underlying CareBundle record for backward compatibility
+            $careBundle = $this->getOrCreateCareBundleFromTemplate($template);
+
+            // Get latest version for this patient
+            $latestVersion = CarePlan::where('patient_id', $patientId)->max('version') ?? 0;
+
+            // Create the care plan
+            $carePlan = CarePlan::create([
+                'patient_id' => $patientId,
+                'care_bundle_id' => $careBundle->id,
+                'care_bundle_template_id' => $template->id,
+                'version' => $latestVersion + 1,
+                'status' => 'draft',
+                'goals' => $this->extractGoals($serviceConfigurations),
+                'risks' => $patient->risk_flags ?? [],
+                'interventions' => $this->extractInterventions($serviceConfigurations),
+                'notes' => "Created from RUG template: {$template->name} ({$template->code})",
+            ]);
+
+            // Create service assignments
+            foreach ($serviceConfigurations as $config) {
+                if (($config['currentFrequency'] ?? 0) > 0) {
+                    $this->createServiceAssignment($carePlan, $config);
+                }
+            }
+
+            // Update patient queue status
+            try {
+                $this->updateQueueStatus($patient, 'bundle_building', $userId);
+            } catch (\Exception $e) {
+                Log::warning("Failed to update queue status", ['error' => $e->getMessage()]);
+            }
+
+            Log::info("Care plan created from RUG template", [
+                'care_plan_id' => $carePlan->id,
+                'patient_id' => $patientId,
+                'template_id' => $templateId,
+                'template_code' => $template->code,
+            ]);
+
+            return $carePlan;
+        });
+    }
+
+    /**
+     * Get or create a CareBundle record from a template.
+     * This maintains backward compatibility with existing CarePlan→CareBundle relationship.
+     */
+    protected function getOrCreateCareBundleFromTemplate(CareBundleTemplate $template): CareBundle
+    {
+        return CareBundle::firstOrCreate(
+            ['code' => $template->code],
+            [
+                'name' => $template->name,
+                'description' => $template->description,
+                'price' => $template->weekly_cap_cents / 100 * 4, // Monthly price
+                'active' => true,
+            ]
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | LEGACY METHODS (Backward Compatibility)
+    |--------------------------------------------------------------------------
+    */
 
     /**
      * Get available bundles with their services configured for a patient.

@@ -72,7 +72,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/{id}/start-bundle', [\App\Http\Controllers\Api\V2\PatientQueueController::class, 'startBundleBuilding']);
     });
 
-    // Care Bundle Builder (Metadata-driven)
+    // Care Bundle Builder (Metadata-driven) - Legacy endpoints
     Route::prefix('v2/care-builder')->group(function () {
         Route::get('/{patientId}/bundles', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getBundles']);
         Route::get('/{patientId}/bundles/{bundleId}', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getBundle']);
@@ -80,6 +80,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/{patientId}/plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'buildPlan']);
         Route::get('/{patientId}/plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getPlanHistory']);
         Route::post('/{patientId}/plans/{carePlanId}/publish', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'publishPlan']);
+
+        // RUG-based Bundle Builder (CC2.1 Architecture)
+        Route::get('/templates', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getAllTemplates']);
+        Route::get('/{patientId}/rug-bundles', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getRugBundles']);
+        Route::get('/{patientId}/rug-bundles/{templateId}', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getRugBundle']);
+        Route::get('/{patientId}/rug-recommendation', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'getTemplateRecommendation']);
+        Route::post('/{patientId}/rug-plans', [\App\Http\Controllers\Api\V2\CareBundleBuilderController::class, 'buildPlanFromTemplate']);
     });
 
     // Service Types API (SC-002)

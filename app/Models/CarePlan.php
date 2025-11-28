@@ -22,6 +22,7 @@ class CarePlan extends Model
     protected $fillable = [
         'patient_id',
         'care_bundle_id',
+        'care_bundle_template_id',
         'version',
         'status',
         'goals',
@@ -50,6 +51,14 @@ class CarePlan extends Model
     public function careBundle()
     {
         return $this->belongsTo(CareBundle::class);
+    }
+
+    /**
+     * Get the RUG-based care bundle template (CC2.1 Architecture).
+     */
+    public function careBundleTemplate()
+    {
+        return $this->belongsTo(CareBundleTemplate::class);
     }
 
     public function approver()

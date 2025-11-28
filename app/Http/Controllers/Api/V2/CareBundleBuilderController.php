@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V2;
 
 use App\Http\Controllers\Controller;
+use App\Models\CareBundleTemplate;
 use App\Models\CarePlan;
 use App\Models\Patient;
 use App\Services\CareBundleBuilderService;
+use App\Services\CareBundleTemplateRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,14 +20,21 @@ use Illuminate\Support\Facades\Validator;
  * - Bundle templates and services are configured via metadata
  * - Rules automatically adjust services based on patient context
  * - Publishing a bundle transitions patients from queue to active profile
+ *
+ * CC2.1 Architecture: Now supports RUG-III/HC based template matching.
+ * Use the /rug-bundles endpoints for the new RUG-driven approach.
  */
 class CareBundleBuilderController extends Controller
 {
     protected CareBundleBuilderService $bundleBuilder;
+    protected CareBundleTemplateRepository $templateRepository;
 
-    public function __construct(CareBundleBuilderService $bundleBuilder)
-    {
+    public function __construct(
+        CareBundleBuilderService $bundleBuilder,
+        CareBundleTemplateRepository $templateRepository
+    ) {
         $this->bundleBuilder = $bundleBuilder;
+        $this->templateRepository = $templateRepository;
     }
 
     /**
@@ -293,6 +302,229 @@ class CareBundleBuilderController extends Controller
         return response()->json([
             'data' => $bundle,
             'is_preview' => true,
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RUG-Based Bundle Endpoints (CC2.1 Architecture)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get RUG-based bundle recommendations for a patient.
+     *
+     * This is the primary endpoint for the CC2.1 architecture. It uses
+     * the patient's RUG-III/HC classification to find matching templates.
+     *
+     * @param int $patientId
+     * @return JsonResponse
+     */
+    public function getRugBundles(int $patientId): JsonResponse
+    {
+        $patient = Patient::with([
+            'user',
+            'latestInterraiAssessment',
+            'latestRugClassification',
+        ])->find($patientId);
+
+        if (!$patient) {
+            return response()->json(['message' => 'Patient not found'], 404);
+        }
+
+        $result = $this->bundleBuilder->getRugBasedBundles($patientId);
+
+        if (isset($result['error'])) {
+            return response()->json([
+                'message' => $result['error'],
+                'detail' => $result['message'] ?? null,
+                'bundles' => [],
+            ], 422);
+        }
+
+        // Find recommended bundle
+        $recommended = collect($result['bundles'])->firstWhere('isRecommended', true);
+
+        return response()->json([
+            'data' => $result['bundles'],
+            'patient' => [
+                'id' => $patient->id,
+                'name' => $patient->user?->name ?? 'Unknown',
+                'status' => $patient->status,
+                'is_in_queue' => $patient->is_in_queue,
+            ],
+            'rug_classification' => $result['rug_classification'] ?? null,
+            'recommended_template' => $recommended ? [
+                'id' => $recommended['id'],
+                'code' => $recommended['code'],
+                'name' => $recommended['name'],
+                'rug_group' => $recommended['rug_group'],
+                'match_score' => $recommended['matchScore'],
+                'reason' => $recommended['recommendationReason'],
+            ] : null,
+            'metadata' => [
+                'total_templates' => count($result['bundles']),
+                'generated_at' => now()->toIso8601String(),
+                'source' => 'rug_classification',
+            ],
+        ]);
+    }
+
+    /**
+     * Get a specific RUG template configured for a patient.
+     *
+     * @param int $patientId
+     * @param int $templateId
+     * @return JsonResponse
+     */
+    public function getRugBundle(int $patientId, int $templateId): JsonResponse
+    {
+        $template = $this->bundleBuilder->getRugTemplateForPatient($templateId, $patientId);
+
+        if (!$template) {
+            return response()->json(['message' => 'Template not found or inactive'], 404);
+        }
+
+        return response()->json([
+            'data' => $template,
+        ]);
+    }
+
+    /**
+     * Build a care plan from a RUG template configuration.
+     *
+     * @param Request $request
+     * @param int $patientId
+     * @return JsonResponse
+     */
+    public function buildPlanFromTemplate(Request $request, int $patientId): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'template_id' => 'required|integer|exists:care_bundle_templates,id',
+            'services' => 'required|array',
+            'services.*.service_type_id' => 'required|integer',
+            'services.*.currentFrequency' => 'required|integer|min:0',
+            'services.*.currentDuration' => 'required|integer|min:0',
+            'services.*.provider_id' => 'nullable|integer',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Verify template is active
+        $template = CareBundleTemplate::where('id', $request->template_id)
+            ->where('is_active', true)
+            ->where('is_current_version', true)
+            ->first();
+
+        if (!$template) {
+            return response()->json([
+                'message' => 'Template not found or inactive',
+                'errors' => ['template_id' => "Template ID {$request->template_id} is not available"],
+            ], 422);
+        }
+
+        // Verify service_type_ids exist
+        $serviceTypeIds = collect($request->services)->pluck('service_type_id')->unique();
+        $existingIds = \App\Models\ServiceType::whereIn('id', $serviceTypeIds)->pluck('id');
+        $missingIds = $serviceTypeIds->diff($existingIds);
+
+        if ($missingIds->isNotEmpty()) {
+            return response()->json([
+                'message' => 'Invalid service type IDs',
+                'errors' => ['services' => "Service type IDs not found: " . $missingIds->implode(', ')],
+            ], 422);
+        }
+
+        try {
+            $carePlan = $this->bundleBuilder->buildCarePlanFromTemplate(
+                $patientId,
+                $request->template_id,
+                $request->services,
+                Auth::id()
+            );
+
+            return response()->json([
+                'message' => 'Care plan draft created from RUG template',
+                'data' => $carePlan->load(['careBundle', 'serviceAssignments.serviceType']),
+                'template' => [
+                    'id' => $template->id,
+                    'code' => $template->code,
+                    'name' => $template->name,
+                    'rug_group' => $template->rug_group,
+                ],
+                'next_steps' => [
+                    'review_url' => "/patients/{$patientId}/care-plan/{$carePlan->id}",
+                    'publish_endpoint' => "/api/v2/care-builder/{$patientId}/plans/{$carePlan->id}/publish",
+                ],
+            ], 201);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to create care plan from template', [
+                'patient_id' => $patientId,
+                'template_id' => $request->template_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to create care plan',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get template recommendation summary for a patient.
+     *
+     * @param int $patientId
+     * @return JsonResponse
+     */
+    public function getTemplateRecommendation(int $patientId): JsonResponse
+    {
+        $patient = Patient::find($patientId);
+
+        if (!$patient) {
+            return response()->json(['message' => 'Patient not found'], 404);
+        }
+
+        $summary = $this->templateRepository->getRecommendationSummary($patient);
+
+        return response()->json([
+            'data' => $summary,
+        ]);
+    }
+
+    /**
+     * Get all available RUG templates.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getAllTemplates(Request $request): JsonResponse
+    {
+        $category = $request->query('category');
+        $fundingStream = $request->query('funding_stream', 'LTC');
+
+        if ($category) {
+            $templates = $this->templateRepository->getByCategory($category);
+        } else {
+            $templates = $this->templateRepository->getByFundingStream($fundingStream);
+        }
+
+        return response()->json([
+            'data' => $templates->map->toSummaryArray(),
+            'metadata' => [
+                'total' => $templates->count(),
+                'filter' => [
+                    'category' => $category,
+                    'funding_stream' => $fundingStream,
+                ],
+            ],
         ]);
     }
 }
