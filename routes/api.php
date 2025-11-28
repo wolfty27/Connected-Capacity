@@ -119,6 +119,15 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/sspo-metrics', [\App\Http\Controllers\Api\V2\SspoAssignmentController::class, 'metrics']);
     });
 
+    // Jeopardy Board API (Visit Verification & Missed Care Risk)
+    Route::prefix('v2/jeopardy')->group(function () {
+        Route::get('/alerts', [\App\Http\Controllers\Api\V2\JeopardyBoardController::class, 'index']);
+        Route::get('/summary', [\App\Http\Controllers\Api\V2\JeopardyBoardController::class, 'summary']);
+        Route::post('/alerts/{id}/resolve', [\App\Http\Controllers\Api\V2\JeopardyBoardController::class, 'resolve']);
+        Route::post('/alerts/{id}/mark-missed', [\App\Http\Controllers\Api\V2\JeopardyBoardController::class, 'markMissed']);
+        Route::post('/alerts/bulk-resolve', [\App\Http\Controllers\Api\V2\JeopardyBoardController::class, 'bulkResolve']);
+    });
+
     // SLA Compliance Dashboard API (SLA-005)
     Route::prefix('v2/sla')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Api\V2\SlaComplianceController::class, 'dashboard']);

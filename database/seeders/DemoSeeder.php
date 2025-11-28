@@ -260,6 +260,9 @@ class DemoSeeder extends Seeder
                         // Determine status based on date
                         $status = $this->determineVisitStatus($visitDate, $isPastOrToday);
 
+                        // Determine verification status based on assignment status
+                        $verificationStatus = $this->determineVerificationStatus($status, $visitDate, $isPastOrToday);
+
                         // Create the service assignment using bundle metadata
                         ServiceAssignment::updateOrCreate(
                             [
@@ -279,6 +282,10 @@ class DemoSeeder extends Seeder
                                 'notes' => "Bundle: {$bundle->code} | Service: {$serviceType->name}",
                                 'actual_start' => $status === 'completed' ? $scheduledStart : null,
                                 'actual_end' => $status === 'completed' ? $scheduledEnd : null,
+                                // Visit verification fields
+                                'verification_status' => $verificationStatus['status'],
+                                'verified_at' => $verificationStatus['verified_at'],
+                                'verification_source' => $verificationStatus['source'],
                             ]
                         );
                     }
@@ -348,6 +355,58 @@ class DemoSeeder extends Seeder
         // Today - mix of statuses
         $statuses = ['completed', 'completed', 'in_progress', 'planned'];
         return $statuses[array_rand($statuses)];
+    }
+
+    /**
+     * Determine verification status based on assignment status and timing.
+     *
+     * @return array{status: string, verified_at: Carbon|null, source: string|null}
+     */
+    protected function determineVerificationStatus(string $status, Carbon $visitDate, bool $isPastOrToday): array
+    {
+        // Future visits are always PENDING
+        if (!$isPastOrToday) {
+            return [
+                'status' => ServiceAssignment::VERIFICATION_PENDING,
+                'verified_at' => null,
+                'source' => null,
+            ];
+        }
+
+        // Completed visits are VERIFIED
+        if ($status === 'completed') {
+            return [
+                'status' => ServiceAssignment::VERIFICATION_VERIFIED,
+                'verified_at' => $visitDate->copy()->setTime(18, 0), // End of day
+                'verification_source' => ServiceAssignment::VERIFICATION_SOURCE_STAFF_MANUAL,
+                'source' => ServiceAssignment::VERIFICATION_SOURCE_STAFF_MANUAL,
+            ];
+        }
+
+        // In-progress visits are still PENDING (being worked on)
+        if ($status === 'in_progress') {
+            return [
+                'status' => ServiceAssignment::VERIFICATION_PENDING,
+                'verified_at' => null,
+                'source' => null,
+            ];
+        }
+
+        // Past planned visits are overdue - keep PENDING for jeopardy board
+        if ($status === 'planned' && $visitDate->lt(Carbon::today())) {
+            return [
+                'status' => ServiceAssignment::VERIFICATION_PENDING,
+                'verified_at' => null,
+                'source' => null,
+            ];
+        }
+
+        // Default: PENDING
+        return [
+            'status' => ServiceAssignment::VERIFICATION_PENDING,
+            'verified_at' => null,
+            'source' => null,
+        ];
     }
 
     /**
@@ -426,6 +485,10 @@ class DemoSeeder extends Seeder
                     'frequency_rule' => 'as needed',
                     'source' => 'manual',
                     'notes' => $missedReasons[$missedCount] ?? 'Missed - reason not specified',
+                    // Visit verification fields - mark as MISSED
+                    'verification_status' => ServiceAssignment::VERIFICATION_MISSED,
+                    'verified_at' => Carbon::now(),
+                    'verification_source' => ServiceAssignment::VERIFICATION_SOURCE_COORDINATOR,
                 ]
             );
 

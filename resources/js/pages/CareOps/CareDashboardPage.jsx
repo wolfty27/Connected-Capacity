@@ -43,6 +43,16 @@ const CareDashboardPage = () => {
         setTimeout(() => setForecastLoading(false), 2000); // Mock delay
     };
 
+    const handleResolveAlert = async (alertId) => {
+        try {
+            await api.post(`/v2/jeopardy/alerts/${alertId}/resolve`);
+            // Refresh dashboard data to reflect the resolved alert
+            fetchDashboardData(true);
+        } catch (error) {
+            console.error('Failed to resolve alert', error);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-screen">
@@ -113,18 +123,29 @@ const CareDashboardPage = () => {
                     </div>
 
                     {/* Missed Care */}
-                    <div 
+                    <div
                         className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors"
                         onClick={() => setIsMissedCareModalOpen(true)}
                     >
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -mr-8 -mt-8"></div>
+                        <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full -mr-8 -mt-8 ${
+                            data?.kpi?.missed_care?.band === 'A' ? 'bg-emerald-50' :
+                            data?.kpi?.missed_care?.band === 'B' ? 'bg-amber-50' : 'bg-rose-50'
+                        }`}></div>
                         <div className="relative z-10">
                             <div className="text-slate-500 text-xs font-bold uppercase mb-1">Missed Care Rate</div>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-bold text-emerald-600">0.02%</span>
-                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700">Band A</span>
+                                <span className={`text-3xl font-bold ${
+                                    data?.kpi?.missed_care?.band === 'A' ? 'text-emerald-600' :
+                                    data?.kpi?.missed_care?.band === 'B' ? 'text-amber-500' : 'text-rose-600'
+                                }`}>{data?.kpi?.missed_care?.rate_percent?.toFixed(2) ?? '0.00'}%</span>
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                    data?.kpi?.missed_care?.band === 'A' ? 'bg-emerald-100 text-emerald-700' :
+                                    data?.kpi?.missed_care?.band === 'B' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                                }`}>Band {data?.kpi?.missed_care?.band ?? 'A'}</span>
                             </div>
-                            <div className="text-xs text-slate-400 mt-2">Target: 0%</div>
+                            <div className="text-xs text-slate-400 mt-2">
+                                Target: 0% {data?.kpi?.missed_care?.missed_events > 0 && `• ${data?.kpi?.missed_care?.missed_events} missed`}
+                            </div>
                         </div>
                     </div>
 
@@ -205,29 +226,51 @@ const CareDashboardPage = () => {
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
                          <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                             <h3 className="font-bold text-slate-800">Jeopardy Board (Missed Care Risk)</h3>
-                            <span className={`${data?.jeopardy_board?.length > 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'} text-xs font-bold px-2 py-1 rounded-full`}>
-                                {data?.jeopardy_board?.length || 0} Active
-                            </span>
+                            <div className="flex items-center gap-2">
+                                {data?.jeopardy_summary?.critical_count > 0 && (
+                                    <span className="bg-rose-100 text-rose-800 text-xs font-bold px-2 py-1 rounded-full">
+                                        {data.jeopardy_summary.critical_count} Critical
+                                    </span>
+                                )}
+                                {data?.jeopardy_summary?.warning_count > 0 && (
+                                    <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">
+                                        {data.jeopardy_summary.warning_count} Warning
+                                    </span>
+                                )}
+                                {(data?.jeopardy_summary?.total_active || 0) === 0 && (
+                                    <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-full">
+                                        0 Active
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <div className="p-4 space-y-3">
+                        <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
                             {data?.jeopardy_board?.length > 0 ? (
-                                data.jeopardy_board.map((risk, idx) => (
-                                    <div key={idx} className={`flex items-center justify-between p-3 border rounded-lg ${
+                                data.jeopardy_board.slice(0, 10).map((risk) => (
+                                    <div key={risk.id || risk.assignment_id} className={`flex items-center justify-between p-3 border rounded-lg ${
                                         risk.risk_level === 'CRITICAL' ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100'
                                     }`}>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-2 h-2 rounded-full ${risk.risk_level === 'CRITICAL' ? 'bg-rose-500 animate-pulse' : 'bg-amber-500'}`}></div>
                                             <div>
-                                                <div className="text-sm font-bold text-slate-900">{risk.reason || 'Service Risk Detected'}</div>
+                                                <div className="text-sm font-bold text-slate-900">{risk.reason || 'Visit Verification Overdue'}</div>
                                                 <div className="text-xs text-slate-500">
-                                                    {risk.care_assignment?.assigned_user?.name || 'Unassigned'} • {risk.patient?.user?.name || 'Unknown'} • 
-                                                    {risk.risk_level === 'CRITICAL' ? ` Breached ${risk.breach_duration}` : ` Ends in ${risk.time_remaining}`}
+                                                    {risk.care_assignment?.assigned_user?.name || 'Unassigned'} • {risk.patient?.user?.name || 'Unknown'}
+                                                    {risk.risk_level === 'CRITICAL'
+                                                        ? ` • Breached ${risk.breach_duration || risk.breached_days_ago + 'd ago'}`
+                                                        : ` • ${risk.time_remaining} remaining`}
                                                 </div>
+                                                {risk.service_type && (
+                                                    <div className="text-xs text-slate-400 mt-0.5">{risk.service_type}</div>
+                                                )}
                                             </div>
                                         </div>
-                                        <button className={`text-xs bg-white border px-3 py-1 rounded transition-colors ${
-                                            risk.risk_level === 'CRITICAL' ? 'border-rose-200 text-rose-700 hover:bg-rose-50' : 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                                        }`}>
+                                        <button
+                                            onClick={() => handleResolveAlert(risk.assignment_id || risk.id)}
+                                            className={`text-xs bg-white border px-3 py-1 rounded transition-colors ${
+                                                risk.risk_level === 'CRITICAL' ? 'border-rose-200 text-rose-700 hover:bg-rose-50' : 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                                            }`}
+                                        >
                                             Resolve
                                         </button>
                                     </div>
@@ -236,6 +279,13 @@ const CareDashboardPage = () => {
                                 <div className="flex flex-col items-center justify-center py-8 text-slate-400">
                                     <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     <span className="text-sm">No visits at risk. Great job!</span>
+                                </div>
+                            )}
+                            {data?.jeopardy_board?.length > 10 && (
+                                <div className="text-center pt-2">
+                                    <span className="text-xs text-slate-500">
+                                        Showing 10 of {data.jeopardy_board.length} alerts
+                                    </span>
                                 </div>
                             )}
                         </div>

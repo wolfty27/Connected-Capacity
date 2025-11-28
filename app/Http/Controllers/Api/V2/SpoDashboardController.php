@@ -4,16 +4,39 @@ namespace App\Http\Controllers\Api\V2;
 
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
-use App\Services\CareOps\MissedCareMonitor;
+use App\Services\CareOps\JeopardyBoardService;
+use App\Services\MissedCareService;
+use App\Services\CareOpsMetricsService;
 use Illuminate\Http\Request;
 
+/**
+ * SPO Dashboard Controller
+ *
+ * Provides data for the SPO Command Center including:
+ * - Missed Care Rate (from MissedCareService)
+ * - Jeopardy Board alerts (from JeopardyBoardService)
+ * - Intake Queue
+ * - Partner performance
+ *
+ * Per OHaH RFP: Target is 0% missed care.
+ */
 class SpoDashboardController extends Controller
 {
+    public function __construct(
+        protected JeopardyBoardService $jeopardyService,
+        protected MissedCareService $missedCareService,
+        protected CareOpsMetricsService $metricsService
+    ) {}
+
     public function index(Request $request)
     {
-        // Use Service to get real/simulated risk data
-        $monitor = new MissedCareMonitor();
-        $risks = $monitor->getRiskSnapshot();
+        $organizationId = $request->user()?->organization_id;
+
+        // Get Jeopardy Board data from the service
+        $jeopardyData = $this->jeopardyService->getActiveAlerts($organizationId);
+
+        // Get Missed Care metrics from the service (uses 28-day window by default)
+        $missedCareMetrics = $this->missedCareService->calculateForOrg($organizationId);
 
         // Fetch Intake Queue - patients flagged as in queue
         $intakeQueue = Patient::with('user', 'hospital')
@@ -31,32 +54,17 @@ class SpoDashboardController extends Controller
                 ];
             });
 
-        // If no risks found (likely due to empty DB), mock one for demo purposes
-        if ($risks['missed_count'] === 0 && $risks['jeopardy_count'] === 0) {
-            $risks['risks'] = [
-                [
-                    'risk_level' => 'CRITICAL',
-                    'breach_duration' => '15m ago',
-                    'patient' => ['user' => ['name' => 'Jane Doe']],
-                    'care_assignment' => ['assigned_user' => ['name' => 'Nurse Joy']],
-                    'reason' => 'Visit Verification Overdue'
-                ],
-                [
-                    'risk_level' => 'WARNING',
-                    'time_remaining' => '45m',
-                    'patient' => ['user' => ['name' => 'John Smith']],
-                    'care_assignment' => ['assigned_user' => ['name' => 'PSW Team A']],
-                    'reason' => 'Late Start Risk'
-                ]
-            ];
-            $risks['missed_count'] = 1;
-        }
-
         $data = [
             'kpi' => [
                 'missed_care' => [
-                    'count_24h' => $risks['missed_count'],
-                    'status' => $risks['missed_count'] > 0 ? 'critical' : 'success'
+                    'count_24h' => $jeopardyData['critical_count'],
+                    'status' => $jeopardyData['critical_count'] > 0 ? 'critical' : 'success',
+                    // Add the actual missed care rate metrics
+                    'rate_percent' => $missedCareMetrics->ratePercent,
+                    'missed_events' => $missedCareMetrics->missedEvents,
+                    'delivered_events' => $missedCareMetrics->deliveredEvents,
+                    'is_compliant' => $missedCareMetrics->isCompliant,
+                    'band' => $missedCareMetrics->getComplianceBand(),
                 ],
                 'unfilled_shifts' => [
                     'count_48h' => 5,
@@ -68,9 +76,17 @@ class SpoDashboardController extends Controller
                     'trend_week' => '+5%'
                 ]
             ],
-            'jeopardy_board' => $risks['risks'],
+            // Jeopardy Board data with full structure
+            'jeopardy_board' => $jeopardyData['alerts'],
+            'jeopardy_summary' => [
+                'total_active' => $jeopardyData['total_active'],
+                'critical_count' => $jeopardyData['critical_count'],
+                'warning_count' => $jeopardyData['warning_count'],
+            ],
+            // Full missed care metrics for detailed display
+            'missed_care' => $missedCareMetrics->toArray(),
             'intake_queue' => $intakeQueue,
-            'partners' => (new \App\Services\CareOpsMetricsService())->getPartnerPerformance(1),
+            'partners' => $this->metricsService->getPartnerPerformance($organizationId ?? 1),
             'quality' => [
                 'patient_satisfaction' => 4.8,
                 'incident_rate' => 0.5

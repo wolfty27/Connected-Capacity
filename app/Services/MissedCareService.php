@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DTOs\MissedCareMetricsDTO;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceProviderOrganization;
 use Carbon\Carbon;
@@ -11,15 +12,25 @@ use Illuminate\Support\Facades\DB;
 /**
  * MissedCareService - Calculates missed care metrics per OHaH requirements
  *
- * OHaH RFS mandates 0% missed care target. This service aggregates:
- * - Missed visits (status = 'missed' or 'cancelled' without reschedule)
- * - Delivered visits (status = 'completed')
- * - Missed care rate = missed / (delivered + missed)
+ * OHaH RFP (Appendix 1) mandates 0% missed care target:
+ * "Number of missed care (number of events of missed care / number of delivered hours
+ * or visits plus number of events of missed care) – Target 0%"
+ *
+ * This service computes metrics based on:
+ * - Missed events: verification_status = 'MISSED' OR status in ['missed', 'cancelled']
+ * - Delivered events: verification_status = 'VERIFIED' OR status in ['completed', 'in_progress']
+ *
+ * Default reporting window: 4 weeks (28 days)
  */
 class MissedCareService
 {
     /**
-     * Statuses that count as "delivered" care.
+     * Default reporting window in days.
+     */
+    public const DEFAULT_REPORTING_DAYS = 28;
+
+    /**
+     * Statuses that count as "delivered" care (fallback when verification_status not set).
      */
     protected const DELIVERED_STATUSES = [
         ServiceAssignment::STATUS_COMPLETED,
@@ -27,7 +38,7 @@ class MissedCareService
     ];
 
     /**
-     * Statuses that count as "missed" care.
+     * Statuses that count as "missed" care (fallback when verification_status not set).
      */
     protected const MISSED_STATUSES = [
         ServiceAssignment::STATUS_MISSED,
@@ -36,15 +47,16 @@ class MissedCareService
 
     /**
      * Calculate missed care metrics for an organization over a period.
+     * Returns a DTO for type safety and consistent API responses.
      *
      * @param int|null $organizationId Filter by SPO/SSPO (null = all)
-     * @param Carbon|null $startDate Period start (default: 7 days ago)
+     * @param Carbon|null $startDate Period start (default: 28 days ago)
      * @param Carbon|null $endDate Period end (default: now)
-     * @return array{delivered: int, missed: int, total: int, missed_rate: float, compliance: bool}
+     * @return MissedCareMetricsDTO
      */
-    public function calculate(?int $organizationId = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
+    public function calculateForOrg(?int $organizationId = null, ?Carbon $startDate = null, ?Carbon $endDate = null): MissedCareMetricsDTO
     {
-        $startDate = $startDate ?? now()->subDays(7);
+        $startDate = $startDate ?? now()->subDays(self::DEFAULT_REPORTING_DAYS);
         $endDate = $endDate ?? now();
 
         $query = ServiceAssignment::query()
@@ -54,21 +66,55 @@ class MissedCareService
             $query->where('service_provider_organization_id', $organizationId);
         }
 
-        $delivered = (clone $query)->whereIn('status', self::DELIVERED_STATUSES)->count();
-        $missed = (clone $query)->whereIn('status', self::MISSED_STATUSES)->count();
-        $total = $delivered + $missed;
+        // Delivered: verification_status = VERIFIED OR status in delivered statuses
+        $delivered = (clone $query)->where(function ($q) {
+            $q->where('verification_status', ServiceAssignment::VERIFICATION_VERIFIED)
+              ->orWhere(function ($sub) {
+                  $sub->whereIn('status', self::DELIVERED_STATUSES)
+                      ->where(function ($inner) {
+                          $inner->whereNull('verification_status')
+                                ->orWhere('verification_status', ServiceAssignment::VERIFICATION_PENDING);
+                      });
+              });
+        })->count();
 
-        $missedRate = $total > 0 ? round(($missed / $total) * 100, 2) : 0.0;
+        // Missed: verification_status = MISSED OR status in missed statuses
+        $missed = (clone $query)->where(function ($q) {
+            $q->where('verification_status', ServiceAssignment::VERIFICATION_MISSED)
+              ->orWhere(function ($sub) {
+                  $sub->whereIn('status', self::MISSED_STATUSES)
+                      ->where(function ($inner) {
+                          $inner->whereNull('verification_status')
+                                ->orWhere('verification_status', '!=', ServiceAssignment::VERIFICATION_VERIFIED);
+                      });
+              });
+        })->count();
+
+        return MissedCareMetricsDTO::fromCalculation($missed, $delivered, $startDate, $endDate);
+    }
+
+    /**
+     * Calculate missed care metrics for an organization over a period.
+     * Legacy method for backward compatibility.
+     *
+     * @param int|null $organizationId Filter by SPO/SSPO (null = all)
+     * @param Carbon|null $startDate Period start (default: 28 days ago)
+     * @param Carbon|null $endDate Period end (default: now)
+     * @return array{delivered: int, missed: int, total: int, missed_rate: float, compliance: bool}
+     */
+    public function calculate(?int $organizationId = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
+    {
+        $dto = $this->calculateForOrg($organizationId, $startDate, $endDate);
 
         return [
-            'delivered' => $delivered,
-            'missed' => $missed,
-            'total' => $total,
-            'missed_rate' => $missedRate,
-            'compliance' => $missedRate === 0.0, // OHaH target is 0%
+            'delivered' => $dto->deliveredEvents,
+            'missed' => $dto->missedEvents,
+            'total' => $dto->totalEvents,
+            'missed_rate' => $dto->ratePercent,
+            'compliance' => $dto->isCompliant,
             'period' => [
-                'start' => $startDate->toIso8601String(),
-                'end' => $endDate->toIso8601String(),
+                'start' => $dto->periodStart->toIso8601String(),
+                'end' => $dto->periodEnd->toIso8601String(),
             ],
         ];
     }
