@@ -54,6 +54,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
     Route::apiResource('patients', \App\Http\Controllers\Api\PatientController::class);
 
+    // Patient overview with InterRAI-driven summary (replaces TNP)
+    Route::get('/v2/patients/{patient}/overview', [\App\Http\Controllers\Api\PatientController::class, 'overview']);
+
     Route::get('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'show']);
     Route::put('/organization', [\App\Http\Controllers\Api\OrganizationController::class, 'update']);
 

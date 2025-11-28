@@ -7,6 +7,7 @@ use App\Models\Hospital;
 use App\Models\Patient;
 use App\Models\PatientQueue;
 use App\Models\User;
+use App\Services\InterraiSummaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -256,6 +257,117 @@ class PatientController extends Controller
 
             return response()->json([
                 'message' => 'Patient deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get patient overview with InterRAI-driven summary and clinical flags.
+     *
+     * This endpoint returns comprehensive patient overview data including:
+     * - Basic patient info
+     * - Current RUG group/category
+     * - Narrative summary (InterRAI-driven)
+     * - Clinical flags (InterRAI-driven)
+     * - Current care bundle/plan state
+     *
+     * @param int $id Patient ID
+     * @param InterraiSummaryService $summaryService
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function overview($id, InterraiSummaryService $summaryService)
+    {
+        try {
+            $patient = Patient::with([
+                'user',
+                'queueEntry',
+                'latestInterraiAssessment',
+                'latestRugClassification',
+                'carePlans' => function ($q) {
+                    $q->where('status', 'active')->with('careBundle');
+                },
+            ])->find($id);
+
+            if (!$patient) {
+                return response()->json(['error' => 'Patient not found'], 404);
+            }
+
+            $userObj = $patient->user;
+            $queueEntry = $patient->queueEntry;
+            $assessment = $patient->latestInterraiAssessment;
+            $rugClassification = $patient->latestRugClassification;
+            $activePlan = $patient->carePlans->first();
+
+            // Generate InterRAI-driven summary
+            $summary = $summaryService->generateSummary($patient);
+
+            // Get active flags with labels for UI display
+            $activeFlags = $summaryService->getActiveFlagsWithLabels($summary['clinical_flags']);
+
+            return response()->json([
+                'data' => [
+                    // Basic patient info
+                    'id' => $patient->id,
+                    'name' => $userObj?->name ?? 'Unknown',
+                    'ohip' => $patient->ohip,
+                    'date_of_birth' => $patient->date_of_birth,
+                    'gender' => $patient->gender,
+                    'status' => $patient->status,
+                    'photo' => $userObj?->image ?? '/assets/images/patients/default.png',
+
+                    // Queue status
+                    'is_in_queue' => $patient->is_in_queue ?? false,
+                    'queue_status' => $queueEntry?->queue_status,
+                    'queue_status_label' => $queueEntry
+                        ? PatientQueue::STATUS_LABELS[$queueEntry->queue_status] ?? $queueEntry->queue_status
+                        : null,
+
+                    // RUG Classification
+                    'rug_classification' => $rugClassification ? [
+                        'rug_group' => $rugClassification->rug_group,
+                        'rug_category' => $rugClassification->rug_category,
+                        'category_description' => $rugClassification->category_description,
+                        'adl_sum' => $rugClassification->adl_sum,
+                        'adl_level' => $rugClassification->adl_level,
+                        'cps_score' => $rugClassification->cps_score,
+                        'cps_level' => $rugClassification->cps_level,
+                        'numeric_rank' => $rugClassification->numeric_rank,
+                        'is_high_care_needs' => $rugClassification->isHighCareNeeds(),
+                    ] : null,
+
+                    // InterRAI Assessment summary
+                    'assessment' => $assessment ? [
+                        'id' => $assessment->id,
+                        'date' => $assessment->assessment_date?->toIso8601String(),
+                        'is_stale' => $assessment->isStale(),
+                        'days_until_stale' => $assessment->days_until_stale,
+                        'maple_score' => $assessment->maple_score,
+                        'maple_description' => $assessment->maple_description,
+                    ] : null,
+
+                    // InterRAI-driven narrative and flags (replaces TNP)
+                    'narrative_summary' => $summary['narrative_summary'],
+                    'clinical_flags' => $summary['clinical_flags'],
+                    'active_flags' => $activeFlags,
+                    'assessment_status' => $summary['assessment_status'],
+
+                    // Active care plan
+                    'active_care_plan' => $activePlan ? [
+                        'id' => $activePlan->id,
+                        'bundle_name' => $activePlan->careBundle?->name,
+                        'bundle_code' => $activePlan->careBundle?->code,
+                        'status' => $activePlan->status,
+                        'approved_at' => $activePlan->approved_at?->toIso8601String(),
+                        'first_service_delivered' => $activePlan->hasFirstServiceDelivered(),
+                        'first_service_sla_status' => $activePlan->first_service_sla_status,
+                    ] : null,
+
+                    // Timestamps
+                    'activated_at' => $patient->activated_at,
+                    'created_at' => $patient->created_at,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
