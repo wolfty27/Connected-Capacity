@@ -3,10 +3,12 @@
 namespace Database\Seeders;
 
 use App\Models\CarePlan;
+use App\Models\CareBundleTemplate;
 use App\Models\EmploymentType;
 use App\Models\Patient;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceProviderOrganization;
+use App\Models\ServiceRoleMapping;
 use App\Models\ServiceType;
 use App\Models\StaffAvailability;
 use App\Models\StaffRole;
@@ -14,6 +16,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * WorkforceSeeder - Seeds realistic workforce data for FTE compliance demo.
@@ -22,13 +25,15 @@ use Illuminate\Support\Facades\Hash;
  * - 80%+ FTE compliance (full-time ratio)
  * - HHR complement breakdown by role (RN, RPN, PSW, etc.)
  * - Staff satisfaction metrics
- * - 8 weeks of historical service assignments
+ * - Past 3 weeks + current week of service assignments
  *
  * Per RFP Q&A: FTE ratio = [Full-time direct staff ÷ Total direct staff] × 100%
  * Target: 80% full-time, 20% part-time/casual
  */
 class WorkforceSeeder extends Seeder
 {
+    protected array $roleServiceMappings = [];
+
     public function run(): void
     {
         $spo = ServiceProviderOrganization::where('slug', 'se-health')->first();
@@ -44,10 +49,17 @@ class WorkforceSeeder extends Seeder
             EmploymentTypesSeeder::class,
         ]);
 
+        // Seed service role mappings if not already done
+        if (Schema::hasTable('service_role_mappings')) {
+            $this->call(ServiceRoleMappingsSeeder::class);
+            $this->loadRoleServiceMappings();
+        }
+
         // Get employment type IDs
         $ftId = EmploymentType::where('code', 'FT')->value('id');
         $ptId = EmploymentType::where('code', 'PT')->value('id');
         $casualId = EmploymentType::where('code', 'CASUAL')->value('id');
+        $sspoId = EmploymentType::where('code', 'SSPO')->value('id');
 
         // Get role IDs
         $roleIds = StaffRole::pluck('id', 'code');
@@ -58,13 +70,59 @@ class WorkforceSeeder extends Seeder
         // Create additional staff for realistic FTE demo (target: 80% FT)
         $this->createAdditionalStaff($spo, $roleIds, $ftId, $ptId, $casualId);
 
-        // Seed historical service assignments (8 weeks)
-        $this->seedHistoricalAssignments($spo);
+        // Seed SSPO organization and staff
+        $sspo = $this->seedSspoOrganization($roleIds, $sspoId);
+
+        // Seed past 3 weeks (completed) + current week (scheduled) assignments
+        $this->seedServiceAssignments($spo, $sspo);
 
         // Seed staff availability blocks based on employment type
         $this->seedStaffAvailability($spo);
 
         $this->command->info('Workforce seeder completed.');
+    }
+
+    /**
+     * Load role to service mappings from metadata table.
+     */
+    protected function loadRoleServiceMappings(): void
+    {
+        $mappings = ServiceRoleMapping::active()
+            ->with(['staffRole', 'serviceType'])
+            ->get();
+
+        foreach ($mappings as $mapping) {
+            $roleCode = $mapping->staffRole?->code;
+            $serviceCode = $mapping->serviceType?->code;
+            if ($roleCode && $serviceCode) {
+                $this->roleServiceMappings[$roleCode][] = $serviceCode;
+            }
+        }
+    }
+
+    /**
+     * Get service codes that a role can deliver.
+     */
+    protected function getRoleServiceCodes(string $roleCode): array
+    {
+        // Use metadata mappings if available
+        if (!empty($this->roleServiceMappings[$roleCode])) {
+            return $this->roleServiceMappings[$roleCode];
+        }
+
+        // Fallback to hardcoded mappings
+        return match ($roleCode) {
+            'RN', 'RPN', 'NP' => ['NUR', 'RPM', 'LAB', 'BEH'],
+            'PSW' => ['PSW', 'HMK', 'RES', 'SEC', 'MEAL', 'REC', 'PHAR'],
+            'OT' => ['OT'],
+            'PT' => ['PT'],
+            'SLP' => ['SLP'],
+            'SW' => ['SW', 'BEH', 'REC'],
+            'RT' => ['RT'],
+            'RD' => ['RD'],
+            'COORD' => ['PERS', 'TRANS', 'INTERP', 'MEAL', 'PHAR'],
+            default => [],
+        };
     }
 
     /**
@@ -192,72 +250,117 @@ class WorkforceSeeder extends Seeder
     }
 
     /**
-     * Seed 8 weeks of historical service assignments for trend analysis.
+     * Seed SSPO organization and staff members.
      */
-    protected function seedHistoricalAssignments(ServiceProviderOrganization $spo): void
+    protected function seedSspoOrganization($roleIds, ?int $sspoId): ?ServiceProviderOrganization
     {
-        // Get active patients with care plans
+        // Create or get SSPO organization
+        $sspo = ServiceProviderOrganization::updateOrCreate(
+            ['slug' => 'care-partners'],
+            [
+                'name' => 'Care Partners SSPO',
+                'type' => 'sspo',
+                'address' => '456 Healthcare Ave, Toronto, ON',
+                'contact_email' => 'dispatch@carepartners.ca',
+                'contact_phone' => '416-555-2000',
+                'is_active' => true,
+            ]
+        );
+
+        // Create a few SSPO staff members
+        $sspoStaff = [
+            ['name' => 'Emily Watson', 'email' => 'emily.watson@carepartners.ca', 'role_code' => 'PSW'],
+            ['name' => 'James Miller', 'email' => 'james.miller@carepartners.ca', 'role_code' => 'PSW'],
+            ['name' => 'Olivia Brown', 'email' => 'olivia.brown@carepartners.ca', 'role_code' => 'RN'],
+        ];
+
+        foreach ($sspoStaff as $data) {
+            $roleId = $roleIds[$data['role_code']] ?? null;
+
+            User::updateOrCreate(
+                ['email' => $data['email']],
+                [
+                    'name' => $data['name'],
+                    'password' => Hash::make('password'),
+                    'role' => User::ROLE_FIELD_STAFF,
+                    'organization_id' => $sspo->id,
+                    'organization_role' => $data['role_code'],
+                    'staff_role_id' => $roleId,
+                    'employment_type' => 'sspo',
+                    'employment_type_id' => $sspoId,
+                    'staff_status' => User::STAFF_STATUS_ACTIVE,
+                    'hire_date' => Carbon::now()->subMonths(rand(3, 12)),
+                ]
+            );
+        }
+
+        $this->command->info('Seeded SSPO organization and ' . count($sspoStaff) . ' SSPO staff.');
+
+        return $sspo;
+    }
+
+    /**
+     * Seed service assignments for past 3 weeks (completed) + current week (scheduled).
+     */
+    protected function seedServiceAssignments(
+        ServiceProviderOrganization $spo,
+        ?ServiceProviderOrganization $sspo
+    ): void {
+        // Get active patients with care plans (using new bundle template system)
         $patients = Patient::where('status', 'Active')
-            ->whereHas('carePlans', function ($q) {
-                $q->where('status', 'active');
-            })
+            ->whereHas('carePlans', fn($q) => $q->where('status', 'active'))
             ->with(['carePlans' => function ($q) {
-                $q->where('status', 'active')->with('careBundle.serviceTypes');
+                $q->where('status', 'active')
+                    ->with(['careBundleTemplate.services.serviceType', 'careBundle.serviceTypes']);
             }])
             ->get();
 
         if ($patients->isEmpty()) {
-            $this->command->warn('No active patients found for historical assignments.');
+            $this->command->warn('No active patients found for service assignments.');
             return;
         }
 
-        // Get active staff grouped by role
-        $staffByRole = $this->getStaffByRole($spo);
+        // Get staff grouped by role
+        $spoStaffByRole = $this->getStaffByRole($spo);
+        $sspoStaffByRole = $sspo ? $this->getStaffByRole($sspo) : [];
 
-        if (empty($staffByRole)) {
-            $this->command->warn('No staff found for assignments.');
+        if (empty($spoStaffByRole)) {
+            $this->command->warn('No SPO staff found for assignments.');
             return;
         }
 
-        // Role to service type mapping
-        $roleToServiceType = [
-            'RN' => 'NUR',
-            'RPN' => 'NUR',
-            'PSW' => 'PSW',
-            'OT' => 'OT',
-            'PT' => 'PT',
-            'SLP' => 'SLP',
-            'SW' => 'SW',
-        ];
+        // Cache service types
+        $serviceTypes = ServiceType::pluck('id', 'code')->toArray();
 
-        // Seed 8 weeks of historical data
-        $weeksToSeed = 8;
+        // Seed past 3 weeks + current week (4 total)
         $currentWeekStart = Carbon::now()->startOfWeek();
+        $assignmentCount = 0;
 
-        for ($weekOffset = 1; $weekOffset <= $weeksToSeed; $weekOffset++) {
+        for ($weekOffset = 3; $weekOffset >= 0; $weekOffset--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($weekOffset);
+            $isCurrentWeek = ($weekOffset === 0);
 
             foreach ($patients as $patient) {
                 $carePlan = $patient->carePlans->first();
-                if (!$carePlan || !$carePlan->careBundle) {
-                    continue;
-                }
+                if (!$carePlan) continue;
 
-                $bundle = $carePlan->careBundle;
+                // Get services from either new template system or legacy bundle
+                $services = $this->getCarePlanServices($carePlan);
 
-                foreach ($bundle->serviceTypes as $serviceType) {
-                    $frequencyPerWeek = $serviceType->pivot->default_frequency_per_week ?? 1;
-                    $durationMinutes = $serviceType->default_duration_minutes ?? 60;
+                foreach ($services as $service) {
+                    $serviceTypeId = $service['service_type_id'];
+                    $serviceCode = $service['code'];
+                    $frequencyPerWeek = $service['frequency'];
+                    $durationMinutes = $service['duration'];
 
                     // Find staff that can provide this service
-                    $availableStaff = [];
-                    foreach ($roleToServiceType as $roleCode => $stCode) {
-                        if ($stCode === $serviceType->code && isset($staffByRole[$roleCode])) {
-                            $availableStaff = array_merge($availableStaff, $staffByRole[$roleCode]);
-                        }
-                    }
+                    $availableStaff = $this->findStaffForService(
+                        $serviceCode,
+                        $spoStaffByRole,
+                        $sspoStaffByRole
+                    );
 
-                    if (empty($availableStaff)) {
+                    if (empty($availableStaff['internal']) && empty($availableStaff['sspo'])) {
                         continue;
                     }
 
@@ -267,40 +370,112 @@ class WorkforceSeeder extends Seeder
                     foreach ($visitDays as $dayIndex => $visitsOnDay) {
                         for ($visitNum = 0; $visitNum < $visitsOnDay; $visitNum++) {
                             $visitDate = $weekStart->copy()->addDays($dayIndex);
-                            $staff = $availableStaff[array_rand($availableStaff)];
-
-                            $startHour = 8 + ($visitNum * 3);
+                            $startHour = 8 + ($visitNum * 2) + rand(0, 1);
                             $scheduledStart = $visitDate->copy()->setTime($startHour, 0);
                             $scheduledEnd = $scheduledStart->copy()->addMinutes($durationMinutes);
 
-                            // Historical assignments are all completed
+                            // Determine if this assignment goes to internal or SSPO (80/20 split)
+                            $useSSPO = rand(1, 100) <= 20 && !empty($availableStaff['sspo']);
+                            $staff = $useSSPO
+                                ? $availableStaff['sspo'][array_rand($availableStaff['sspo'])]
+                                : ($availableStaff['internal'][array_rand($availableStaff['internal'])] ?? null);
+
+                            if (!$staff) continue;
+
+                            $source = $useSSPO ? ServiceAssignment::SOURCE_SSPO : ServiceAssignment::SOURCE_INTERNAL;
+                            $orgId = $useSSPO ? $sspo->id : $spo->id;
+
+                            // Status: past weeks = completed, current week = scheduled/planned
+                            $status = $isCurrentWeek ? 'planned' : 'completed';
+
                             ServiceAssignment::updateOrCreate(
                                 [
                                     'care_plan_id' => $carePlan->id,
                                     'patient_id' => $patient->id,
-                                    'service_type_id' => $serviceType->id,
+                                    'service_type_id' => $serviceTypeId,
                                     'scheduled_start' => $scheduledStart,
                                 ],
                                 [
                                     'assigned_user_id' => $staff->id,
-                                    'service_provider_organization_id' => $spo->id,
-                                    'status' => 'completed',
+                                    'service_provider_organization_id' => $orgId,
+                                    'status' => $status,
                                     'scheduled_end' => $scheduledEnd,
-                                    'actual_start' => $scheduledStart,
-                                    'actual_end' => $scheduledEnd,
+                                    'actual_start' => $isCurrentWeek ? null : $scheduledStart,
+                                    'actual_end' => $isCurrentWeek ? null : $scheduledEnd,
                                     'frequency_rule' => "{$frequencyPerWeek}x per week",
                                     'estimated_hours_per_week' => round(($frequencyPerWeek * $durationMinutes) / 60, 2),
-                                    'source' => ServiceAssignment::SOURCE_INTERNAL,
-                                    'notes' => "Historical: {$bundle->code} | {$serviceType->name}",
+                                    'source' => $source,
+                                    'notes' => $isCurrentWeek ? "Scheduled: {$serviceCode}" : "Completed: {$serviceCode}",
                                 ]
                             );
+                            $assignmentCount++;
                         }
                     }
                 }
             }
         }
 
-        $this->command->info("Seeded {$weeksToSeed} weeks of historical service assignments.");
+        $this->command->info("Seeded {$assignmentCount} service assignments (past 3 weeks + current week).");
+    }
+
+    /**
+     * Get services from care plan (supports both new template system and legacy bundle).
+     */
+    protected function getCarePlanServices(CarePlan $carePlan): array
+    {
+        $services = [];
+
+        // Try new CareBundleTemplate system first
+        if ($carePlan->careBundleTemplate && $carePlan->careBundleTemplate->services->isNotEmpty()) {
+            foreach ($carePlan->careBundleTemplate->services as $templateService) {
+                $services[] = [
+                    'service_type_id' => $templateService->service_type_id,
+                    'code' => $templateService->serviceType?->code ?? 'UNKNOWN',
+                    'frequency' => $templateService->default_frequency_per_week ?? 1,
+                    'duration' => $templateService->default_duration_minutes ?? 60,
+                ];
+            }
+        }
+        // Fall back to legacy CareBundle
+        elseif ($carePlan->careBundle && $carePlan->careBundle->serviceTypes->isNotEmpty()) {
+            foreach ($carePlan->careBundle->serviceTypes as $serviceType) {
+                $services[] = [
+                    'service_type_id' => $serviceType->id,
+                    'code' => $serviceType->code,
+                    'frequency' => $serviceType->pivot->default_frequency_per_week ?? 1,
+                    'duration' => $serviceType->default_duration_minutes ?? 60,
+                ];
+            }
+        }
+
+        return $services;
+    }
+
+    /**
+     * Find staff that can deliver a specific service.
+     */
+    protected function findStaffForService(
+        string $serviceCode,
+        array $spoStaffByRole,
+        array $sspoStaffByRole
+    ): array {
+        $result = ['internal' => [], 'sspo' => []];
+
+        foreach ($spoStaffByRole as $roleCode => $staffList) {
+            $serviceCodes = $this->getRoleServiceCodes($roleCode);
+            if (in_array($serviceCode, $serviceCodes, true)) {
+                $result['internal'] = array_merge($result['internal'], $staffList);
+            }
+        }
+
+        foreach ($sspoStaffByRole as $roleCode => $staffList) {
+            $serviceCodes = $this->getRoleServiceCodes($roleCode);
+            if (in_array($serviceCode, $serviceCodes, true)) {
+                $result['sspo'] = array_merge($result['sspo'], $staffList);
+            }
+        }
+
+        return $result;
     }
 
     /**

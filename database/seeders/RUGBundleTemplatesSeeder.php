@@ -138,12 +138,14 @@ class RUGBundleTemplatesSeeder extends Seeder
             'clinical_notes' => 'Goal-focused rehab to avoid LTC admission. Consider 3x/day PSW if ADL ≥15.',
         ]);
 
+        // Tier 2: 14-18 h/wk PSW for RB0 (high ADL rehab)
         $this->addServices($template, [
             ['code' => 'PT', 'freq' => 3, 'duration' => 60, 'required' => true],
             ['code' => 'OT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'SLP', 'freq' => 1, 'duration' => 45, 'conditional' => true, 'condition_flags' => ['swallowing_issue']],
             ['code' => 'NUR', 'freq' => 4, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
+            ['code' => 'PSW', 'freq' => 16, 'duration' => 60, 'required' => true], // Tier 2: 16 h/wk (~2.3h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking for IADL support
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10, 'required' => true],
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -167,11 +169,13 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 85,
         ]);
 
+        // Tier 2: 14-18 h/wk PSW for RA2
         $this->addServices($template, [
             ['code' => 'PT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'OT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'NUR', 'freq' => 2, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
+            ['code' => 'PSW', 'freq' => 15, 'duration' => 60, 'required' => true], // Tier 2: 15 h/wk (~2h/day)
+            ['code' => 'HMK', 'freq' => 3, 'duration' => 60], // Homemaking for high IADL needs
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
             ['code' => 'PHAR', 'freq' => 3, 'duration' => 15],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -195,11 +199,12 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 80,
         ]);
 
+        // Tier 1: 7-10 h/wk PSW for RA1
         $this->addServices($template, [
             ['code' => 'PT', 'freq' => 2, 'duration' => 60, 'required' => true],
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60], // Tier 1: 7 h/wk
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60], // Tier 1: 10 h/wk (~1.5h/day)
             ['code' => 'MEAL', 'freq' => 3, 'duration' => 15],
         ]);
     }
@@ -225,9 +230,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'clinical_notes' => 'Requires shift-based nursing coverage. Tight budget management.',
         ]);
 
+        // Tier 4: 32-35 h/wk PSW for SE3 (Ultra High)
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 14, 'duration' => 480, 'required' => true, 'role' => 'RN'], // 8hr shifts
-            ['code' => 'PSW', 'freq' => 28, 'duration' => 60, 'required' => true], // Tier 4: 28 h/wk (4x/day)
+            ['code' => 'PSW', 'freq' => 35, 'duration' => 60, 'required' => true], // Tier 4: 35 h/wk (~5h/day)
+            ['code' => 'HMK', 'freq' => 3, 'duration' => 60], // Homemaking support
             ['code' => 'RT', 'freq' => 3, 'duration' => 60, 'required' => true],
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10, 'required' => true],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -250,9 +257,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 95,
         ]);
 
+        // Tier 4: 24-28 h/wk PSW for SE2
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 14, 'duration' => 60, 'required' => true],
-            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true], // Tier 4: 21 h/wk (3x/day)
+            ['code' => 'PSW', 'freq' => 28, 'duration' => 60, 'required' => true], // Tier 4: 28 h/wk (~4h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
             ['code' => 'RT', 'freq' => 2, 'duration' => 60],
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10, 'required' => true],
         ]);
@@ -274,9 +283,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 90,
         ]);
 
+        // Tier 3: 21 h/wk PSW for SE1
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 10, 'duration' => 60, 'required' => true],
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
+            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true], // Tier 3: 21 h/wk (~3h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10],
         ]);
     }
@@ -301,9 +312,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 88,
         ]);
 
+        // Tier 4: 32-35 h/wk PSW for SSB (Ultra High ADL)
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 10, 'duration' => 60, 'required' => true],
-            ['code' => 'PSW', 'freq' => 28, 'duration' => 60, 'required' => true], // Tier 4: 28 h/wk (4x/day)
+            ['code' => 'PSW', 'freq' => 32, 'duration' => 60, 'required' => true], // Tier 4: 32 h/wk (~4.5h/day)
+            ['code' => 'HMK', 'freq' => 3, 'duration' => 60], // Homemaking support
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
             ['code' => 'MEAL', 'freq' => 7, 'duration' => 15],
             ['code' => 'TRANS', 'freq' => 1, 'duration' => 60],
@@ -326,9 +339,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 83,
         ]);
 
+        // Tier 3: 21 h/wk PSW for SSA
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 6, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true], // Tier 3: 21 h/wk (~3h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
         ]);
     }
 
@@ -352,9 +367,12 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 78,
         ]);
 
+        // Tier 4: 24-28 h/wk PSW for CC0 (high ADL)
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 7, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 26, 'duration' => 60, 'required' => true], // Tier 4: 26 h/wk (~3.7h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
+            ['code' => 'SW', 'freq' => 1, 'duration' => 60], // Caregiver coaching
             ['code' => 'PT', 'freq' => 1, 'duration' => 60],
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
             ['code' => 'RPM', 'freq' => 7, 'duration' => 10, 'required' => true],
@@ -378,9 +396,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 73,
         ]);
 
+        // Tier 3: 21 h/wk PSW for CB0
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 5, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true], // Tier 3: 21 h/wk (~3h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
             ['code' => 'PT', 'freq' => 1, 'duration' => 60],
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
@@ -404,9 +424,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 68,
         ]);
 
+        // Tier 2: 14-18 h/wk PSW for CA2
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 3, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60], // Tier 2: 10 h/wk
+            ['code' => 'PSW', 'freq' => 15, 'duration' => 60], // Tier 2: 15 h/wk (~2h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking for IADL needs
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
             ['code' => 'PHAR', 'freq' => 3, 'duration' => 15],
         ]);
@@ -429,9 +451,10 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 63,
         ]);
 
+        // Tier 1: 7-10 h/wk PSW for CA1
         $this->addServices($template, [
             ['code' => 'NUR', 'freq' => 3, 'duration' => 45, 'required' => true],
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60], // Tier 1: 7 h/wk
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60], // Tier 1: 10 h/wk (~1.5h/day)
             ['code' => 'MEAL', 'freq' => 3, 'duration' => 15],
         ]);
     }
@@ -456,12 +479,15 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 58,
         ]);
 
+        // Tier 3: 21-24 h/wk PSW for IB0 (behaviour + care burden)
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
+            ['code' => 'PSW', 'freq' => 24, 'duration' => 60, 'required' => true], // Tier 3: 24 h/wk (~3.5h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
             ['code' => 'NUR', 'freq' => 2, 'duration' => 45, 'required' => true],
-            ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true],
-            ['code' => 'REC', 'freq' => 3, 'duration' => 60],
-            ['code' => 'RES', 'freq' => 1, 'duration' => 240],
+            ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true], // Behavioural supports
+            ['code' => 'REC', 'freq' => 3, 'duration' => 60], // Social/Recreational activation
+            ['code' => 'SW', 'freq' => 1, 'duration' => 60], // Caregiver coaching
+            ['code' => 'RES', 'freq' => 2, 'duration' => 240], // Respite
         ]);
     }
 
@@ -482,10 +508,13 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 53,
         ]);
 
+        // Tier 2: 14-18 h/wk PSW for IA2
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
+            ['code' => 'PSW', 'freq' => 16, 'duration' => 60, 'required' => true], // Tier 2: 16 h/wk (~2.3h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking for IADL needs
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
-            ['code' => 'REC', 'freq' => 2, 'duration' => 60],
+            ['code' => 'REC', 'freq' => 2, 'duration' => 60], // Social/Recreational
+            ['code' => 'SW', 'freq' => 1, 'duration' => 60], // Caregiver coaching
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
         ]);
     }
@@ -507,10 +536,11 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 48,
         ]);
 
+        // Tier 1: 7-10 h/wk PSW for IA1
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true], // Tier 1: 7 h/wk
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 1: 10 h/wk (~1.5h/day)
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
-            ['code' => 'REC', 'freq' => 2, 'duration' => 60],
+            ['code' => 'REC', 'freq' => 2, 'duration' => 60], // Social/Recreational
         ]);
     }
 
@@ -534,12 +564,15 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 43,
         ]);
 
+        // Tier 3: 21-24 h/wk PSW for BB0 (behaviour + care burden)
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
+            ['code' => 'PSW', 'freq' => 24, 'duration' => 60, 'required' => true], // Tier 3: 24 h/wk (~3.5h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
             ['code' => 'NUR', 'freq' => 3, 'duration' => 60, 'required' => true],
-            ['code' => 'BEH', 'freq' => 3, 'duration' => 60, 'required' => true],
-            ['code' => 'REC', 'freq' => 3, 'duration' => 60],
-            ['code' => 'RES', 'freq' => 2, 'duration' => 240],
+            ['code' => 'BEH', 'freq' => 3, 'duration' => 60, 'required' => true], // Behavioural supports
+            ['code' => 'REC', 'freq' => 3, 'duration' => 60], // Social/Recreational activation
+            ['code' => 'SW', 'freq' => 1, 'duration' => 60], // Caregiver coaching
+            ['code' => 'RES', 'freq' => 2, 'duration' => 240], // Respite (8 h/wk)
         ]);
     }
 
@@ -560,12 +593,14 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 38,
         ]);
 
+        // Tier 2: 14-18 h/wk PSW for BA2
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
+            ['code' => 'PSW', 'freq' => 16, 'duration' => 60, 'required' => true], // Tier 2: 16 h/wk (~2.3h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking for IADL needs
             ['code' => 'NUR', 'freq' => 2, 'duration' => 60],
-            ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true],
-            ['code' => 'REC', 'freq' => 3, 'duration' => 60],
-            ['code' => 'RES', 'freq' => 1, 'duration' => 240],
+            ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true], // Behavioural supports
+            ['code' => 'REC', 'freq' => 3, 'duration' => 60], // Social/Recreational
+            ['code' => 'RES', 'freq' => 1, 'duration' => 240], // Respite (4 h/wk)
         ]);
     }
 
@@ -586,11 +621,12 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 33,
         ]);
 
+        // Tier 1: 7-10 h/wk PSW for BA1
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true], // Tier 1: 7 h/wk
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 1: 10 h/wk (~1.5h/day)
             ['code' => 'NUR', 'freq' => 2, 'duration' => 60],
-            ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true],
-            ['code' => 'REC', 'freq' => 2, 'duration' => 60],
+            ['code' => 'BEH', 'freq' => 2, 'duration' => 60, 'required' => true], // Behavioural supports
+            ['code' => 'REC', 'freq' => 2, 'duration' => 60], // Social/Recreational
         ]);
     }
 
@@ -613,10 +649,12 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 28,
         ]);
 
+        // Tier 3: 21 h/wk PSW for PD0 (high ADL)
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 3: 14 h/wk (2x/day)
+            ['code' => 'PSW', 'freq' => 21, 'duration' => 60, 'required' => true], // Tier 3: 21 h/wk (~3h/day)
+            ['code' => 'HMK', 'freq' => 3, 'duration' => 60], // Homemaking for high ADL
             ['code' => 'NUR', 'freq' => 2, 'duration' => 45],
-            ['code' => 'OT', 'freq' => 1, 'duration' => 60],
+            ['code' => 'OT', 'freq' => 1, 'duration' => 60], // Home safety assessment
             ['code' => 'MEAL', 'freq' => 7, 'duration' => 15],
         ]);
     }
@@ -636,8 +674,10 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 23,
         ]);
 
+        // Tier 2: 14-18 h/wk PSW for PC0
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 2: 10 h/wk
+            ['code' => 'PSW', 'freq' => 16, 'duration' => 60, 'required' => true], // Tier 2: 16 h/wk (~2.3h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
             ['code' => 'PT', 'freq' => 1, 'duration' => 60],
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
@@ -659,8 +699,10 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 18,
         ]);
 
+        // Tier 2: 14-18 h/wk PSW for PB0
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 14, 'duration' => 60, 'required' => true], // Tier 2: 14 h/wk (~2h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking support
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
             ['code' => 'OT', 'freq' => 1, 'duration' => 60],
         ]);
@@ -682,8 +724,10 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 13,
         ]);
 
+        // Tier 1: 7-10 h/wk PSW for PA2
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 10, 'duration' => 60, 'required' => true], // Tier 1: 10 h/wk (~1.5h/day)
+            ['code' => 'HMK', 'freq' => 2, 'duration' => 60], // Homemaking for IADL needs
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
             ['code' => 'MEAL', 'freq' => 5, 'duration' => 15],
             ['code' => 'PHAR', 'freq' => 2, 'duration' => 15],
@@ -706,8 +750,9 @@ class RUGBundleTemplatesSeeder extends Seeder
             'priority_weight' => 8,
         ]);
 
+        // Tier 1: 7-10 h/wk PSW for PA1
         $this->addServices($template, [
-            ['code' => 'PSW', 'freq' => 5, 'duration' => 60, 'required' => true],
+            ['code' => 'PSW', 'freq' => 7, 'duration' => 60, 'required' => true], // Tier 1: 7 h/wk (~1h/day)
             ['code' => 'NUR', 'freq' => 1, 'duration' => 45],
         ]);
     }

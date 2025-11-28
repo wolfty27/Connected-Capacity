@@ -567,7 +567,9 @@ class FteComplianceService
      * Get staff satisfaction metrics for an organization.
      *
      * Per RFP: Target is >95% staff satisfaction.
-     * Tracks job_satisfaction field on User model (scale 1-5 or percentage).
+     * Tracks job_satisfaction field on User model.
+     * Supports both enum values ('excellent', 'good', 'neutral', 'poor')
+     * and numeric values (0-100).
      */
     public function getStaffSatisfactionMetrics(?int $organizationId = null): array
     {
@@ -592,20 +594,38 @@ class FteComplianceService
             return $this->emptySatisfactionMetrics($orgId);
         }
 
-        // Calculate satisfaction (assuming scale is 1-100 or 0-100 percentage)
-        $avgSatisfaction = $staff->avg('job_satisfaction');
+        // Convert satisfaction values to numeric (supports enum or numeric)
+        $satisfactionMap = [
+            'excellent' => 95,
+            'good' => 85,
+            'neutral' => 60,
+            'poor' => 35,
+        ];
 
-        // Count satisfied (>= 80% or 4/5 equivalent)
-        $satisfiedCount = $staff->filter(fn($s) => $s->job_satisfaction >= 80)->count();
+        $numericSatisfaction = $staff->map(function ($s) use ($satisfactionMap) {
+            $value = $s->job_satisfaction;
+            // If it's a string enum, convert to numeric
+            if (is_string($value) && isset($satisfactionMap[strtolower($value)])) {
+                return $satisfactionMap[strtolower($value)];
+            }
+            // If it's already numeric, use it directly
+            return is_numeric($value) ? (float) $value : 60;
+        });
+
+        // Calculate satisfaction metrics
+        $avgSatisfaction = $numericSatisfaction->avg();
+
+        // Count satisfied (>= 80% or 'excellent'/'good' equivalent)
+        $satisfiedCount = $numericSatisfaction->filter(fn($v) => $v >= 80)->count();
         $satisfiedRate = ($satisfiedCount / $totalResponses) * 100;
 
         // Distribution breakdown
         $distribution = [
-            'very_satisfied' => $staff->filter(fn($s) => $s->job_satisfaction >= 90)->count(),
-            'satisfied' => $staff->filter(fn($s) => $s->job_satisfaction >= 70 && $s->job_satisfaction < 90)->count(),
-            'neutral' => $staff->filter(fn($s) => $s->job_satisfaction >= 50 && $s->job_satisfaction < 70)->count(),
-            'dissatisfied' => $staff->filter(fn($s) => $s->job_satisfaction >= 30 && $s->job_satisfaction < 50)->count(),
-            'very_dissatisfied' => $staff->filter(fn($s) => $s->job_satisfaction < 30)->count(),
+            'very_satisfied' => $numericSatisfaction->filter(fn($v) => $v >= 90)->count(),
+            'satisfied' => $numericSatisfaction->filter(fn($v) => $v >= 70 && $v < 90)->count(),
+            'neutral' => $numericSatisfaction->filter(fn($v) => $v >= 50 && $v < 70)->count(),
+            'dissatisfied' => $numericSatisfaction->filter(fn($v) => $v >= 30 && $v < 50)->count(),
+            'very_dissatisfied' => $numericSatisfaction->filter(fn($v) => $v < 30)->count(),
         ];
 
         // Most recent survey date

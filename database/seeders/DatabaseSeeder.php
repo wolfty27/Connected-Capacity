@@ -73,8 +73,15 @@ class DatabaseSeeder extends Seeder
             // WORKFORCE: Staff Roles, Employment Types, FTE Demo
             // ============================================
 
-            // 11. Workforce metadata and demo staff for FTE compliance
-            // Seeds: staff_roles, employment_types, additional staff, 8 weeks of assignments
+            // 11. Service role mappings (which roles can deliver which services)
+            ServiceRoleMappingsSeeder::class,
+
+            // 12. RUG-based service recommendations (clinically indicated services)
+            RugServiceRecommendationsSeeder::class,
+
+            // 13. Workforce metadata and demo staff for FTE compliance
+            // Seeds: staff_roles, employment_types, additional staff, SSPO org,
+            // past 3 weeks + current week of assignments
             WorkforceSeeder::class,
         ]);
     }
