@@ -4,13 +4,19 @@ import api from '../../services/api';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
 import Section from '../../components/UI/Section';
-import { UserPlus, ArrowLeft, AlertCircle } from 'lucide-react';
+import GooglePlacesAutocomplete from '../../components/GooglePlacesAutocomplete';
+import { UserPlus, ArrowLeft, AlertCircle, MapPin } from 'lucide-react';
 
 /**
  * AddPatientPage - Form to create a new patient
  *
  * Creates a new patient with minimal required fields and
  * optionally adds them to the intake queue.
+ *
+ * Address field uses Google Places Autocomplete to:
+ * - Provide address suggestions
+ * - Extract postal code for region auto-assignment
+ * - Get lat/lng for travel time calculations
  */
 const AddPatientPage = () => {
     const navigate = useNavigate();
@@ -21,11 +27,18 @@ const AddPatientPage = () => {
         gender: '',
         date_of_birth: '',
         ohip: '',
+        // Address fields for travel time and region assignment
+        address: '',
+        city: '',
+        postal_code: '',
+        lat: null,
+        lng: null,
         add_to_queue: true,
     });
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
+    const [addressDisplay, setAddressDisplay] = useState('');
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -36,6 +49,38 @@ const AddPatientPage = () => {
         // Clear error for this field
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: null }));
+        }
+    };
+
+    // Handle Google Places selection
+    const handlePlaceSelect = (placeData) => {
+        if (!placeData) {
+            // Clear address fields
+            setFormData(prev => ({
+                ...prev,
+                address: '',
+                city: '',
+                postal_code: '',
+                lat: null,
+                lng: null,
+            }));
+            setAddressDisplay('');
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            address: placeData.address || placeData.formatted_address || '',
+            city: placeData.city || '',
+            postal_code: placeData.postal_code || '',
+            lat: placeData.lat || null,
+            lng: placeData.lng || null,
+        }));
+        setAddressDisplay(placeData.formatted_address || '');
+
+        // Clear address error if any
+        if (errors.address) {
+            setErrors(prev => ({ ...prev, address: null }));
         }
     };
 
@@ -78,6 +123,12 @@ const AddPatientPage = () => {
                 gender: formData.gender,
                 date_of_birth: formData.date_of_birth || null,
                 ohip: formData.ohip || null,
+                // Include address data for region assignment and travel time
+                address: formData.address || null,
+                city: formData.city || null,
+                postal_code: formData.postal_code || null,
+                lat: formData.lat,
+                lng: formData.lng,
                 add_to_queue: formData.add_to_queue,
             });
 
@@ -179,6 +230,82 @@ const AddPatientPage = () => {
                             />
                             {errors.email && (
                                 <p className="mt-1 text-sm text-rose-600">{errors.email}</p>
+                            )}
+                        </div>
+
+                        {/* Address Section */}
+                        <div className="border-t border-slate-200 pt-6">
+                            <h3 className="text-sm font-medium text-slate-700 mb-4 flex items-center gap-2">
+                                <MapPin className="w-4 h-4" />
+                                Home Address
+                                <span className="text-xs font-normal text-slate-500">(for care scheduling)</span>
+                            </h3>
+
+                            {/* Google Places Autocomplete */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Search Address
+                                </label>
+                                <GooglePlacesAutocomplete
+                                    value={addressDisplay}
+                                    onChange={(e) => setAddressDisplay(e.target.value)}
+                                    onPlaceSelect={handlePlaceSelect}
+                                    placeholder="Start typing address..."
+                                    error={errors.address}
+                                />
+                            </div>
+
+                            {/* Manual address fields (shown when address is selected or for fallback) */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2">
+                                    <label htmlFor="address" className="block text-sm font-medium text-slate-700 mb-1">
+                                        Street Address
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="address"
+                                        name="address"
+                                        value={formData.address}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                                        placeholder="Enter street address"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="city" className="block text-sm font-medium text-slate-700 mb-1">
+                                        City
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="city"
+                                        name="city"
+                                        value={formData.city}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                                        placeholder="City"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="postal_code" className="block text-sm font-medium text-slate-700 mb-1">
+                                        Postal Code
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="postal_code"
+                                        name="postal_code"
+                                        value={formData.postal_code}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                                        placeholder="M5G 1X8"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Show coordinates if available */}
+                            {formData.lat && formData.lng && (
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Coordinates: {formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}
+                                </p>
                             )}
                         </div>
 

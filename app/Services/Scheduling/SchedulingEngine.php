@@ -3,11 +3,14 @@
 namespace App\Services\Scheduling;
 
 use App\DTOs\SchedulingValidationResultDTO;
+use App\DTOs\TravelValidationResultDTO;
+use App\Models\Patient;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceRoleMapping;
 use App\Models\ServiceType;
 use App\Models\StaffAvailability;
 use App\Models\User;
+use App\Services\Travel\TravelTimeService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -18,8 +21,12 @@ use Illuminate\Support\Collection;
  * - Finding eligible staff for a service type
  * - Validating assignment constraints (role, availability, capacity, conflicts)
  * - Detecting scheduling conflicts
+ * - Travel-aware scheduling validation
  *
- * All business logic is metadata-driven via ServiceRoleMapping and StaffAvailability.
+ * All business logic is metadata-driven via ServiceRoleMapping, StaffAvailability,
+ * and RegionArea lookups. No hardcoded region or travel time logic.
+ *
+ * @see docs/CC21_BundleEngine_Architecture.md
  */
 class SchedulingEngine
 {
@@ -27,6 +34,28 @@ class SchedulingEngine
      * Default capacity warning threshold (80%).
      */
     protected float $capacityWarningThreshold = 0.80;
+
+    /**
+     * Default buffer time in minutes between appointments.
+     */
+    protected int $defaultBufferMinutes = 5;
+
+    /**
+     * Buffer time per service category (configurable via metadata in future).
+     */
+    protected array $serviceBuffers = [
+        'nursing' => 10,
+        'personal_support' => 5,
+        'homemaking' => 5,
+        'therapy' => 10,
+        'behaviour' => 10,
+        'default' => 5,
+    ];
+
+    /**
+     * TravelTimeService instance (lazily loaded).
+     */
+    protected ?TravelTimeService $travelTimeService = null;
 
     /**
      * Get staff eligible to provide a service at a given time.
@@ -462,5 +491,389 @@ class SchedulingEngine
             'rehab', 'therapy' => '#E9D5FF',
             default => '#F3F4F6',
         };
+    }
+
+    // =========================================================================
+    // TRAVEL-AWARE SCHEDULING
+    // =========================================================================
+
+    /**
+     * Get the TravelTimeService instance (lazily loaded).
+     */
+    protected function getTravelTimeService(): TravelTimeService
+    {
+        if ($this->travelTimeService === null) {
+            $this->travelTimeService = app(TravelTimeService::class);
+        }
+        return $this->travelTimeService;
+    }
+
+    /**
+     * Set a custom TravelTimeService (useful for testing).
+     */
+    public function setTravelTimeService(TravelTimeService $service): self
+    {
+        $this->travelTimeService = $service;
+        return $this;
+    }
+
+    /**
+     * Validate an assignment considering travel time constraints.
+     *
+     * Checks:
+     * 1. No direct time overlap with other assignments
+     * 2. Sufficient travel time from previous assignment
+     * 3. Sufficient travel time to next assignment
+     *
+     * @param User $staff The staff member
+     * @param Patient $patient The patient to visit
+     * @param Carbon $start Proposed start time
+     * @param Carbon $end Proposed end time
+     * @param int|null $serviceTypeId Service type for buffer calculation
+     * @param int|null $excludeAssignmentId Assignment ID to exclude (for updates)
+     * @return TravelValidationResultDTO
+     */
+    public function canAssignWithTravel(
+        User $staff,
+        Patient $patient,
+        Carbon $start,
+        Carbon $end,
+        ?int $serviceTypeId = null,
+        ?int $excludeAssignmentId = null
+    ): TravelValidationResultDTO {
+        $errors = [];
+        $warnings = [];
+        $travelFromPrevious = null;
+        $travelToNext = null;
+        $earliestStart = null;
+        $latestEnd = null;
+
+        // Check if patient has coordinates
+        if (!$patient->hasCoordinates()) {
+            $warnings[] = 'Patient location unknown - travel time cannot be calculated';
+            // Allow assignment but warn
+        }
+
+        // 1. Check for direct time overlap
+        if ($this->hasConflicts($staff->id, $start, $end, $excludeAssignmentId)) {
+            $conflicts = $this->getConflicts($staff->id, $start, $end, $excludeAssignmentId);
+            foreach ($conflicts as $conflict) {
+                $patientName = $conflict->patient?->user?->name ?? 'Unknown';
+                $conflictTime = $conflict->scheduled_start->format('H:i');
+                $errors[] = "Conflicts with existing assignment for {$patientName} at {$conflictTime}";
+            }
+            return TravelValidationResultDTO::invalid($errors, $warnings);
+        }
+
+        // Skip travel checks if patient has no coordinates
+        if (!$patient->hasCoordinates()) {
+            return TravelValidationResultDTO::valid($warnings);
+        }
+
+        // 2. Check travel from previous assignment
+        $previous = $this->getPreviousAssignment($staff->id, $start, $excludeAssignmentId);
+        if ($previous && $previous->patient && $previous->patient->hasCoordinates()) {
+            $bufferPrev = $this->getBufferMinutes($previous->service_type_id);
+            $departPrev = $previous->scheduled_end->copy()->addMinutes($bufferPrev);
+
+            $travelFromPrevious = $this->getTravelTimeService()->getTravelMinutes(
+                $previous->patient->lat,
+                $previous->patient->lng,
+                $patient->lat,
+                $patient->lng,
+                $departPrev
+            );
+
+            $earliestStart = $departPrev->copy()->addMinutes($travelFromPrevious);
+
+            if ($start->lt($earliestStart)) {
+                $errors[] = sprintf(
+                    'Cannot start at %s - earliest arrival is %s (need %d min travel + %d min buffer from previous patient)',
+                    $start->format('H:i'),
+                    $earliestStart->format('H:i'),
+                    $travelFromPrevious,
+                    $bufferPrev
+                );
+            }
+        }
+
+        // 3. Check travel to next assignment
+        $next = $this->getNextAssignment($staff->id, $end, $excludeAssignmentId);
+        if ($next && $next->patient && $next->patient->hasCoordinates()) {
+            $bufferCurrent = $this->getBufferMinutes($serviceTypeId);
+            $departCurrent = $end->copy()->addMinutes($bufferCurrent);
+
+            $travelToNext = $this->getTravelTimeService()->getTravelMinutes(
+                $patient->lat,
+                $patient->lng,
+                $next->patient->lat,
+                $next->patient->lng,
+                $departCurrent
+            );
+
+            // Buffer for next appointment
+            $bufferNext = $this->getBufferMinutes($next->service_type_id);
+
+            // Latest end = next.start - travel - buffer_next - buffer_current
+            $latestEnd = $next->scheduled_start
+                ->copy()
+                ->subMinutes($travelToNext)
+                ->subMinutes($bufferNext);
+
+            if ($end->gt($latestEnd)) {
+                $errors[] = sprintf(
+                    'Must end by %s to reach next patient by %s (need %d min travel + buffers)',
+                    $latestEnd->format('H:i'),
+                    $next->scheduled_start->format('H:i'),
+                    $travelToNext
+                );
+            }
+        }
+
+        if (!empty($errors)) {
+            return TravelValidationResultDTO::invalid(
+                $errors,
+                $warnings,
+                $earliestStart,
+                $latestEnd,
+                $travelFromPrevious,
+                $travelToNext
+            );
+        }
+
+        return TravelValidationResultDTO::valid(
+            $warnings,
+            $earliestStart,
+            $latestEnd,
+            $travelFromPrevious,
+            $travelToNext
+        );
+    }
+
+    /**
+     * Get the previous assignment for a staff member before a given time.
+     *
+     * @param int $staffId Staff member ID
+     * @param Carbon $beforeTime Time to look before
+     * @param int|null $excludeAssignmentId Assignment to exclude
+     * @return ServiceAssignment|null
+     */
+    public function getPreviousAssignment(
+        int $staffId,
+        Carbon $beforeTime,
+        ?int $excludeAssignmentId = null
+    ): ?ServiceAssignment {
+        $query = ServiceAssignment::where('assigned_user_id', $staffId)
+            ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
+            ->where('scheduled_end', '<=', $beforeTime)
+            ->whereDate('scheduled_start', $beforeTime->toDateString())
+            ->with(['patient', 'serviceType'])
+            ->orderBy('scheduled_end', 'desc');
+
+        if ($excludeAssignmentId) {
+            $query->where('id', '!=', $excludeAssignmentId);
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * Get the next assignment for a staff member after a given time.
+     *
+     * @param int $staffId Staff member ID
+     * @param Carbon $afterTime Time to look after
+     * @param int|null $excludeAssignmentId Assignment to exclude
+     * @return ServiceAssignment|null
+     */
+    public function getNextAssignment(
+        int $staffId,
+        Carbon $afterTime,
+        ?int $excludeAssignmentId = null
+    ): ?ServiceAssignment {
+        $query = ServiceAssignment::where('assigned_user_id', $staffId)
+            ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
+            ->where('scheduled_start', '>=', $afterTime)
+            ->whereDate('scheduled_start', $afterTime->toDateString())
+            ->with(['patient', 'serviceType'])
+            ->orderBy('scheduled_start', 'asc');
+
+        if ($excludeAssignmentId) {
+            $query->where('id', '!=', $excludeAssignmentId);
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * Get buffer time in minutes for a service type.
+     *
+     * @param int|null $serviceTypeId Service type ID
+     * @return int Buffer minutes
+     */
+    public function getBufferMinutes(?int $serviceTypeId): int
+    {
+        if (!$serviceTypeId) {
+            return $this->defaultBufferMinutes;
+        }
+
+        $serviceType = ServiceType::find($serviceTypeId);
+        if (!$serviceType) {
+            return $this->defaultBufferMinutes;
+        }
+
+        $category = strtolower($serviceType->category ?? 'default');
+
+        return $this->serviceBuffers[$category] ?? $this->defaultBufferMinutes;
+    }
+
+    /**
+     * Calculate travel time between two patients.
+     *
+     * @param Patient $from Origin patient
+     * @param Patient $to Destination patient
+     * @param Carbon $departureTime When to depart
+     * @return int|null Travel minutes, or null if coordinates unavailable
+     */
+    public function getTravelTimeBetweenPatients(
+        Patient $from,
+        Patient $to,
+        Carbon $departureTime
+    ): ?int {
+        if (!$from->hasCoordinates() || !$to->hasCoordinates()) {
+            return null;
+        }
+
+        return $this->getTravelTimeService()->getTravelMinutes(
+            $from->lat,
+            $from->lng,
+            $to->lat,
+            $to->lng,
+            $departureTime
+        );
+    }
+
+    /**
+     * Get all assignments for a staff member on a given day, ordered by start time.
+     *
+     * @param int $staffId Staff member ID
+     * @param Carbon $date The date
+     * @param int|null $excludeAssignmentId Assignment to exclude
+     * @return Collection<ServiceAssignment>
+     */
+    public function getAssignmentsForDay(
+        int $staffId,
+        Carbon $date,
+        ?int $excludeAssignmentId = null
+    ): Collection {
+        $query = ServiceAssignment::where('assigned_user_id', $staffId)
+            ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
+            ->whereDate('scheduled_start', $date->toDateString())
+            ->with(['patient', 'serviceType'])
+            ->orderBy('scheduled_start', 'asc');
+
+        if ($excludeAssignmentId) {
+            $query->where('id', '!=', $excludeAssignmentId);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Find available time slots for a staff member on a given day.
+     *
+     * Returns gaps between assignments that could accommodate a new visit,
+     * considering travel time and buffers.
+     *
+     * @param User $staff Staff member
+     * @param Carbon $date The date to check
+     * @param Patient $patient Patient to visit
+     * @param int $durationMinutes Required duration
+     * @param int|null $serviceTypeId Service type (for buffer)
+     * @return array Array of ['start' => Carbon, 'end' => Carbon] available slots
+     */
+    public function findAvailableSlots(
+        User $staff,
+        Carbon $date,
+        Patient $patient,
+        int $durationMinutes,
+        ?int $serviceTypeId = null
+    ): array {
+        if (!$patient->hasCoordinates()) {
+            return [];
+        }
+
+        // Get availability window for this day
+        $availability = StaffAvailability::where('user_id', $staff->id)
+            ->where('day_of_week', $date->dayOfWeek)
+            ->where('effective_from', '<=', $date->toDateString())
+            ->where(function ($q) use ($date) {
+                $q->whereNull('effective_until')
+                  ->orWhere('effective_until', '>=', $date->toDateString());
+            })
+            ->first();
+
+        if (!$availability) {
+            return [];
+        }
+
+        $dayStart = $date->copy()->setTimeFromTimeString($availability->start_time);
+        $dayEnd = $date->copy()->setTimeFromTimeString($availability->end_time);
+
+        // Get existing assignments
+        $assignments = $this->getAssignmentsForDay($staff->id, $date);
+
+        $slots = [];
+        $currentTime = $dayStart->copy();
+        $buffer = $this->getBufferMinutes($serviceTypeId);
+
+        foreach ($assignments as $assignment) {
+            if (!$assignment->patient || !$assignment->patient->hasCoordinates()) {
+                continue;
+            }
+
+            // Calculate travel to this assignment's patient
+            $travelTo = $this->getTravelTimeService()->getTravelMinutes(
+                $patient->lat,
+                $patient->lng,
+                $assignment->patient->lat,
+                $assignment->patient->lng,
+                $currentTime
+            );
+
+            // Check if there's time for a visit before this assignment
+            $latestEnd = $assignment->scheduled_start->copy()
+                ->subMinutes($travelTo)
+                ->subMinutes($buffer);
+
+            if ($currentTime->copy()->addMinutes($durationMinutes)->lte($latestEnd)) {
+                $slots[] = [
+                    'start' => $currentTime->copy(),
+                    'end' => $latestEnd->copy(),
+                ];
+            }
+
+            // Move current time to after this assignment + buffer + travel from
+            $assignmentBuffer = $this->getBufferMinutes($assignment->service_type_id);
+            $travelFrom = $this->getTravelTimeService()->getTravelMinutes(
+                $assignment->patient->lat,
+                $assignment->patient->lng,
+                $patient->lat,
+                $patient->lng,
+                $assignment->scheduled_end
+            );
+            $currentTime = $assignment->scheduled_end->copy()
+                ->addMinutes($assignmentBuffer)
+                ->addMinutes($travelFrom);
+        }
+
+        // Check for time after last assignment
+        if ($currentTime->copy()->addMinutes($durationMinutes)->lte($dayEnd)) {
+            $slots[] = [
+                'start' => $currentTime->copy(),
+                'end' => $dayEnd->copy(),
+            ];
+        }
+
+        return $slots;
     }
 }

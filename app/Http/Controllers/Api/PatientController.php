@@ -8,6 +8,7 @@ use App\Models\Patient;
 use App\Models\PatientQueue;
 use App\Models\User;
 use App\Services\InterraiSummaryService;
+use App\Services\RegionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\App;
@@ -183,6 +184,12 @@ class PatientController extends Controller
             'ohip' => 'nullable|string|max:50',
             'hospital_id' => 'nullable|exists:hospitals,id',
             'add_to_queue' => 'nullable|boolean',
+            // Address fields for travel time calculations and region assignment
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:10',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
         ]);
 
         try {
@@ -223,7 +230,7 @@ class PatientController extends Controller
                 'role' => 'patient',
             ]);
 
-            // Create patient record
+            // Create patient record with address fields
             $patient = Patient::create([
                 'user_id' => $user->id,
                 'gender' => $request->gender,
@@ -232,7 +239,17 @@ class PatientController extends Controller
                 'hospital_id' => $hospitalId,
                 'status' => $request->add_to_queue ? 'Pending' : 'Active',
                 'is_in_queue' => $request->add_to_queue ?? false,
+                // Address fields for travel time and region assignment
+                'address' => $request->address,
+                'city' => $request->city,
+                'postal_code' => $request->postal_code,
+                'lat' => $request->lat,
+                'lng' => $request->lng,
             ]);
+
+            // Auto-assign region based on address (postal code FSA or coordinates)
+            $regionService = app(RegionService::class);
+            $regionAssigned = $regionService->assignRegion($patient);
 
             // Add to queue if requested
             if ($request->add_to_queue) {
@@ -251,6 +268,8 @@ class PatientController extends Controller
                     'name' => $user->name,
                     'status' => $patient->status,
                     'is_in_queue' => $patient->is_in_queue,
+                    'region_id' => $patient->region_id,
+                    'region_assigned' => $regionAssigned,
                 ],
             ], 201);
         } catch (\Exception $e) {

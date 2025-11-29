@@ -18,6 +18,14 @@ class Patient extends Model
         'date_of_birth',
         'status',
         'gender',
+        // Address fields for travel time calculations
+        'address',
+        'city',
+        'postal_code',
+        'lat',
+        'lng',
+        'region_id',
+        // Clinical fields
         'triage_summary',
         'maple_score',
         'rai_cha_score',
@@ -37,6 +45,10 @@ class Patient extends Model
         'is_in_queue' => 'boolean',
         'activated_at' => 'datetime',
         'interrai_status_updated_at' => 'datetime',
+        // Geographic coordinates for travel time
+        'lat' => 'decimal:7',
+        'lng' => 'decimal:7',
+        'region_id' => 'integer',
     ];
 
     // InterRAI status values
@@ -59,6 +71,37 @@ class Patient extends Model
     public function retirementHome()
     {
         return $this->belongsTo(RetirementHome::class);
+    }
+
+    /**
+     * Get the region this patient belongs to.
+     * Region is auto-assigned via RegionService based on postal code FSA.
+     */
+    public function region()
+    {
+        return $this->belongsTo(Region::class);
+    }
+
+    /**
+     * Check if patient has coordinates for travel time calculations.
+     */
+    public function hasCoordinates(): bool
+    {
+        return $this->lat !== null && $this->lng !== null;
+    }
+
+    /**
+     * Get formatted full address.
+     */
+    public function getFullAddressAttribute(): ?string
+    {
+        $parts = array_filter([
+            $this->address,
+            $this->city,
+            $this->postal_code,
+        ]);
+
+        return !empty($parts) ? implode(', ', $parts) : null;
     }
 
     public function triageResult()

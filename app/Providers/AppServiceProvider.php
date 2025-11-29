@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\Travel\FakeTravelTimeService;
+use App\Services\Travel\GoogleDistanceMatrixTravelTimeService;
+use App\Services\Travel\TravelTimeService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 
@@ -12,7 +15,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Bind TravelTimeService interface to appropriate implementation
+        // Production/staging: Google Distance Matrix API (traffic-aware)
+        // Local/testing: Fake implementation (deterministic, no API calls)
+        $this->app->bind(TravelTimeService::class, function ($app) {
+            if ($app->environment('production', 'staging')) {
+                return new GoogleDistanceMatrixTravelTimeService();
+            }
+            return new FakeTravelTimeService();
+        });
     }
 
     /**

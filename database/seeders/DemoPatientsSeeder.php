@@ -6,6 +6,7 @@ use App\Models\Hospital;
 use App\Models\Patient;
 use App\Models\PatientQueue;
 use App\Models\User;
+use App\Services\RegionService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -36,8 +37,46 @@ use Illuminate\Support\Facades\Hash;
  */
 class DemoPatientsSeeder extends Seeder
 {
+    /**
+     * Realistic Toronto/GTA addresses for demo patients.
+     *
+     * These are real public locations (hospitals, community centres, libraries)
+     * to provide realistic travel time calculations for scheduling demo.
+     *
+     * Format: [address, city, postal_code, lat, lng]
+     */
+    protected static array $torontoAddresses = [
+        // Toronto Central - Healthcare District
+        ['555 University Ave', 'Toronto', 'M5G 1X8', 43.6564, -79.3887],      // Princess Margaret Cancer Centre
+        ['200 Elizabeth St', 'Toronto', 'M5G 2C4', 43.6591, -79.3881],        // Toronto General Hospital
+        ['30 Bond St', 'Toronto', 'M5B 1W8', 43.6565, -79.3775],              // St. Michael's Hospital
+        ['76 Grenville St', 'Toronto', 'M5S 1B2', 43.6639, -79.3854],         // Mount Sinai Hospital
+        ['600 University Ave', 'Toronto', 'M5G 1X5', 43.6582, -79.3896],      // SickKids Hospital
+
+        // Central East - Beaches / Leslieville
+        ['2075 Bayview Ave', 'Toronto', 'M4N 3M5', 43.7123, -79.3774],        // Sunnybrook Hospital
+        ['1 Danforth Ave', 'Toronto', 'M4K 1N2', 43.6767, -79.3496],          // Danforth area
+        ['95 Queen St E', 'Toronto', 'M4C 1E2', 43.6723, -79.3356],           // The Beaches
+
+        // North - North York
+        ['4001 Leslie St', 'Toronto', 'M2K 1E1', 43.7557, -79.3651],          // North York General
+        ['1050 Sheppard Ave W', 'Toronto', 'M3H 2T4', 43.7487, -79.4491],     // Baycrest
+
+        // Central West - Etobicoke
+        ['2111 Finch Ave W', 'Toronto', 'M9M 2W2', 43.7577, -79.5313],        // Humber River Hospital
+        ['175 Galaxy Blvd', 'Toronto', 'M9W 0C9', 43.7089, -79.5741],         // Etobicoke area
+        ['5 Fairview Mall Dr', 'Toronto', 'M2J 2Z1', 43.7778, -79.3472],      // Fairview Mall area
+
+        // East - Scarborough
+        ['3030 Birchmount Rd', 'Toronto', 'M1W 3W3', 43.8128, -79.3191],      // Scarborough Health Network
+        ['3050 Lawrence Ave E', 'Toronto', 'M1P 2V5', 43.7524, -79.2657],     // Scarborough area
+    ];
+
+    protected RegionService $regionService;
+
     public function run(): void
     {
+        $this->regionService = app(RegionService::class);
         $this->command->info('Creating 15 demo patients...');
 
         $hospital = Hospital::first();
@@ -132,7 +171,7 @@ class DemoPatientsSeeder extends Seeder
 
         foreach ($patients as $index => $data) {
             $isReady = $data['ready'];
-            $patient = $this->createPatient($hospital, $data, 'Pending', true, !$isReady);
+            $patient = $this->createPatient($hospital, $data, 'Pending', true, !$isReady, $index);
 
             if ($isReady) {
                 // READY patient: has InterRAI HC Assessment + RUGClassification
@@ -271,7 +310,8 @@ class DemoPatientsSeeder extends Seeder
         ];
 
         foreach ($patients as $index => $data) {
-            $patient = $this->createPatient($hospital, $data, 'Active', false);
+            // Start address index at 5 to give active patients different addresses than queue patients
+            $patient = $this->createPatient($hospital, $data, 'Active', false, false, $index + 5);
 
             // Create transitioned queue entry
             PatientQueue::create([
@@ -290,7 +330,7 @@ class DemoPatientsSeeder extends Seeder
         }
     }
 
-    protected function createPatient(Hospital $hospital, array $data, string $status, bool $isInQueue, bool $assessmentPending = false): Patient
+    protected function createPatient(Hospital $hospital, array $data, string $status, bool $isInQueue, bool $assessmentPending = false, int $addressIndex = 0): Patient
     {
         $user = User::create([
             'name' => $data['name'],
@@ -299,7 +339,10 @@ class DemoPatientsSeeder extends Seeder
             'role' => 'patient',
         ]);
 
-        return Patient::create([
+        // Get address from static array (cycling through if needed)
+        $address = self::$torontoAddresses[$addressIndex % count(self::$torontoAddresses)];
+
+        $patient = Patient::create([
             'user_id' => $user->id,
             'hospital_id' => $hospital->id,
             'date_of_birth' => $data['dob'],
@@ -307,10 +350,21 @@ class DemoPatientsSeeder extends Seeder
             'ohip' => $data['ohip'],
             'status' => $status,
             'is_in_queue' => $isInQueue,
+            // Address fields for travel time calculations
+            'address' => $address[0],
+            'city' => $address[1],
+            'postal_code' => $address[2],
+            'lat' => $address[3],
+            'lng' => $address[4],
             // interrai_status reflects whether assessment is completed or pending
             'interrai_status' => $assessmentPending ? 'pending' : 'completed',
             'activated_at' => $status === 'Active' ? now()->subDays(rand(7, 30)) : null,
         ]);
+
+        // Auto-assign region based on postal code FSA
+        $this->regionService->assignRegion($patient);
+
+        return $patient;
     }
 
     /**

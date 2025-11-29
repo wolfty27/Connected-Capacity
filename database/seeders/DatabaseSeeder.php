@@ -54,32 +54,39 @@ class DatabaseSeeder extends Seeder
             RUGBundleTemplatesSeeder::class,
 
             // ============================================
+            // GEOGRAPHIC: Regions and FSA Mappings
+            // ============================================
+
+            // 7. Toronto/GTA regions with FSA prefix mappings for travel time calculations
+            RegionSeeder::class,
+
+            // ============================================
             // DEMO DATA: Patients, Assessments, Plans
             // ============================================
 
-            // 7. Demo patients (5 queue + 10 active = 15 total)
+            // 8. Demo patients (5 queue + 10 active = 15 total) with Toronto addresses
             DemoPatientsSeeder::class,
 
-            // 8. InterRAI assessments + RUG classifications
+            // 9. InterRAI assessments + RUG classifications
             DemoAssessmentsSeeder::class,
 
-            // 9. Care plans for 10 active patients
+            // 10. Care plans for 10 active patients
             DemoBundlesSeeder::class,
 
-            // 10. Patient notes and narrative summaries
+            // 11. Patient notes and narrative summaries
             PatientNotesSeeder::class,
 
             // ============================================
             // WORKFORCE: Staff Roles, Employment Types, FTE Demo
             // ============================================
 
-            // 11. Service role mappings (which roles can deliver which services)
+            // 12. Service role mappings (which roles can deliver which services)
             ServiceRoleMappingsSeeder::class,
 
-            // 12. RUG-based service recommendations (clinically indicated services)
+            // 13. RUG-based service recommendations (clinically indicated services)
             RugServiceRecommendationsSeeder::class,
 
-            // 13. Workforce metadata and demo staff for FTE compliance
+            // 14. Workforce metadata and demo staff for FTE compliance
             // Seeds: staff_roles, employment_types, additional staff, SSPO org,
             // past 3 weeks + current week of assignments
             WorkforceSeeder::class,
@@ -88,7 +95,7 @@ class DatabaseSeeder extends Seeder
             // VISIT VERIFICATION: Jeopardy & Missed Care
             // ============================================
 
-            // 14. Visit verification data for Jeopardy Board and Missed Care Rate
+            // 15. Visit verification data for Jeopardy Board and Missed Care Rate
             // Creates realistic verification statuses for past 4 weeks of visits
             VisitVerificationSeeder::class,
         ]);

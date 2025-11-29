@@ -13,6 +13,8 @@ use App\Models\ServiceType;
 use App\Models\StaffAvailability;
 use App\Models\StaffRole;
 use App\Models\User;
+use App\Services\Scheduling\SchedulingEngine;
+use App\Services\Travel\FakeTravelTimeService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -300,9 +302,12 @@ class WorkforceSeeder extends Seeder
     }
 
     /**
-     * Staff schedule tracker for non-overlapping assignments.
+     * Staff schedule tracker for non-overlapping, travel-aware assignments.
      *
-     * Structure: [staff_id => [date_string => Carbon (next available start time)]]
+     * Structure: [staff_id => [date_string => [
+     *   'next_available' => Carbon (next available start time),
+     *   'last_patient' => Patient|null (for travel calculation),
+     * ]]]
      */
     protected array $staffSchedules = [];
 
@@ -327,15 +332,21 @@ class WorkforceSeeder extends Seeder
     /**
      * Buffer time between assignments in minutes.
      */
-    protected int $bufferMinutes = 10;
+    protected int $bufferMinutes = 5;
+
+    /**
+     * Travel time service for calculating travel between patients.
+     */
+    protected ?FakeTravelTimeService $travelTimeService = null;
 
     /**
      * Seed service assignments for past 3 weeks (completed) + current week (scheduled).
      *
-     * NEW: Generates non-overlapping assignments by:
+     * NEW: Generates non-overlapping, travel-aware assignments by:
      * 1. Tracking each staff member's schedule per day
      * 2. Filling their availability windows sequentially
-     * 3. Respecting service durations and buffer times
+     * 3. Respecting service durations, buffer times, and travel time between patients
+     * 4. Using FakeTravelTimeService for deterministic travel calculations
      */
     protected function seedServiceAssignments(
         ServiceProviderOrganization $spo,
@@ -343,6 +354,9 @@ class WorkforceSeeder extends Seeder
     ): void {
         // Reset staff schedules tracker
         $this->staffSchedules = [];
+
+        // Initialize travel time service for seeding (uses fake/deterministic values)
+        $this->travelTimeService = new FakeTravelTimeService();
 
         // Get active patients with care plans (using new bundle template system)
         $patients = Patient::where('status', 'Active')
@@ -405,11 +419,15 @@ class WorkforceSeeder extends Seeder
             $useSSPO = rand(1, 100) <= 20 && !empty($availableStaff['sspo']);
             $staffPool = $useSSPO ? $availableStaff['sspo'] : $availableStaff['internal'];
 
-            // Find a staff member with an available slot
+            // Get the patient for travel calculation
+            $patient = Patient::find($visit['patient_id']);
+
+            // Find a staff member with an available slot (considering travel time)
             $assignment = $this->findAvailableSlot(
                 $staffPool,
                 $visitDate,
-                $durationMinutes
+                $durationMinutes,
+                $patient
             );
 
             if (!$assignment) {
@@ -521,21 +539,25 @@ class WorkforceSeeder extends Seeder
     /**
      * Find an available slot for a staff member on a given day.
      *
+     * Considers travel time from the staff's previous patient location.
+     *
      * @param array $staffPool Array of staff members who can provide the service
      * @param Carbon $visitDate The date for the visit
      * @param int $durationMinutes Required duration
+     * @param Patient|null $patient The patient to visit (for travel calculation)
      * @return array|null ['staff' => User, 'start' => Carbon, 'end' => Carbon] or null
      */
     protected function findAvailableSlot(
         array $staffPool,
         Carbon $visitDate,
-        int $durationMinutes
+        int $durationMinutes,
+        ?Patient $patient = null
     ): ?array {
         // Shuffle staff to distribute load
         shuffle($staffPool);
 
         foreach ($staffPool as $staff) {
-            $slot = $this->getNextSlotForStaff($staff, $visitDate, $durationMinutes);
+            $slot = $this->getNextSlotForStaff($staff, $visitDate, $durationMinutes, $patient);
             if ($slot) {
                 return [
                     'staff' => $staff,
@@ -551,15 +573,19 @@ class WorkforceSeeder extends Seeder
     /**
      * Get the next available slot for a staff member on a specific day.
      *
+     * NEW: Considers travel time from previous patient location.
+     *
      * @param User $staff
      * @param Carbon $visitDate
      * @param int $durationMinutes
+     * @param Patient|null $patient The patient to visit (for travel calculation)
      * @return array|null ['start' => Carbon, 'end' => Carbon] or null
      */
     protected function getNextSlotForStaff(
         User $staff,
         Carbon $visitDate,
-        int $durationMinutes
+        int $durationMinutes,
+        ?Patient $patient = null
     ): ?array {
         $dateKey = $visitDate->toDateString();
         $staffKey = $staff->id;
@@ -595,15 +621,32 @@ class WorkforceSeeder extends Seeder
             );
         }
 
-        // Get or initialize the staff's next available time for this day
+        // Get or initialize the staff's schedule for this day
         if (!isset($this->staffSchedules[$staffKey][$dateKey])) {
-            $this->staffSchedules[$staffKey][$dateKey] = $dayStart->copy();
+            $this->staffSchedules[$staffKey][$dateKey] = [
+                'next_available' => $dayStart->copy(),
+                'last_patient' => null,
+            ];
         }
 
-        $nextAvailable = $this->staffSchedules[$staffKey][$dateKey];
+        $schedule = $this->staffSchedules[$staffKey][$dateKey];
+        $nextAvailable = $schedule['next_available']->copy();
+        $lastPatient = $schedule['last_patient'];
 
-        // Calculate potential slot
-        $slotStart = $nextAvailable->copy();
+        // Calculate travel time from previous patient (if any)
+        $travelMinutes = 0;
+        if ($lastPatient && $patient && $lastPatient->hasCoordinates() && $patient->hasCoordinates()) {
+            $travelMinutes = $this->travelTimeService->getTravelMinutes(
+                $lastPatient->lat,
+                $lastPatient->lng,
+                $patient->lat,
+                $patient->lng,
+                $nextAvailable
+            );
+        }
+
+        // Add travel time to next available
+        $slotStart = $nextAvailable->copy()->addMinutes($travelMinutes);
         $slotEnd = $slotStart->copy()->addMinutes($durationMinutes);
 
         // Check if slot fits within day's availability
@@ -612,7 +655,10 @@ class WorkforceSeeder extends Seeder
         }
 
         // Reserve the slot (update next available time with buffer)
-        $this->staffSchedules[$staffKey][$dateKey] = $slotEnd->copy()->addMinutes($this->bufferMinutes);
+        $this->staffSchedules[$staffKey][$dateKey] = [
+            'next_available' => $slotEnd->copy()->addMinutes($this->bufferMinutes),
+            'last_patient' => $patient,
+        ];
 
         return [
             'start' => $slotStart,
