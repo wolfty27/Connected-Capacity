@@ -1,0 +1,889 @@
+[
+  {
+    "id": "scheduling.travel_time_google",
+    "area": "Scheduling",
+    "title": "Travel-aware scheduling using Google Distance Matrix",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "TravelTimeService implemented with Google Distance Matrix API.",
+      "SchedulingEngine uses canAssignWithTravel (prev + next travel + buffer).",
+      "Seeding uses FakeTravelTimeService and generates travel-feasible schedules.",
+      "Tests written for travel constraints."
+    ]
+  },
+  {
+    "id": "scheduling.patient_non_concurrency",
+    "area": "Scheduling",
+    "title": "Prevent patients from having overlapping visits",
+    "status": "done",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "PatientSchedulingRules::patientHasOverlap implemented.",
+      "SchedulingEngine rejects visits when another visit exists for the same patient.",
+      "Seeding prevents generating overlapping patient visits.",
+      "Patient timeline never shows two visits at the same time."
+    ]
+  },
+  {
+    "id": "scheduling.psw_spacing",
+    "area": "Scheduling",
+    "title": "Space PSW visits across the day instead of bunching",
+    "status": "done",
+    "depends_on": ["scheduling.patient_non_concurrency"],
+    "acceptance_criteria": [
+      "ServiceType.min_gap_between_visits_minutes field exists.",
+      "PSW visits spaced across morning/midday/afternoon.",
+      "Seeding distributes PSW visits using spacing rules.",
+      "Tests validate spacing."
+    ]
+  },
+  {
+    "id": "rpm.fixed_two_visits",
+    "area": "ServiceLogic",
+    "title": "RPM has exactly 2 scheduled visits per care plan (Setup & Discharge)",
+    "status": "done",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "ServiceType.scheduling_mode = 'fixed_visits' for RPM.",
+      "fixed_visits_per_plan = 2.",
+      "Two RPM visits appear in Care Plan: Setup & Discharge.",
+      "Unscheduled Care shows RPM until both are scheduled.",
+      "No ongoing daily/weekly RPM visits."
+    ]
+  },
+  {
+    "id": "regions.metadata_and_auto_assignment",
+    "area": "Regions",
+    "title": "Region & RegionArea metadata with automatic assignment",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "Region and RegionArea tables created.",
+      "RegionArea seeded with Toronto/GTA FSAs (M4X, M5B, M5G, etc).",
+      "Patients auto-assigned region via RegionService using metadata lookup.",
+      "NO hardcoded region names."
+    ]
+  },
+  {
+    "id": "seeding.realistic_toronto_addresses",
+    "area": "Seeding",
+    "title": "Seed realistic Toronto/GTA addresses with lat/lng for patients",
+    "status": "not_started",
+    "depends_on": ["regions.metadata_and_auto_assignment"],
+    "acceptance_criteria": [
+      "Patients seeded with real Toronto/GTA demo addresses.",
+      "lat/lng included and region auto-assigned.",
+      "Multiple regions available (Toronto Central, Central East, etc)."
+    ]
+  },
+  {
+    "id": "scheduling.patient_timeline_correctness",
+    "area": "UI",
+    "title": "Patient-centric timeline is clean, sorted by time, no overlaps, no clutter",
+    "status": "done",
+    "depends_on": ["scheduling.patient_non_concurrency"],
+    "acceptance_criteria": [
+      "Timeline shows a single vertical list of visits ordered by start time.",
+      "No staff rows or multi-row clutter.",
+      "Spacing and sequencing reflect real-world workflow."
+    ]
+  },
+  {
+    "id": "bundles.unscheduled_care_correctness",
+    "area": "Bundles",
+    "title": "Correct Unscheduled Care logic based on required vs scheduled units",
+    "status": "done",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "CareBundleAssignmentPlanner computes required/scheduled/remaining units for all service types.",
+      "Unscheduled Care panel shows patients with remaining units > 0.",
+      "RPM handled per fixed_visit logic."
+    ]
+  },
+  {
+    "id": "bundles.rug_classification_algorithm",
+    "area": "Bundles",
+    "title": "CIHI RUG-III/HC classification algorithm implementation",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "RUGClassificationService implements full CIHI algorithm.",
+      "CPS, ADL sum, IADL index, therapy minutes computed correctly.",
+      "7-category hierarchy applied (Rehab → Extensive → Special Care → Clinically Complex → Impaired Cognition → Behaviour → Physical).",
+      "All 23 RUG groups assignable (RB0, RA2, RA1, SE3, SE2, SE1, SSB, SSA, CC0, CB0, CA2, CA1, IB0, IA2, IA1, BB0, BA2, BA1, PD0, PC0, PB0, PA2, PA1).",
+      "Unit tests validate against CIHI sample data."
+    ]
+  },
+  {
+    "id": "bundles.template_matching",
+    "area": "Bundles",
+    "title": "Bundle template selection based on RUG classification",
+    "status": "not_started",
+    "depends_on": ["bundles.rug_classification_algorithm"],
+    "acceptance_criteria": [
+      "CareBundleTemplateRepository.findForRug matches templates to RUG group.",
+      "ADL/IADL range filtering works.",
+      "Required/excluded flags evaluated.",
+      "23 RUG-specific templates seeded via RUGBundleTemplatesSeeder.",
+      "Template matching returns correct template for each RUG group."
+    ]
+  },
+  {
+    "id": "bundles.cost_cap_enforcement",
+    "area": "Bundles",
+    "title": "Bundle cost calculation and $5,000/week cap enforcement",
+    "status": "not_started",
+    "depends_on": ["bundles.template_matching"],
+    "acceptance_criteria": [
+      "CostEngine calculates weekly_cost_cents from service frequencies.",
+      "Bundle is_within_cap flag set correctly.",
+      "budget_status computed (OK, WARNING, OVER_CAP).",
+      "UI displays budget warnings when approaching cap.",
+      "Tests validate cost calculations match frontend logic."
+    ]
+  },
+  {
+    "id": "bundles.configuration_rules_engine",
+    "area": "Bundles",
+    "title": "Declarative bundle configuration rules engine",
+    "status": "not_started",
+    "depends_on": ["bundles.template_matching"],
+    "acceptance_criteria": [
+      "BundleConfigurationRule model stores declarative rules.",
+      "BundleConfigurationRuleEngine applies rules in sort_order.",
+      "Rules can ADD_SERVICE, REMOVE_SERVICE, ADJUST_FREQUENCY.",
+      "Rules triggered by RUG group, category, flags, ADL/IADL ranges.",
+      "Tests validate rule application scenarios."
+    ]
+  },
+  {
+    "id": "bundles.care_plan_workflow",
+    "area": "Bundles",
+    "title": "Care plan creation, versioning, and publishing workflow",
+    "status": "not_started",
+    "depends_on": ["bundles.cost_cap_enforcement"],
+    "acceptance_criteria": [
+      "CarePlanService creates draft plans from bundles.",
+      "Plan versioning tracks superseded plans.",
+      "publishPlan validates constraints before publishing.",
+      "CarePlanEvent audit trail logs all plan changes.",
+      "Published plans trigger scheduling events."
+    ]
+  },
+  {
+    "id": "intake.patient_queue_workflow",
+    "area": "Intake",
+    "title": "7-stage patient queue workflow management",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "PatientQueue model tracks queue status (pending_intake → triage → assessment → bundle_building → transitioned).",
+      "QueueTransition logs all status changes with metadata.",
+      "PatientQueueController exposes queue endpoints.",
+      "UI shows queue stages with SLA timers.",
+      "Tests validate queue transition rules."
+    ]
+  },
+  {
+    "id": "intake.referral_capture",
+    "area": "Intake",
+    "title": "Referral capture and triage workflow",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "Referral model captures referral source, priority, notes.",
+      "ReferralService handles CRUD with org filtering.",
+      "TriageService records triage results and risk flags.",
+      "CreateReferral UI allows manual referral entry.",
+      "Tests validate referral creation and triage."
+    ]
+  },
+  {
+    "id": "intake.hpg_import",
+    "area": "Intake",
+    "title": "HPG payload extraction and patient import",
+    "status": "not_started",
+    "depends_on": ["intake.referral_capture"],
+    "acceptance_criteria": [
+      "InterraiService.extractFromHpg parses HPG payloads.",
+      "InterRAI data extracted and stored in assessments.",
+      "Patient demographics populated from HPG.",
+      "HpgResponseService tracks response times.",
+      "Tests validate HPG parsing scenarios."
+    ]
+  },
+  {
+    "id": "intake.sla_tracking",
+    "area": "Intake",
+    "title": "Intake SLA compliance tracking and alerts",
+    "status": "not_started",
+    "depends_on": ["intake.patient_queue_workflow"],
+    "acceptance_criteria": [
+      "ReferralTimer component shows SLA countdown.",
+      "SlaComplianceController returns intake metrics.",
+      "Alerts generated for approaching/breached SLAs.",
+      "Dashboard displays intake compliance %.",
+      "Tests validate SLA calculation logic."
+    ]
+  },
+  {
+    "id": "interrai.assessment_form",
+    "area": "InterRAI",
+    "title": "Full InterRAI HC assessment form UI",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "InterraiAssessmentForm renders 100+ iCODE fields.",
+      "FullInterraiAssessment component organizes sections.",
+      "Form validation enforces required fields.",
+      "Progress saving via PATCH /assessments/{id}/progress.",
+      "UI matches interRAI HC specification."
+    ]
+  },
+  {
+    "id": "interrai.score_calculation",
+    "area": "InterRAI",
+    "title": "InterRAI score calculation (CPS, ADL, IADL, MAPLe, CHESS)",
+    "status": "not_started",
+    "depends_on": ["interrai.assessment_form"],
+    "acceptance_criteria": [
+      "InterraiScoreCalculator computes all standard scales.",
+      "CPS (Cognitive Performance Scale) 0-6 calculated.",
+      "ADL sum (4-18) computed from mobility/transfer/toilet/eating.",
+      "IADL index computed per 2025 CIHI revision.",
+      "MAPLe, CHESS, DRS scales available.",
+      "Tests validate calculations against known inputs."
+    ]
+  },
+  {
+    "id": "interrai.reassessment_triggers",
+    "area": "InterRAI",
+    "title": "Reassessment trigger detection and workflow",
+    "status": "not_started",
+    "depends_on": ["interrai.score_calculation"],
+    "acceptance_criteria": [
+      "ReassessmentTrigger model tracks trigger reasons.",
+      "Staleness detection (>3 months since last assessment).",
+      "Clinical change triggers (significant score changes).",
+      "POST /patients/{id}/request-reassessment creates triggers.",
+      "Admin dashboard shows pending reassessments."
+    ]
+  },
+  {
+    "id": "interrai.iar_upload",
+    "area": "InterRAI",
+    "title": "IAR (Integrated Assessment Record) upload with retry",
+    "status": "not_started",
+    "depends_on": ["interrai.assessment_form"],
+    "acceptance_criteria": [
+      "InterraiService tracks IAR upload status.",
+      "Retry logic for failed uploads.",
+      "Admin bulk retry via POST /admin/interrai/bulk-retry-iar.",
+      "Upload confirmation tracking.",
+      "Tests validate upload workflow."
+    ]
+  },
+  {
+    "id": "interrai.admin_dashboard",
+    "area": "InterRAI",
+    "title": "InterRAI admin dashboard for assessment compliance",
+    "status": "not_started",
+    "depends_on": ["interrai.reassessment_triggers"],
+    "acceptance_criteria": [
+      "InterraiDashboardController returns dashboard stats.",
+      "Stale assessments list available.",
+      "Missing assessments detection.",
+      "InterraiDashboardPage UI displays metrics.",
+      "Filters by status, region, staleness."
+    ]
+  },
+  {
+    "id": "interrai.clinical_flags",
+    "area": "InterRAI",
+    "title": "Clinical flag generation from assessment data",
+    "status": "not_started",
+    "depends_on": ["interrai.score_calculation"],
+    "acceptance_criteria": [
+      "InterraiSummaryService generates 8 clinical flags.",
+      "Flags: high_fall_risk, cognitive_impairment, clinical_instability, wandering, ADL_needs, MAPLe_priority, caregiver_burden, ED_risk.",
+      "Flags stored in RUGClassification.flags JSON.",
+      "UI displays flags on patient summary.",
+      "Tests validate flag generation logic."
+    ]
+  },
+  {
+    "id": "billing.rate_card_management",
+    "area": "Billing",
+    "title": "Service rate card management and history",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "ServiceRate model with tiered rates (system → org → service).",
+      "ServiceRateController exposes CRUD endpoints.",
+      "Rate history tracked via effective_from/to dates.",
+      "ServiceRatesPage UI for admin rate management.",
+      "Bulk import via POST /admin/service-rates/bulk."
+    ]
+  },
+  {
+    "id": "billing.shadow_billing",
+    "area": "Billing",
+    "title": "Shadow billing engine for OHaH invoicing",
+    "status": "not_started",
+    "depends_on": ["billing.rate_card_management"],
+    "acceptance_criteria": [
+      "BillingService.generateMonthlyInvoice creates shadow invoice.",
+      "ShadowBillingController exposes POST /finance/shadow-billing.",
+      "Invoice includes all verified visits for period.",
+      "Rate snapshots from assignment creation used.",
+      "ShadowBillingPage UI displays generated invoices."
+    ]
+  },
+  {
+    "id": "billing.margin_tracking",
+    "area": "Billing",
+    "title": "Cost vs billing margin tracking and reporting",
+    "status": "not_started",
+    "depends_on": ["billing.rate_card_management"],
+    "acceptance_criteria": [
+      "StaffWageRate model tracks wage costs.",
+      "BillingEngine calculates billing - cost margins.",
+      "OrganizationCostProfile stores cost matrices.",
+      "Dashboard displays margin metrics.",
+      "Tests validate margin calculations."
+    ]
+  },
+  {
+    "id": "workforce.staff_crud",
+    "area": "Workforce",
+    "title": "Staff management CRUD operations",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "StaffController exposes full CRUD endpoints.",
+      "Staff linked to StaffRole and EmploymentType.",
+      "SpoStaffPage UI for staff management.",
+      "Soft delete preserves audit trail.",
+      "Tests validate staff operations."
+    ]
+  },
+  {
+    "id": "workforce.skill_catalog",
+    "area": "Workforce",
+    "title": "Staff skill catalog and assignment",
+    "status": "not_started",
+    "depends_on": ["workforce.staff_crud"],
+    "acceptance_criteria": [
+      "Skill model with catalog of clinical skills.",
+      "SkillCatalogSeeder populates initial skills.",
+      "GET /staff/skills/catalog returns skill list.",
+      "POST /staff/{id}/skills assigns skills to staff.",
+      "UI allows skill management per staff member."
+    ]
+  },
+  {
+    "id": "workforce.availability_patterns",
+    "area": "Workforce",
+    "title": "Staff availability patterns and time-off management",
+    "status": "not_started",
+    "depends_on": ["workforce.staff_crud"],
+    "acceptance_criteria": [
+      "StaffAvailability model stores recurring patterns.",
+      "StaffUnavailability model stores time-off blocks.",
+      "PUT /staff/{id}/availability updates patterns.",
+      "POST /staff/{id}/time-off creates unavailability.",
+      "SchedulingEngine respects availability constraints."
+    ]
+  },
+  {
+    "id": "workforce.fte_compliance",
+    "area": "Workforce",
+    "title": "FTE compliance tracking and reporting",
+    "status": "not_started",
+    "depends_on": ["workforce.staff_crud"],
+    "acceptance_criteria": [
+      "FteComplianceService calculates FTE from assignments.",
+      "GET /staff/analytics/fte-compliance returns metrics.",
+      "FTE trend over time available.",
+      "Capacity warnings at 80% threshold.",
+      "WorkforceManagementPage displays FTE dashboard."
+    ]
+  },
+  {
+    "id": "workforce.utilization_analytics",
+    "area": "Workforce",
+    "title": "Staff utilization analytics and reporting",
+    "status": "not_started",
+    "depends_on": ["workforce.fte_compliance"],
+    "acceptance_criteria": [
+      "GET /staff/analytics/utilization returns utilization %.",
+      "Breakdown by staff member, role, employment type.",
+      "Historical trend analysis.",
+      "UI displays utilization charts.",
+      "Tests validate utilization calculations."
+    ]
+  },
+  {
+    "id": "workforce.employment_types",
+    "area": "Workforce",
+    "title": "Employment type configuration and HHR complement",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "EmploymentType model with types (FT, PT, Casual, Contract).",
+      "EmploymentTypesSeeder populates types.",
+      "GET /workforce/hhr-complement returns staff by type.",
+      "StaffRolesSeeder populates role definitions.",
+      "UI shows HHR complement breakdown."
+    ]
+  },
+  {
+    "id": "workforce.service_role_mapping",
+    "area": "Workforce",
+    "title": "Service type to staff role eligibility mapping",
+    "status": "not_started",
+    "depends_on": ["workforce.staff_crud"],
+    "acceptance_criteria": [
+      "ServiceRoleMapping model links services to roles.",
+      "ServiceRoleMappingsSeeder populates mappings.",
+      "SchedulingEngine uses mappings for eligibility.",
+      "Primary vs secondary role distinction.",
+      "Tests validate role eligibility logic."
+    ]
+  },
+  {
+    "id": "missedcare.visit_verification",
+    "area": "MissedCare",
+    "title": "Visit verification workflow",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "ServiceAssignment.verification_status tracks state (PENDING, VERIFIED, MISSED).",
+      "VisitVerificationService handles verification logic.",
+      "Multiple verification methods (staff, SSPO, device, coordinator).",
+      "Grace period enforcement (default 24h).",
+      "Overdue detection for unverified visits."
+    ]
+  },
+  {
+    "id": "missedcare.jeopardy_board",
+    "area": "MissedCare",
+    "title": "Jeopardy board alerts and resolution",
+    "status": "not_started",
+    "depends_on": ["missedcare.visit_verification"],
+    "acceptance_criteria": [
+      "JeopardyBoardService generates alerts (CRITICAL, WARNING, OK).",
+      "JeopardyBoardController exposes alert endpoints.",
+      "POST /jeopardy/alerts/{id}/resolve marks resolved.",
+      "POST /jeopardy/alerts/{id}/mark-missed flags as missed.",
+      "Bulk resolution support."
+    ]
+  },
+  {
+    "id": "missedcare.metrics_reporting",
+    "area": "MissedCare",
+    "title": "Missed care metrics and 0% target tracking",
+    "status": "not_started",
+    "depends_on": ["missedcare.jeopardy_board"],
+    "acceptance_criteria": [
+      "MissedCareService calculates missed care %.",
+      "OHaH target: 0% missed care.",
+      "4-week rolling window for metrics.",
+      "Dashboard displays missed care trend.",
+      "MissedCareModal shows detailed breakdown."
+    ]
+  },
+  {
+    "id": "sspo.capability_matching",
+    "area": "SSPO",
+    "title": "SSPO capability-based matching algorithm",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "SspoServiceCapability model stores capabilities.",
+      "SspoMarketplaceService.matchAssignment finds best SSPO.",
+      "Matching considers: service type, skills, hours, location, quality.",
+      "POST /sspo-capabilities/find-matches returns ranked matches.",
+      "Tests validate matching algorithm."
+    ]
+  },
+  {
+    "id": "sspo.assignment_acceptance",
+    "area": "SSPO",
+    "title": "SSPO assignment acceptance/decline workflow",
+    "status": "not_started",
+    "depends_on": ["sspo.capability_matching"],
+    "acceptance_criteria": [
+      "GET /assignments/pending-sspo lists pending assignments.",
+      "POST /assignments/{id}/accept accepts assignment.",
+      "POST /assignments/{id}/decline with reason declines.",
+      "SspoAssignmentsPage UI for SSPO coordinators.",
+      "Assignment status tracking."
+    ]
+  },
+  {
+    "id": "sspo.performance_metrics",
+    "area": "SSPO",
+    "title": "SSPO performance tracking and rankings",
+    "status": "not_started",
+    "depends_on": ["sspo.assignment_acceptance"],
+    "acceptance_criteria": [
+      "SspoPerformanceService calculates metrics.",
+      "Metrics: acceptance rate, response time, quality rating.",
+      "GET /sspo/rankings returns ranked SSPOs.",
+      "GET /sspo/{id}/performance returns detailed metrics.",
+      "Trend analysis over time."
+    ]
+  },
+  {
+    "id": "sspo.geographic_coverage",
+    "area": "SSPO",
+    "title": "SSPO geographic coverage by FSA",
+    "status": "not_started",
+    "depends_on": ["sspo.capability_matching"],
+    "acceptance_criteria": [
+      "SspoServiceCapability includes FSA coverage list.",
+      "GET /sspo-capabilities/coverage returns coverage map.",
+      "Matching filters by patient FSA.",
+      "SspoCapabilityPage UI shows coverage.",
+      "Tests validate geographic filtering."
+    ]
+  },
+  {
+    "id": "sspo.decline_reasons",
+    "area": "SSPO",
+    "title": "SSPO decline reason tracking and analysis",
+    "status": "not_started",
+    "depends_on": ["sspo.assignment_acceptance"],
+    "acceptance_criteria": [
+      "Decline reasons stored with assignment.",
+      "GET /sspo/{id}/decline-reasons returns breakdown.",
+      "Common reasons: capacity, skills, geography, timing.",
+      "Analytics for improving SSPO matching.",
+      "UI displays decline reason trends."
+    ]
+  },
+  {
+    "id": "sla.hpg_response_tracking",
+    "area": "SLA",
+    "title": "HPG 24-hour response SLA tracking",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "HpgResponseService tracks referral response times.",
+      "GET /sla/hpg-response returns compliance metrics.",
+      "Target: 24-hour response to HPG referrals.",
+      "Alerts for approaching deadlines.",
+      "Dashboard shows HPG compliance %."
+    ]
+  },
+  {
+    "id": "sla.compliance_dashboard",
+    "area": "SLA",
+    "title": "SLA compliance dashboard with all metrics",
+    "status": "not_started",
+    "depends_on": ["sla.hpg_response_tracking"],
+    "acceptance_criteria": [
+      "GET /sla/dashboard returns comprehensive metrics.",
+      "Includes: HPG response, missed care, SSPO performance, intake SLA.",
+      "Status indicators (compliant, at-risk, breached).",
+      "Historical trend data.",
+      "UI integrates with main dashboard."
+    ]
+  },
+  {
+    "id": "sla.huddle_reports",
+    "area": "SLA",
+    "title": "Huddle report generation for daily standup",
+    "status": "not_started",
+    "depends_on": ["sla.compliance_dashboard"],
+    "acceptance_criteria": [
+      "POST /sla/huddle-report generates daily report.",
+      "Report includes: critical alerts, at-risk patients, pending actions.",
+      "Formatted for morning huddle review.",
+      "Email/export options available.",
+      "Tests validate report generation."
+    ]
+  },
+  {
+    "id": "dashboard.executive_kpis",
+    "area": "Dashboard",
+    "title": "Executive KPI dashboard with key metrics",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "GET /v2/dashboard returns executive metrics.",
+      "KPIs: active patients, pending referrals, missed care %, FTE utilization.",
+      "KpiCard components display metrics.",
+      "Refresh interval for real-time updates.",
+      "Role-based metric visibility."
+    ]
+  },
+  {
+    "id": "dashboard.spo_metrics",
+    "area": "Dashboard",
+    "title": "SPO-specific metrics dashboard",
+    "status": "not_started",
+    "depends_on": ["dashboard.executive_kpis"],
+    "acceptance_criteria": [
+      "GET /v2/dashboards/spo returns SPO metrics.",
+      "Includes: patient census, assignment coverage, SSPO usage.",
+      "CareDashboardPage displays SPO view.",
+      "Drill-down to patient/staff details.",
+      "Tests validate metric calculations."
+    ]
+  },
+  {
+    "id": "dashboard.ai_forecasting",
+    "area": "Dashboard",
+    "title": "AI-powered forecasting via Google Gemini",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "GeminiService integrates with Google Gemini API.",
+      "POST /v2/ai/forecast generates predictions.",
+      "Forecast: patient volume, staffing needs, risk areas.",
+      "AiForecastPanel UI component.",
+      "Configurable forecast parameters."
+    ]
+  },
+  {
+    "id": "dashboard.partner_performance",
+    "area": "Dashboard",
+    "title": "SSPO partner performance rankings table",
+    "status": "not_started",
+    "depends_on": ["sspo.performance_metrics"],
+    "acceptance_criteria": [
+      "PartnerPerformanceTable component displays rankings.",
+      "Sortable by: acceptance rate, response time, quality.",
+      "Click-through to SSPO details.",
+      "Performance trend indicators.",
+      "Integrated into main dashboard."
+    ]
+  },
+  {
+    "id": "auth.rbac_enforcement",
+    "area": "Auth",
+    "title": "Role-based access control enforcement",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "8 role types defined (MASTER, ADMIN, SPO_ADMIN, COORDINATOR, FIELD_STAFF, SSPO_COORDINATOR, HOSPITAL, RETIREMENT_HOME).",
+      "Policies enforce access rules (CareAssignmentPolicy, ReferralPolicy, etc.).",
+      "EnsureOrganizationRole middleware validates roles.",
+      "RoleRoute component guards frontend routes.",
+      "Tests validate access control scenarios."
+    ]
+  },
+  {
+    "id": "auth.organization_context",
+    "area": "Auth",
+    "title": "Multi-organization context scoping",
+    "status": "not_started",
+    "depends_on": ["auth.rbac_enforcement"],
+    "acceptance_criteria": [
+      "OrganizationMembership links users to orgs.",
+      "EnsureOrganizationContext middleware scopes queries.",
+      "Data isolation between organizations.",
+      "User can belong to multiple orgs.",
+      "Tests validate org scoping."
+    ]
+  },
+  {
+    "id": "auth.feature_flags",
+    "area": "Auth",
+    "title": "Feature flag system for gradual rollout",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "FeatureFlag model stores flags.",
+      "FeatureToggle service checks flag status.",
+      "EnsureFeatureEnabled middleware gates routes.",
+      "Per-org and per-user flag overrides.",
+      "Admin UI for flag management."
+    ]
+  },
+  {
+    "id": "careops.assignment_estimation",
+    "area": "CareOps",
+    "title": "SSPO assignment cost and hours estimation",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "AssignmentEstimationService calculates estimates.",
+      "POST /v2/assignments/sspo-estimate returns projections.",
+      "Estimates include: cost, hours, SSPO matches.",
+      "UI shows estimates before assignment creation.",
+      "Tests validate estimation logic."
+    ]
+  },
+  {
+    "id": "careops.field_staff_worklist",
+    "area": "CareOps",
+    "title": "Field staff mobile worklist",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "FieldStaffWorklistPage shows daily assignments.",
+      "Assignments ordered by time and location.",
+      "Visit verification from worklist.",
+      "Patient details accessible.",
+      "Mobile-responsive design."
+    ]
+  },
+  {
+    "id": "careops.care_coordination",
+    "area": "CareOps",
+    "title": "Care coordination and assignment management",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "CareOpsController exposes assignment CRUD.",
+      "CareAssignmentDetailPage shows full assignment.",
+      "AssignmentModal for quick edits.",
+      "AssignmentConfigurator for complex changes.",
+      "Audit trail for all changes."
+    ]
+  },
+  {
+    "id": "patients.demographics_crud",
+    "area": "Patients",
+    "title": "Patient demographics management",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "PatientController exposes CRUD endpoints.",
+      "Patient model with 50+ fields.",
+      "AddPatientPage UI for patient creation.",
+      "PatientsList with search and filters.",
+      "Soft delete preserves data."
+    ]
+  },
+  {
+    "id": "patients.overview_summary",
+    "area": "Patients",
+    "title": "InterRAI-driven patient overview summary",
+    "status": "not_started",
+    "depends_on": ["interrai.clinical_flags"],
+    "acceptance_criteria": [
+      "GET /v2/patients/{id}/overview returns summary.",
+      "Includes: demographics, RUG group, clinical flags, risk scores.",
+      "PatientDetailPage displays overview.",
+      "PatientSummaryCard for compact view.",
+      "InterRAI data drives summary content."
+    ]
+  },
+  {
+    "id": "patients.notes_management",
+    "area": "Patients",
+    "title": "Patient notes and clinical documentation",
+    "status": "not_started",
+    "depends_on": ["patients.demographics_crud"],
+    "acceptance_criteria": [
+      "PatientNote model stores notes.",
+      "PatientNotesController exposes CRUD.",
+      "PatientNotesSeeder creates sample notes.",
+      "UI shows notes timeline.",
+      "Role-based note visibility."
+    ]
+  },
+  {
+    "id": "integrations.gemini_ai",
+    "area": "Integrations",
+    "title": "Google Gemini AI integration for summaries and risk",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "GeminiService wraps Gemini API.",
+      "TNP analysis via POST /tnp/{id}/analyze.",
+      "Risk assessment generation.",
+      "Clinical summary generation.",
+      "API key configuration via .env."
+    ]
+  },
+  {
+    "id": "integrations.chris_sync",
+    "area": "Integrations",
+    "title": "CHRIS system synchronization tracking",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "InterraiService tracks CHRIS sync status.",
+      "Sync status field on assessments.",
+      "Pending sync detection.",
+      "Admin view of sync failures.",
+      "Retry mechanism for failed syncs."
+    ]
+  },
+  {
+    "id": "servicetypes.configuration",
+    "area": "ServiceTypes",
+    "title": "Service type configuration and metadata",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "ServiceType model with full configuration.",
+      "Fields: code, name, category, duration, cost, scheduling_mode.",
+      "ServiceTypesController exposes endpoints.",
+      "ServiceMetadata for custom attributes.",
+      "Tests validate service type logic."
+    ]
+  },
+  {
+    "id": "servicetypes.scheduling_modes",
+    "area": "ServiceTypes",
+    "title": "Service scheduling mode definitions",
+    "status": "not_started",
+    "depends_on": ["servicetypes.configuration"],
+    "acceptance_criteria": [
+      "scheduling_mode field: recurring, fixed_visits, on_demand.",
+      "fixed_visits_per_plan for fixed-visit services.",
+      "Recurring services have frequency_per_week.",
+      "SchedulingEngine respects modes.",
+      "Tests validate mode behavior."
+    ]
+  },
+  {
+    "id": "audit.logging",
+    "area": "Audit",
+    "title": "Comprehensive audit logging for compliance",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "AuditLog model with morphable auditable.",
+      "Tracks: user_id, action, before/after JSON, ip_address.",
+      "Automatic logging on sensitive operations.",
+      "Query interface for audit review.",
+      "PHIPA compliance for healthcare data."
+    ]
+  },
+  {
+    "id": "audit.data_compliance",
+    "area": "Audit",
+    "title": "PHIPA data compliance and access tracking",
+    "status": "not_started",
+    "depends_on": ["audit.logging"],
+    "acceptance_criteria": [
+      "Access logging for PHI data.",
+      "Data retention policies enforced.",
+      "Audit reports for compliance review.",
+      "Role-based audit visibility.",
+      "Tests validate audit trail completeness."
+    ]
+  },
+  {
+    "id": "tnp.legacy_support",
+    "area": "TNP",
+    "title": "Legacy TNP system backward compatibility",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "TransitionNeedsProfile model maintained.",
+      "TnpController provides CRUD endpoints.",
+      "TnpReviewListPage and TnpReviewDetailPage functional.",
+      "Gemini analysis available.",
+      "Deprecated in favor of InterRAI but functional."
+    ]
+  }
+]
