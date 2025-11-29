@@ -349,9 +349,11 @@ class SchedulingEngine
      *
      * Checks:
      * 1. Staff role is eligible for service type
-     * 2. Staff is available at the scheduled time
-     * 3. No conflicting assignments
-     * 4. Capacity constraints (warning if over threshold)
+     * 2. Patient non-concurrency (no overlapping visits for patient)
+     * 3. Spacing rules (min gap between same service type visits)
+     * 4. Staff is available at the scheduled time
+     * 5. No conflicting staff assignments
+     * 6. Capacity constraints (warning if over threshold)
      */
     public function validateAssignment(ServiceAssignment $assignment): SchedulingValidationResultDTO
     {
@@ -362,6 +364,7 @@ class SchedulingEngine
         $serviceType = $assignment->serviceType;
         $startTime = $assignment->scheduled_start;
         $endTime = $assignment->scheduled_end;
+        $patientId = $assignment->patient_id;
 
         if (!$staff) {
             $errors[] = 'Staff member not found';
@@ -370,6 +373,11 @@ class SchedulingEngine
 
         if (!$serviceType) {
             $errors[] = 'Service type not found';
+            return SchedulingValidationResultDTO::invalid($errors);
+        }
+
+        if (!$patientId) {
+            $errors[] = 'Patient not specified';
             return SchedulingValidationResultDTO::invalid($errors);
         }
 
@@ -386,18 +394,36 @@ class SchedulingEngine
             }
         }
 
-        // 2. Check availability
+        // 2. Check patient non-concurrency (patient cannot have multiple providers at same time)
+        $excludeId = $assignment->exists ? $assignment->id : null;
+        if ($this->hasPatientConflicts($patientId, $startTime, $endTime, $excludeId)) {
+            $patientConflicts = $this->getPatientConflicts($patientId, $startTime, $endTime, $excludeId);
+            foreach ($patientConflicts as $conflict) {
+                $conflictService = $conflict->serviceType?->name ?? 'Unknown';
+                $conflictStaff = $conflict->assignedUser?->name ?? 'Unknown';
+                $conflictTime = $conflict->scheduled_start->format('H:i');
+                $errors[] = "Patient already has another visit scheduled: {$conflictService} with {$conflictStaff} at {$conflictTime}";
+            }
+        }
+
+        // 3. Check spacing rule (min gap between visits of same service type)
+        $spacingError = $this->checkSpacingRule($patientId, $serviceType->id, $startTime, $excludeId);
+        if ($spacingError) {
+            $errors[] = $spacingError;
+        }
+
+        // 4. Check availability
         $durationMinutes = $startTime->diffInMinutes($endTime);
         if (!$this->isStaffAvailable($staff, $startTime, $durationMinutes)) {
             $warnings[] = "Staff is not available at the scheduled time (check their availability settings)";
         }
 
-        // 3. Check for conflicts
+        // 5. Check for staff conflicts
         $conflicts = $this->getConflicts(
             $staff->id,
             $startTime,
             $endTime,
-            $assignment->exists ? $assignment->id : null
+            $excludeId
         );
 
         if ($conflicts->isNotEmpty()) {
@@ -405,18 +431,18 @@ class SchedulingEngine
                 $patientName = $conflict->patient?->user?->name ?? 'Unknown';
                 $serviceName = $conflict->serviceType?->name ?? 'Unknown';
                 $conflictTime = $conflict->scheduled_start->format('H:i');
-                $errors[] = "Conflicts with existing assignment: {$serviceName} for {$patientName} at {$conflictTime}";
+                $errors[] = "Staff conflict: {$serviceName} for {$patientName} at {$conflictTime}";
             }
         }
 
-        // 4. Check capacity (warning only)
+        // 6. Check capacity (warning only)
         $weekStart = $startTime->copy()->startOfWeek();
         $weekEnd = $startTime->copy()->endOfWeek();
         $scheduledHours = $this->getScheduledHoursForWeek(
             $staff->id,
             $weekStart,
             $weekEnd,
-            $assignment->exists ? $assignment->id : null
+            $excludeId
         );
         $maxHours = $staff->max_weekly_hours ?? 40;
         $newHours = $durationMinutes / 60;

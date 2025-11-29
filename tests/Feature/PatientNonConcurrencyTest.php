@@ -254,4 +254,81 @@ class PatientNonConcurrencyTest extends TestCase
             'Adjacent visits (no gap) should not be considered overlapping'
         );
     }
+
+    /** @test */
+    public function pt_and_ot_cannot_be_scheduled_at_same_time_for_patient()
+    {
+        // Get PT and OT service types
+        $ptServiceType = ServiceType::where('code', 'PT')->first();
+        $otServiceType = ServiceType::where('code', 'OT')->first();
+
+        $today = Carbon::today()->setTime(8, 0);
+
+        // Create PT assignment: 08:00-09:00
+        ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $ptServiceType->id,
+            'assigned_user_id' => $this->staff1->id,
+            'status' => 'planned',
+            'scheduled_start' => $today,
+            'scheduled_end' => $today->copy()->addHour(),
+            'duration_minutes' => 60,
+        ]);
+
+        // Try to schedule OT at the same time with different staff
+        $hasOverlap = $this->engine->patientHasOverlap(
+            $this->patient->id,
+            $today,
+            $today->copy()->addHour()
+        );
+
+        $this->assertTrue(
+            $hasOverlap,
+            'PT and OT cannot be scheduled at the same time for the same patient'
+        );
+    }
+
+    /** @test */
+    public function validate_assignment_rejects_patient_overlap()
+    {
+        $today = Carbon::today()->setTime(9, 0);
+
+        // Create first assignment: 09:00-10:00
+        ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff1->id,
+            'status' => 'planned',
+            'scheduled_start' => $today,
+            'scheduled_end' => $today->copy()->addHour(),
+            'duration_minutes' => 60,
+        ]);
+
+        // Create a new assignment that overlaps
+        $overlappingAssignment = new ServiceAssignment([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff2->id,
+            'scheduled_start' => $today->copy()->addMinutes(30),
+            'scheduled_end' => $today->copy()->addMinutes(90),
+            'duration_minutes' => 60,
+        ]);
+
+        // Eager load required relationships
+        $overlappingAssignment->setRelation('assignedUser', $this->staff2);
+        $overlappingAssignment->setRelation('serviceType', $this->serviceType);
+
+        $validation = $this->engine->validateAssignment($overlappingAssignment);
+
+        $this->assertFalse($validation->isValid, 'validateAssignment should reject patient overlap');
+        $this->assertNotEmpty($validation->errors, 'Should have error messages');
+        $this->assertStringContainsString(
+            'Patient already has another visit',
+            $validation->errors[0],
+            'Error should mention patient overlap'
+        );
+    }
 }

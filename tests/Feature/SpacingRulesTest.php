@@ -307,4 +307,47 @@ class SpacingRulesTest extends TestCase
             'Cancelled visits should not affect spacing rule validation'
         );
     }
+
+    /** @test */
+    public function validate_assignment_enforces_spacing_rules()
+    {
+        $today = Carbon::today()->setTime(9, 0);
+
+        // Create first PSW visit: 09:00-10:00
+        ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->pswServiceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'status' => 'planned',
+            'scheduled_start' => $today,
+            'scheduled_end' => $today->copy()->addHour(),
+            'duration_minutes' => 60,
+        ]);
+
+        // Create a new PSW assignment too soon (10:30 = 30 min gap, needs 120 min)
+        $tooSoonAssignment = new ServiceAssignment([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->pswServiceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'scheduled_start' => $today->copy()->addMinutes(90),
+            'scheduled_end' => $today->copy()->addMinutes(150),
+            'duration_minutes' => 60,
+        ]);
+
+        // Eager load required relationships
+        $tooSoonAssignment->setRelation('assignedUser', $this->staff);
+        $tooSoonAssignment->setRelation('serviceType', $this->pswServiceType);
+
+        $validation = $this->engine->validateAssignment($tooSoonAssignment);
+
+        $this->assertFalse($validation->isValid, 'validateAssignment should reject spacing violation');
+        $this->assertNotEmpty($validation->errors, 'Should have error messages');
+        $this->assertStringContainsString(
+            'Spacing rule violated',
+            $validation->errors[0],
+            'Error should mention spacing rule'
+        );
+    }
 }

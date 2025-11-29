@@ -1,0 +1,102 @@
+{
+  "features": [
+    {
+      "id": "scheduling.patient_non_concurrency",
+      "name": "Patient Non-Concurrency",
+      "description": "A patient must never have two visits at the same time by default. PT & OT cannot be scheduled for the same patient at the same time.",
+      "status": "done",
+      "acceptance_criteria": [
+        "Patient-level overlap detection via patientHasOverlap($patient, $start, $end, $ignoreAssignmentId)",
+        "Integrated into Assignment creation/update API endpoints",
+        "PT & OT cannot be scheduled for the same patient at the same time",
+        "Patient timeline never shows two blocks overlapping",
+        "Tests for overlapping PT/OT visits rejection",
+        "Tests for non-overlapping visits allowed"
+      ],
+      "files": [
+        "app/Services/Scheduling/SchedulingEngine.php",
+        "app/Http/Controllers/Api/V2/SchedulingController.php",
+        "tests/Feature/PatientNonConcurrencyTest.php"
+      ]
+    },
+    {
+      "id": "scheduling.psw_spacing",
+      "name": "PSW Spacing Rules",
+      "description": "PSW/personal care visits should be spaced across the day, not bunched. Minimum 120 minutes between PSW visits for the same patient.",
+      "status": "done",
+      "acceptance_criteria": [
+        "ServiceType has min_gap_between_visits_minutes field",
+        "PSW: 120 min, Nursing: 60 min default",
+        "Enforced in SchedulingEngine validation",
+        "Applied during assignment creation/update",
+        "Seeding places PSW visits in morning/midday/afternoon bands",
+        "Tests for PSW visits too close together",
+        "Tests for well-spaced PSW visits"
+      ],
+      "files": [
+        "app/Models/ServiceType.php",
+        "app/Services/Scheduling/SchedulingEngine.php",
+        "database/seeders/CoreDataSeeder.php",
+        "tests/Feature/SpacingRulesTest.php"
+      ]
+    },
+    {
+      "id": "scheduling.patient_timeline_correctness",
+      "name": "Patient Timeline Correctness",
+      "description": "Patient-centric view is a clean time-based list, no overlaps, no staff-row clutter.",
+      "status": "done",
+      "acceptance_criteria": [
+        "Timeline queries ONLY this patient's ServiceAssignments",
+        "Visits are sorted by start time",
+        "No staff rows; each row is a visit with time, service, and staff info",
+        "Single-column or clear day-based list",
+        "Not cluttered with staff rows"
+      ],
+      "files": [
+        "resources/js/components/scheduling/PatientTimeline.jsx"
+      ]
+    },
+    {
+      "id": "bundles.unscheduled_care_correctness",
+      "name": "Unscheduled Care Correctness",
+      "description": "Unscheduled Care panel must correctly show patients who need scheduled care based on their care bundle requirements.",
+      "status": "done",
+      "acceptance_criteria": [
+        "Computes required_units from CareBundleService (hours/week or visits/week)",
+        "Computes scheduled_units from ServiceAssignments in the selected week",
+        "remaining_units = max(required_units - scheduled_units, 0)",
+        "For RPM: uses fixed_visits logic (2 visits per plan)",
+        "API returns all patient+service combinations with remaining > 0",
+        "FE shows 'All required care scheduled' only when API returns empty"
+      ],
+      "files": [
+        "app/Services/Scheduling/CareBundleAssignmentPlanner.php",
+        "app/DTOs/RequiredAssignmentDTO.php",
+        "app/DTOs/UnscheduledServiceDTO.php",
+        "app/Http/Controllers/Api/V2/SchedulingController.php"
+      ]
+    },
+    {
+      "id": "rpm.fixed_two_visits",
+      "name": "RPM Fixed Two Visits",
+      "description": "RPM service type uses fixed_visits_per_plan mode with 2 visits total per care plan.",
+      "status": "done",
+      "acceptance_criteria": [
+        "ServiceType has scheduling_mode = 'fixed_visits'",
+        "fixed_visits_per_plan = 2 for RPM",
+        "Tracked across entire care plan, not per week",
+        "CareBundleAssignmentPlanner calculates remaining visits correctly"
+      ],
+      "files": [
+        "app/Models/ServiceType.php",
+        "app/Services/Scheduling/CareBundleAssignmentPlanner.php",
+        "database/seeders/CoreDataSeeder.php"
+      ]
+    }
+  ],
+  "metadata": {
+    "project": "Connected Capacity 2.1",
+    "last_updated": "2025-11-29",
+    "version": "1.0.0"
+  }
+}
