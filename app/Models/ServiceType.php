@@ -9,6 +9,12 @@ class ServiceType extends Model
 {
     use HasFactory;
 
+    /**
+     * Scheduling mode constants.
+     */
+    public const SCHEDULING_MODE_WEEKLY = 'weekly';
+    public const SCHEDULING_MODE_FIXED_VISITS = 'fixed_visits';
+
     protected $fillable = [
         'name',
         'code',
@@ -21,13 +27,51 @@ class ServiceType extends Model
         'cost_per_visit',
         'source',
         'active',
+        'scheduling_mode',
+        'fixed_visits_per_plan',
+        'fixed_visit_labels',
     ];
 
     protected $casts = [
         'default_duration_minutes' => 'integer',
         'cost_per_visit' => 'decimal:2',
         'active' => 'boolean',
+        'fixed_visits_per_plan' => 'integer',
+        'fixed_visit_labels' => 'array',
     ];
+
+    /**
+     * Check if this service type uses fixed visits per care plan.
+     */
+    public function isFixedVisits(): bool
+    {
+        return $this->scheduling_mode === self::SCHEDULING_MODE_FIXED_VISITS;
+    }
+
+    /**
+     * Check if this service type uses weekly frequency scheduling.
+     */
+    public function isWeeklyScheduled(): bool
+    {
+        return $this->scheduling_mode === self::SCHEDULING_MODE_WEEKLY
+            || $this->scheduling_mode === null;
+    }
+
+    /**
+     * Get the label for a specific visit number (1-indexed).
+     *
+     * @param int $visitNumber Visit number (1, 2, etc.)
+     * @return string|null The label or null if not defined
+     */
+    public function getVisitLabel(int $visitNumber): ?string
+    {
+        if (!$this->fixed_visit_labels || !is_array($this->fixed_visit_labels)) {
+            return null;
+        }
+
+        // Convert to 0-indexed
+        return $this->fixed_visit_labels[$visitNumber - 1] ?? null;
+    }
 
     public function serviceCategory()
     {

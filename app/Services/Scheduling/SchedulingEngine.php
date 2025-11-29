@@ -148,7 +148,7 @@ class SchedulingEngine
     }
 
     /**
-     * Check for scheduling conflicts with existing assignments.
+     * Check for scheduling conflicts with existing assignments (staff).
      */
     public function hasConflicts(
         int $staffId,
@@ -171,6 +171,69 @@ class SchedulingEngine
         }
 
         return $query->exists();
+    }
+
+    /**
+     * Check for patient scheduling conflicts (patient non-concurrency).
+     *
+     * Ensures a patient cannot have multiple providers at the same time,
+     * unless the assignment is explicitly marked as allowing concurrent care.
+     *
+     * @param int $patientId The patient's ID
+     * @param Carbon $startTime Proposed start time
+     * @param Carbon $endTime Proposed end time
+     * @param int|null $excludeAssignmentId Assignment ID to exclude (for updates)
+     * @return bool True if there are conflicts
+     */
+    public function hasPatientConflicts(
+        int $patientId,
+        Carbon $startTime,
+        Carbon $endTime,
+        ?int $excludeAssignmentId = null
+    ): bool {
+        $query = ServiceAssignment::where('patient_id', $patientId)
+            ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
+            ->where(function ($q) use ($startTime, $endTime) {
+                // Check for overlapping time ranges
+                $q->where('scheduled_start', '<', $endTime)
+                  ->where('scheduled_end', '>', $startTime);
+            });
+
+        if ($excludeAssignmentId) {
+            $query->where('id', '!=', $excludeAssignmentId);
+        }
+
+        return $query->exists();
+    }
+
+    /**
+     * Get patient's conflicting assignments.
+     *
+     * @param int $patientId The patient's ID
+     * @param Carbon $startTime Proposed start time
+     * @param Carbon $endTime Proposed end time
+     * @param int|null $excludeAssignmentId Assignment ID to exclude
+     * @return Collection<ServiceAssignment>
+     */
+    public function getPatientConflicts(
+        int $patientId,
+        Carbon $startTime,
+        Carbon $endTime,
+        ?int $excludeAssignmentId = null
+    ): Collection {
+        $query = ServiceAssignment::where('patient_id', $patientId)
+            ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
+            ->where(function ($q) use ($startTime, $endTime) {
+                $q->where('scheduled_start', '<', $endTime)
+                  ->where('scheduled_end', '>', $startTime);
+            })
+            ->with(['assignedUser', 'serviceType']);
+
+        if ($excludeAssignmentId) {
+            $query->where('id', '!=', $excludeAssignmentId);
+        }
+
+        return $query->get();
     }
 
     /**
@@ -554,13 +617,25 @@ class SchedulingEngine
             // Allow assignment but warn
         }
 
-        // 1. Check for direct time overlap
+        // 1. Check for direct staff time overlap
         if ($this->hasConflicts($staff->id, $start, $end, $excludeAssignmentId)) {
             $conflicts = $this->getConflicts($staff->id, $start, $end, $excludeAssignmentId);
             foreach ($conflicts as $conflict) {
                 $patientName = $conflict->patient?->user?->name ?? 'Unknown';
                 $conflictTime = $conflict->scheduled_start->format('H:i');
-                $errors[] = "Conflicts with existing assignment for {$patientName} at {$conflictTime}";
+                $errors[] = "Staff conflict: already assigned to {$patientName} at {$conflictTime}";
+            }
+            return TravelValidationResultDTO::invalid($errors, $warnings);
+        }
+
+        // 2. Check for patient non-concurrency (patient cannot have multiple providers at same time)
+        if ($this->hasPatientConflicts($patient->id, $start, $end, $excludeAssignmentId)) {
+            $patientConflicts = $this->getPatientConflicts($patient->id, $start, $end, $excludeAssignmentId);
+            foreach ($patientConflicts as $conflict) {
+                $staffName = $conflict->assignedUser?->name ?? 'Unknown';
+                $serviceName = $conflict->serviceType?->name ?? 'Unknown';
+                $conflictTime = $conflict->scheduled_start->format('H:i');
+                $errors[] = "Patient conflict: already receiving {$serviceName} from {$staffName} at {$conflictTime}";
             }
             return TravelValidationResultDTO::invalid($errors, $warnings);
         }

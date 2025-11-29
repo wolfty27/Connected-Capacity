@@ -4,6 +4,7 @@ import api from '../../services/api';
 import Button from '../../components/UI/Button';
 import Select from '../../components/UI/Select';
 import Spinner from '../../components/UI/Spinner';
+import PatientTimeline from '../../components/scheduling/PatientTimeline';
 
 /**
  * Staff Scheduling Dashboard
@@ -462,8 +463,22 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                         </div>
                     </div>
 
-                    {/* Right Panel - Schedule Grid */}
-                    <div className="flex-1 bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    {/* Right Panel - Schedule Grid or Patient Timeline */}
+                    <div className="flex-1">
+                        {/* Show PatientTimeline when a patient is selected, otherwise show Staff Grid */}
+                        {patientIdParam ? (
+                            <PatientTimeline
+                                assignments={gridData.assignments?.map(a => ({
+                                    ...a,
+                                    staff_name: gridData.staff?.find(s => s.id === a.staff_id)?.name || 'Unknown',
+                                    staff_role: gridData.staff?.find(s => s.id === a.staff_id)?.role?.code,
+                                }))}
+                                weekDays={weekDays}
+                                patientName={navExamples.patient?.name || `Patient #${patientIdParam}`}
+                                onEditAssignment={openEditModal}
+                            />
+                        ) : (
+                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                         <div className="overflow-x-auto">
                             {/* Header Row */}
                             <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-10 min-w-[1000px]">
@@ -566,6 +581,8 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                 </div>
                             )}
                         </div>
+                    </div>
+                        )}
                     </div>
                 </div>
             </div>

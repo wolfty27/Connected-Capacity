@@ -445,6 +445,13 @@ class WorkforceSeeder extends Seeder
             // Status: past weeks = completed, current week = scheduled/planned
             $status = $isCurrentWeek ? 'planned' : 'completed';
 
+            // Prepare notes - include visit label for fixed-visit services (like RPM)
+            $visitLabel = $visit['visit_label'] ?? null;
+            $notes = $isCurrentWeek ? "Scheduled: {$serviceCode}" : "Completed: {$serviceCode}";
+            if ($visitLabel) {
+                $notes = "{$visitLabel} - {$notes}";
+            }
+
             ServiceAssignment::create([
                 'care_plan_id' => $visit['care_plan_id'],
                 'patient_id' => $visit['patient_id'],
@@ -457,10 +464,10 @@ class WorkforceSeeder extends Seeder
                 'duration_minutes' => $durationMinutes,
                 'actual_start' => $isCurrentWeek ? null : $scheduledStart,
                 'actual_end' => $isCurrentWeek ? null : $scheduledEnd,
-                'frequency_rule' => "{$visit['frequency']}x per week",
+                'frequency_rule' => $visitLabel ? "Fixed visit: {$visitLabel}" : "{$visit['frequency']}x per week",
                 'estimated_hours_per_week' => round(($visit['frequency'] * $durationMinutes) / 60, 2),
                 'source' => $source,
-                'notes' => $isCurrentWeek ? "Scheduled: {$serviceCode}" : "Completed: {$serviceCode}",
+                'notes' => $notes,
             ]);
             $assignmentCount++;
         }
@@ -472,12 +479,24 @@ class WorkforceSeeder extends Seeder
     }
 
     /**
+     * Track fixed-visit services that have been scheduled per care plan.
+     * Structure: [care_plan_id_service_type_id => visit_count]
+     */
+    protected array $fixedVisitTracker = [];
+
+    /**
      * Build a queue of all required visits across all weeks.
+     *
+     * For fixed-visit services (like RPM), only schedules the exact number
+     * of visits per care plan (e.g., 2 for RPM: Setup and Discharge).
      */
     protected function buildVisitQueue($patients, int $weeks): array
     {
         $queue = [];
         $currentWeekStart = Carbon::now()->startOfWeek();
+
+        // Reset fixed visit tracker
+        $this->fixedVisitTracker = [];
 
         for ($weekOffset = $weeks - 1; $weekOffset >= 0; $weekOffset--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($weekOffset);
@@ -489,6 +508,24 @@ class WorkforceSeeder extends Seeder
                 $services = $this->getCarePlanServices($carePlan);
 
                 foreach ($services as $service) {
+                    $serviceType = ServiceType::find($service['service_type_id']);
+
+                    // Handle fixed-visit services (like RPM) differently
+                    if ($serviceType && $serviceType->isFixedVisits()) {
+                        $this->buildFixedVisitQueue(
+                            $queue,
+                            $carePlan,
+                            $patient,
+                            $service,
+                            $serviceType,
+                            $weekOffset,
+                            $weeks,
+                            $weekStart
+                        );
+                        continue;
+                    }
+
+                    // Standard weekly scheduling
                     $frequencyPerWeek = $service['frequency'];
                     $durationMinutes = $this->getServiceDuration($service);
                     $visitDays = $this->distributeVisitsAcrossWeek($frequencyPerWeek);
@@ -513,6 +550,75 @@ class WorkforceSeeder extends Seeder
         }
 
         return $queue;
+    }
+
+    /**
+     * Build queue entries for fixed-visit services like RPM.
+     *
+     * RPM has exactly 2 visits per care plan:
+     * - Visit 1 (Setup): Scheduled in first week
+     * - Visit 2 (Discharge): Scheduled in last week
+     */
+    protected function buildFixedVisitQueue(
+        array &$queue,
+        CarePlan $carePlan,
+        Patient $patient,
+        array $service,
+        ServiceType $serviceType,
+        int $weekOffset,
+        int $totalWeeks,
+        Carbon $weekStart
+    ): void {
+        $trackerKey = "{$carePlan->id}_{$serviceType->id}";
+        $fixedVisitsPerPlan = $serviceType->fixed_visits_per_plan ?? 2;
+        $visitLabels = $serviceType->fixed_visit_labels ?? ['Setup', 'Discharge'];
+
+        // Initialize tracker if not set
+        if (!isset($this->fixedVisitTracker[$trackerKey])) {
+            $this->fixedVisitTracker[$trackerKey] = 0;
+        }
+
+        // Check if we've already scheduled all fixed visits for this care plan
+        if ($this->fixedVisitTracker[$trackerKey] >= $fixedVisitsPerPlan) {
+            return;
+        }
+
+        $currentVisitCount = $this->fixedVisitTracker[$trackerKey];
+        $durationMinutes = $this->getServiceDuration($service);
+
+        // Determine if this week should have a fixed visit
+        // Visit 1 (Setup): First week (weekOffset = totalWeeks - 1)
+        // Visit 2 (Discharge): Last week (weekOffset = 0)
+        $shouldSchedule = false;
+        $visitLabel = null;
+
+        if ($currentVisitCount === 0 && $weekOffset === ($totalWeeks - 1)) {
+            // First visit (Setup) in the first week
+            $shouldSchedule = true;
+            $visitLabel = $visitLabels[0] ?? 'Visit 1';
+        } elseif ($currentVisitCount === 1 && $weekOffset === 0) {
+            // Second visit (Discharge) in the last week
+            $shouldSchedule = true;
+            $visitLabel = $visitLabels[1] ?? 'Visit 2';
+        }
+
+        if ($shouldSchedule) {
+            // Schedule on Wednesday (middle of week)
+            $visitDate = $weekStart->copy()->addDays(2);
+
+            $queue[] = [
+                'care_plan_id' => $carePlan->id,
+                'patient_id' => $patient->id,
+                'service_type_id' => $service['service_type_id'],
+                'service_code' => $service['code'],
+                'frequency' => 1, // Fixed visits are counted individually
+                'duration' => $durationMinutes,
+                'date' => $visitDate,
+                'visit_label' => $visitLabel,
+            ];
+
+            $this->fixedVisitTracker[$trackerKey]++;
+        }
     }
 
     /**

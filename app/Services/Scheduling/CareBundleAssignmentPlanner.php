@@ -8,6 +8,7 @@ use App\Models\CarePlan;
 use App\Models\Patient;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceProviderOrganization;
+use App\Models\ServiceType;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -138,10 +139,17 @@ class CareBundleAssignmentPlanner
                 $key = "{$patient->id}_{$serviceType->id}";
                 $scheduled = $assignmentIndex[$key] ?? ['hours' => 0, 'visits' => 0];
 
-                // Determine unit type based on service type category
+                // Determine unit type based on service type (fixed_visits services use visits)
                 $unitType = $this->getUnitType($serviceType);
-                $required = $this->getRequiredUnits($templateService, $unitType);
+
+                // Get required units - pass serviceType for fixed_visits handling
+                $required = $this->getRequiredUnits($templateService, $unitType, $serviceType);
                 $scheduledUnits = $unitType === 'hours' ? $scheduled['hours'] : $scheduled['visits'];
+
+                // For fixed-visit services, calculate scheduled across entire care plan, not just this week
+                if ($serviceType->isFixedVisits()) {
+                    $scheduledUnits = $this->getScheduledVisitsForCarePlan($carePlan->id, $serviceType->id);
+                }
 
                 $services[] = new UnscheduledServiceDTO(
                     serviceTypeId: $serviceType->id,
@@ -162,13 +170,20 @@ class CareBundleAssignmentPlanner
                 $scheduled = $assignmentIndex[$key] ?? ['hours' => 0, 'visits' => 0];
 
                 $unitType = $this->getUnitType($serviceType);
-                $frequency = $serviceType->pivot->default_frequency_per_week ?? 1;
-                $duration = $serviceType->default_duration_minutes ?? 60;
 
-                $required = $unitType === 'hours'
-                    ? round(($frequency * $duration) / 60, 2)
-                    : $frequency;
-                $scheduledUnits = $unitType === 'hours' ? $scheduled['hours'] : $scheduled['visits'];
+                // Handle fixed-visit services (like RPM) differently
+                if ($serviceType->isFixedVisits()) {
+                    $required = (float) ($serviceType->fixed_visits_per_plan ?? 2);
+                    $scheduledUnits = $this->getScheduledVisitsForCarePlan($carePlan->id, $serviceType->id);
+                } else {
+                    $frequency = $serviceType->pivot->default_frequency_per_week ?? 1;
+                    $duration = $serviceType->default_duration_minutes ?? 60;
+
+                    $required = $unitType === 'hours'
+                        ? round(($frequency * $duration) / 60, 2)
+                        : $frequency;
+                    $scheduledUnits = $unitType === 'hours' ? $scheduled['hours'] : $scheduled['visits'];
+                }
 
                 $services[] = new UnscheduledServiceDTO(
                     serviceTypeId: $serviceType->id,
@@ -207,9 +222,16 @@ class CareBundleAssignmentPlanner
 
     /**
      * Get unit type for a service type (hours vs visits).
+     *
+     * Fixed-visit services (like RPM) are always measured in visits.
      */
     protected function getUnitType($serviceType): string
     {
+        // Fixed-visit services are always measured in visits
+        if ($serviceType->scheduling_mode === ServiceType::SCHEDULING_MODE_FIXED_VISITS) {
+            return 'visits';
+        }
+
         // Allied health services typically measured in visits
         $visitCategories = ['rehab', 'therapy', 'assessment'];
         $visitCodes = ['OT', 'PT', 'SLP', 'SW', 'RD', 'RT'];
@@ -226,9 +248,24 @@ class CareBundleAssignmentPlanner
 
     /**
      * Get required units from a template service.
+     *
+     * For fixed-visit services (like RPM), the required units is the
+     * fixed_visits_per_plan from the ServiceType, not weekly frequency.
+     * These are tracked across the entire care plan, not per week.
+     *
+     * @param mixed $templateService The template service record
+     * @param string $unitType 'hours' or 'visits'
+     * @param ServiceType|null $serviceType The service type model (for fixed_visits check)
+     * @return float Required units
      */
-    protected function getRequiredUnits($templateService, string $unitType): float
+    protected function getRequiredUnits($templateService, string $unitType, ?ServiceType $serviceType = null): float
     {
+        // For fixed-visit services (like RPM), use the fixed_visits_per_plan value
+        // These are total visits for the care plan, not per week
+        if ($serviceType && $serviceType->scheduling_mode === ServiceType::SCHEDULING_MODE_FIXED_VISITS) {
+            return (float) ($serviceType->fixed_visits_per_plan ?? 2);
+        }
+
         $frequency = $templateService->default_frequency_per_week ?? 1;
         $duration = $templateService->default_duration_minutes ?? 60;
 
@@ -280,6 +317,27 @@ class CareBundleAssignmentPlanner
             'rehab', 'therapy' => '#E9D5FF', // Purple
             default => '#F3F4F6', // Gray
         };
+    }
+
+    /**
+     * Get the total number of scheduled visits for a fixed-visit service across the entire care plan.
+     *
+     * For services like RPM that have a fixed number of visits per care plan (not per week),
+     * we need to count all visits regardless of date range.
+     *
+     * @param int $carePlanId The care plan ID
+     * @param int $serviceTypeId The service type ID
+     * @return int Total number of scheduled visits
+     */
+    protected function getScheduledVisitsForCarePlan(int $carePlanId, int $serviceTypeId): int
+    {
+        return ServiceAssignment::where('care_plan_id', $carePlanId)
+            ->where('service_type_id', $serviceTypeId)
+            ->whereNotIn('status', [
+                ServiceAssignment::STATUS_CANCELLED,
+                ServiceAssignment::STATUS_MISSED,
+            ])
+            ->count();
     }
 
     /**

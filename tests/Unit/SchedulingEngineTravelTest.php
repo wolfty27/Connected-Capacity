@@ -371,6 +371,137 @@ class SchedulingEngineTravelTest extends TestCase
         $this->assertEquals(5, $buffer);
     }
 
+    // =========================================================================
+    // PATIENT NON-CONCURRENCY TESTS
+    // =========================================================================
+
+    public function test_patient_concurrent_visit_is_blocked()
+    {
+        $date = Carbon::now()->next(Carbon::MONDAY);
+
+        // Create an existing assignment for patient1 with a different staff member
+        $otherStaff = User::create([
+            'name' => 'Other Staff',
+            'email' => 'other.staff@test.com',
+            'password' => bcrypt('secret'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'staff_status' => User::STAFF_STATUS_ACTIVE,
+            'max_weekly_hours' => 40,
+        ]);
+
+        // Other staff has assignment with patient1 at 10:00-11:00
+        ServiceAssignment::create([
+            'patient_id' => $this->patient1->id,
+            'assigned_user_id' => $otherStaff->id,
+            'service_type_id' => $this->serviceType->id,
+            'scheduled_start' => $date->copy()->setTime(10, 0),
+            'scheduled_end' => $date->copy()->setTime(11, 0),
+            'duration_minutes' => 60,
+            'status' => ServiceAssignment::STATUS_PLANNED,
+            'source' => ServiceAssignment::SOURCE_INTERNAL,
+        ]);
+
+        // Now try to assign the main staff to patient1 at overlapping time
+        $result = $this->engine->canAssignWithTravel(
+            $this->staff,
+            $this->patient1,
+            $date->copy()->setTime(10, 30),
+            $date->copy()->setTime(11, 30),
+            $this->serviceType->id
+        );
+
+        $this->assertFalse($result->isValid);
+        $this->assertNotEmpty($result->errors);
+        $this->assertStringContainsString('Patient conflict', $result->errors[0]);
+    }
+
+    public function test_patient_non_overlapping_visits_allowed()
+    {
+        $date = Carbon::now()->next(Carbon::MONDAY);
+
+        // Create an existing assignment for patient1 with a different staff member
+        $otherStaff = User::create([
+            'name' => 'Other Staff',
+            'email' => 'other.staff2@test.com',
+            'password' => bcrypt('secret'),
+            'role' => User::ROLE_FIELD_STAFF,
+            'staff_status' => User::STAFF_STATUS_ACTIVE,
+            'max_weekly_hours' => 40,
+        ]);
+
+        // Other staff has assignment with patient1 at 9:00-10:00
+        ServiceAssignment::create([
+            'patient_id' => $this->patient1->id,
+            'assigned_user_id' => $otherStaff->id,
+            'service_type_id' => $this->serviceType->id,
+            'scheduled_start' => $date->copy()->setTime(9, 0),
+            'scheduled_end' => $date->copy()->setTime(10, 0),
+            'duration_minutes' => 60,
+            'status' => ServiceAssignment::STATUS_PLANNED,
+            'source' => ServiceAssignment::SOURCE_INTERNAL,
+        ]);
+
+        // Assign main staff to patient1 at non-overlapping time (11:00-12:00)
+        $result = $this->engine->canAssignWithTravel(
+            $this->staff,
+            $this->patient1,
+            $date->copy()->setTime(11, 0),
+            $date->copy()->setTime(12, 0),
+            $this->serviceType->id
+        );
+
+        $this->assertTrue($result->isValid);
+        $this->assertEmpty($result->errors);
+    }
+
+    public function test_has_patient_conflicts_method()
+    {
+        $date = Carbon::now()->next(Carbon::MONDAY);
+        $start = $date->copy()->setTime(10, 0);
+        $end = $date->copy()->setTime(11, 0);
+
+        // Create assignment for patient1
+        $this->createAssignment($this->patient1, $start, $end);
+
+        // Check for conflict
+        $hasConflict = $this->engine->hasPatientConflicts(
+            $this->patient1->id,
+            $date->copy()->setTime(10, 30),
+            $date->copy()->setTime(11, 30)
+        );
+
+        $this->assertTrue($hasConflict);
+
+        // Check no conflict for different patient
+        $hasNoConflict = $this->engine->hasPatientConflicts(
+            $this->patient2->id,
+            $date->copy()->setTime(10, 30),
+            $date->copy()->setTime(11, 30)
+        );
+
+        $this->assertFalse($hasNoConflict);
+    }
+
+    public function test_get_patient_conflicts_method()
+    {
+        $date = Carbon::now()->next(Carbon::MONDAY);
+        $start = $date->copy()->setTime(10, 0);
+        $end = $date->copy()->setTime(11, 0);
+
+        // Create assignment for patient1
+        $assignment = $this->createAssignment($this->patient1, $start, $end);
+
+        // Get conflicts
+        $conflicts = $this->engine->getPatientConflicts(
+            $this->patient1->id,
+            $date->copy()->setTime(10, 30),
+            $date->copy()->setTime(11, 30)
+        );
+
+        $this->assertCount(1, $conflicts);
+        $this->assertEquals($assignment->id, $conflicts->first()->id);
+    }
+
     protected function createPatient(string $name, ?float $lat, ?float $lng): Patient
     {
         static $counter = 0;

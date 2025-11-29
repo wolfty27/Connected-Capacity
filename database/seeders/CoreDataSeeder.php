@@ -216,8 +216,15 @@ class CoreDataSeeder extends Seeder
                 'cost_driver' => 'Device Lease + Software Fee',
                 'cost_per_visit' => 150.00,
                 'source' => 'Bundle Q&A',
-                'default_duration_minutes' => 30,
+                'default_duration_minutes' => 60,
                 'description' => 'Digital Health Tracking: Equipment (tablets, BP cuffs, scales) to track vitals remotely, includes staff time to monitor alerts',
+                // RPM has exactly 2 scheduled visits per care plan:
+                // Visit 1: Setup (device installation & patient education)
+                // Visit 2: Discharge (device retrieval)
+                // Monitoring between visits is asynchronous and NOT scheduled
+                'scheduling_mode' => 'fixed_visits',
+                'fixed_visits_per_plan' => 2,
+                'fixed_visit_labels' => ['Setup', 'Discharge'],
             ],
             [
                 'code' => 'SEC',
@@ -320,7 +327,8 @@ class CoreDataSeeder extends Seeder
         ];
 
         foreach ($serviceTypes as $st) {
-            ServiceType::firstOrCreate(
+            // Use updateOrCreate to ensure new fields like scheduling_mode get applied
+            ServiceType::updateOrCreate(
                 ['code' => $st['code']],
                 array_merge($st, ['active' => true])
             );
