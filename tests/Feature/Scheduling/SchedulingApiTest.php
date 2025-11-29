@@ -365,4 +365,180 @@ class SchedulingApiTest extends TestCase
         // Should have at least one assignment from last week
         $this->assertNotEmpty($assignments);
     }
+
+    /**
+     * Test that creating an overlapping assignment is rejected.
+     */
+    public function test_create_assignment_fails_when_staff_has_overlapping_assignment()
+    {
+        // Create an existing assignment from 09:00 to 10:00
+        ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'service_provider_organization_id' => $this->spo->id,
+            'scheduled_start' => now()->startOfWeek()->addDay()->setTime(9, 0),
+            'scheduled_end' => now()->startOfWeek()->addDay()->setTime(10, 0),
+            'status' => ServiceAssignment::STATUS_PLANNED,
+            'verification_status' => ServiceAssignment::VERIFICATION_PENDING,
+        ]);
+
+        // Try to create an overlapping assignment (09:30-10:30 overlaps with 09:00-10:00)
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v2/scheduling/assignments', [
+                'staff_id' => $this->staff->id,
+                'patient_id' => $this->patient->id,
+                'service_type_id' => $this->serviceType->id,
+                'date' => now()->startOfWeek()->addDay()->toDateString(),
+                'start_time' => '09:30',
+                'duration_minutes' => 60,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors',
+            ]);
+
+        // The error should mention a conflict
+        $this->assertStringContainsString('Conflict', $response->json('errors.0'));
+    }
+
+    /**
+     * Test that creating an assignment at different time succeeds.
+     */
+    public function test_create_assignment_succeeds_when_no_overlap()
+    {
+        // Create an existing assignment from 09:00 to 10:00
+        ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'service_provider_organization_id' => $this->spo->id,
+            'scheduled_start' => now()->startOfWeek()->addDay()->setTime(9, 0),
+            'scheduled_end' => now()->startOfWeek()->addDay()->setTime(10, 0),
+            'status' => ServiceAssignment::STATUS_PLANNED,
+            'verification_status' => ServiceAssignment::VERIFICATION_PENDING,
+        ]);
+
+        // Create a non-overlapping assignment (10:00-11:00 does not overlap)
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v2/scheduling/assignments', [
+                'staff_id' => $this->staff->id,
+                'patient_id' => $this->patient->id,
+                'service_type_id' => $this->serviceType->id,
+                'date' => now()->startOfWeek()->addDay()->toDateString(),
+                'start_time' => '10:00',
+                'duration_minutes' => 60,
+            ]);
+
+        $response->assertStatus(201);
+    }
+
+    /**
+     * Test that updating an assignment to overlap with another is rejected.
+     */
+    public function test_update_assignment_fails_when_creating_overlap()
+    {
+        // Create first assignment from 09:00 to 10:00
+        $existingAssignment = ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'service_provider_organization_id' => $this->spo->id,
+            'scheduled_start' => now()->startOfWeek()->addDay()->setTime(9, 0),
+            'scheduled_end' => now()->startOfWeek()->addDay()->setTime(10, 0),
+            'status' => ServiceAssignment::STATUS_PLANNED,
+        ]);
+
+        // Create second assignment from 11:00 to 12:00
+        $assignmentToUpdate = ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'service_provider_organization_id' => $this->spo->id,
+            'scheduled_start' => now()->startOfWeek()->addDay()->setTime(11, 0),
+            'scheduled_end' => now()->startOfWeek()->addDay()->setTime(12, 0),
+            'status' => ServiceAssignment::STATUS_PLANNED,
+        ]);
+
+        // Try to update the second assignment to overlap with the first (09:30 start)
+        $response = $this->actingAs($this->user)
+            ->patchJson("/api/v2/scheduling/assignments/{$assignmentToUpdate->id}", [
+                'start_time' => '09:30',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors',
+            ]);
+    }
+
+    /**
+     * Test that assignment can be moved without conflicting with itself.
+     */
+    public function test_update_assignment_can_move_within_same_time_range()
+    {
+        // Create an assignment from 09:00 to 10:00
+        $assignment = ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'service_provider_organization_id' => $this->spo->id,
+            'scheduled_start' => now()->startOfWeek()->addDay()->setTime(9, 0),
+            'scheduled_end' => now()->startOfWeek()->addDay()->setTime(10, 0),
+            'duration_minutes' => 60,
+            'status' => ServiceAssignment::STATUS_PLANNED,
+        ]);
+
+        // Move the same assignment slightly (09:15 start)
+        $response = $this->actingAs($this->user)
+            ->patchJson("/api/v2/scheduling/assignments/{$assignment->id}", [
+                'start_time' => '09:15',
+            ]);
+
+        // Should succeed because it doesn't conflict with itself
+        $response->assertStatus(200);
+
+        $assignment->refresh();
+        $this->assertEquals('09:15', $assignment->scheduled_start->format('H:i'));
+    }
+
+    /**
+     * Test that cancelled assignments don't block new assignments.
+     */
+    public function test_create_assignment_succeeds_when_existing_is_cancelled()
+    {
+        // Create a cancelled assignment from 09:00 to 10:00
+        ServiceAssignment::create([
+            'care_plan_id' => $this->carePlan->id,
+            'patient_id' => $this->patient->id,
+            'service_type_id' => $this->serviceType->id,
+            'assigned_user_id' => $this->staff->id,
+            'service_provider_organization_id' => $this->spo->id,
+            'scheduled_start' => now()->startOfWeek()->addDay()->setTime(9, 0),
+            'scheduled_end' => now()->startOfWeek()->addDay()->setTime(10, 0),
+            'status' => ServiceAssignment::STATUS_CANCELLED,
+        ]);
+
+        // Create a new assignment at the same time
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v2/scheduling/assignments', [
+                'staff_id' => $this->staff->id,
+                'patient_id' => $this->patient->id,
+                'service_type_id' => $this->serviceType->id,
+                'date' => now()->startOfWeek()->addDay()->toDateString(),
+                'start_time' => '09:00',
+                'duration_minutes' => 60,
+            ]);
+
+        // Should succeed because the existing assignment is cancelled
+        $response->assertStatus(201);
+    }
 }

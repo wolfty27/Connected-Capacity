@@ -300,12 +300,50 @@ class WorkforceSeeder extends Seeder
     }
 
     /**
+     * Staff schedule tracker for non-overlapping assignments.
+     *
+     * Structure: [staff_id => [date_string => Carbon (next available start time)]]
+     */
+    protected array $staffSchedules = [];
+
+    /**
+     * Typical durations by service category (in minutes).
+     * Used when service type doesn't have default_duration_minutes.
+     */
+    protected array $categoryDurations = [
+        'nursing' => 60,
+        'psw' => 60,
+        'personal_support' => 60,
+        'homemaking' => 90,
+        'rehab' => 45,
+        'therapy' => 45,
+        'behaviour' => 60,
+        'behavioral' => 60,
+        'social' => 60,
+        'recreational' => 60,
+        'other' => 60,
+    ];
+
+    /**
+     * Buffer time between assignments in minutes.
+     */
+    protected int $bufferMinutes = 10;
+
+    /**
      * Seed service assignments for past 3 weeks (completed) + current week (scheduled).
+     *
+     * NEW: Generates non-overlapping assignments by:
+     * 1. Tracking each staff member's schedule per day
+     * 2. Filling their availability windows sequentially
+     * 3. Respecting service durations and buffer times
      */
     protected function seedServiceAssignments(
         ServiceProviderOrganization $spo,
         ?ServiceProviderOrganization $sspo
     ): void {
+        // Reset staff schedules tracker
+        $this->staffSchedules = [];
+
         // Get active patients with care plans (using new bundle template system)
         $patients = Patient::where('status', 'Active')
             ->whereHas('carePlans', fn($q) => $q->where('status', 'active'))
@@ -320,102 +358,293 @@ class WorkforceSeeder extends Seeder
             return;
         }
 
-        // Get staff grouped by role
-        $spoStaffByRole = $this->getStaffByRole($spo);
-        $sspoStaffByRole = $sspo ? $this->getStaffByRole($sspo) : [];
+        // Get staff grouped by role with their availabilities
+        $spoStaff = $this->getStaffWithAvailability($spo);
+        $sspoStaff = $sspo ? $this->getStaffWithAvailability($sspo) : collect();
+        $spoStaffByRole = $this->groupStaffByRole($spoStaff);
+        $sspoStaffByRole = $this->groupStaffByRole($sspoStaff);
 
-        if (empty($spoStaffByRole)) {
+        if ($spoStaff->isEmpty()) {
             $this->command->warn('No SPO staff found for assignments.');
             return;
         }
 
-        // Cache service types
-        $serviceTypes = ServiceType::pluck('id', 'code')->toArray();
+        // Build a queue of required visits across all weeks
+        $visitQueue = $this->buildVisitQueue($patients, 4);
 
-        // Seed past 3 weeks + current week (4 total)
-        $currentWeekStart = Carbon::now()->startOfWeek();
+        // Shuffle to randomize assignment distribution
+        shuffle($visitQueue);
+
+        // Process each visit requirement
         $assignmentCount = 0;
+        $skippedCount = 0;
+        $currentWeekStart = Carbon::now()->startOfWeek();
 
-        for ($weekOffset = 3; $weekOffset >= 0; $weekOffset--) {
+        foreach ($visitQueue as $visit) {
+            $serviceCode = $visit['service_code'];
+            $durationMinutes = $visit['duration'];
+            $visitDate = $visit['date'];
+            $isCurrentWeek = $visitDate->isBetween(
+                $currentWeekStart,
+                $currentWeekStart->copy()->endOfWeek()
+            );
+
+            // Find staff that can provide this service
+            $availableStaff = $this->findStaffForService(
+                $serviceCode,
+                $spoStaffByRole,
+                $sspoStaffByRole
+            );
+
+            if (empty($availableStaff['internal']) && empty($availableStaff['sspo'])) {
+                $skippedCount++;
+                continue;
+            }
+
+            // Determine if this assignment goes to internal or SSPO (80/20 split)
+            $useSSPO = rand(1, 100) <= 20 && !empty($availableStaff['sspo']);
+            $staffPool = $useSSPO ? $availableStaff['sspo'] : $availableStaff['internal'];
+
+            // Find a staff member with an available slot
+            $assignment = $this->findAvailableSlot(
+                $staffPool,
+                $visitDate,
+                $durationMinutes
+            );
+
+            if (!$assignment) {
+                $skippedCount++;
+                continue;
+            }
+
+            $staff = $assignment['staff'];
+            $scheduledStart = $assignment['start'];
+            $scheduledEnd = $assignment['end'];
+
+            $source = $useSSPO ? ServiceAssignment::SOURCE_SSPO : ServiceAssignment::SOURCE_INTERNAL;
+            $orgId = $useSSPO ? $sspo->id : $spo->id;
+
+            // Status: past weeks = completed, current week = scheduled/planned
+            $status = $isCurrentWeek ? 'planned' : 'completed';
+
+            ServiceAssignment::create([
+                'care_plan_id' => $visit['care_plan_id'],
+                'patient_id' => $visit['patient_id'],
+                'service_type_id' => $visit['service_type_id'],
+                'assigned_user_id' => $staff->id,
+                'service_provider_organization_id' => $orgId,
+                'status' => $status,
+                'scheduled_start' => $scheduledStart,
+                'scheduled_end' => $scheduledEnd,
+                'duration_minutes' => $durationMinutes,
+                'actual_start' => $isCurrentWeek ? null : $scheduledStart,
+                'actual_end' => $isCurrentWeek ? null : $scheduledEnd,
+                'frequency_rule' => "{$visit['frequency']}x per week",
+                'estimated_hours_per_week' => round(($visit['frequency'] * $durationMinutes) / 60, 2),
+                'source' => $source,
+                'notes' => $isCurrentWeek ? "Scheduled: {$serviceCode}" : "Completed: {$serviceCode}",
+            ]);
+            $assignmentCount++;
+        }
+
+        $this->command->info("Seeded {$assignmentCount} non-overlapping service assignments.");
+        if ($skippedCount > 0) {
+            $this->command->warn("Skipped {$skippedCount} visits (no available staff slots).");
+        }
+    }
+
+    /**
+     * Build a queue of all required visits across all weeks.
+     */
+    protected function buildVisitQueue($patients, int $weeks): array
+    {
+        $queue = [];
+        $currentWeekStart = Carbon::now()->startOfWeek();
+
+        for ($weekOffset = $weeks - 1; $weekOffset >= 0; $weekOffset--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($weekOffset);
-            $isCurrentWeek = ($weekOffset === 0);
 
             foreach ($patients as $patient) {
                 $carePlan = $patient->carePlans->first();
                 if (!$carePlan) continue;
 
-                // Get services from either new template system or legacy bundle
                 $services = $this->getCarePlanServices($carePlan);
 
                 foreach ($services as $service) {
-                    $serviceTypeId = $service['service_type_id'];
-                    $serviceCode = $service['code'];
                     $frequencyPerWeek = $service['frequency'];
-                    $durationMinutes = $service['duration'];
-
-                    // Find staff that can provide this service
-                    $availableStaff = $this->findStaffForService(
-                        $serviceCode,
-                        $spoStaffByRole,
-                        $sspoStaffByRole
-                    );
-
-                    if (empty($availableStaff['internal']) && empty($availableStaff['sspo'])) {
-                        continue;
-                    }
-
-                    // Create assignments for this week
+                    $durationMinutes = $this->getServiceDuration($service);
                     $visitDays = $this->distributeVisitsAcrossWeek($frequencyPerWeek);
 
                     foreach ($visitDays as $dayIndex => $visitsOnDay) {
-                        for ($visitNum = 0; $visitNum < $visitsOnDay; $visitNum++) {
+                        for ($v = 0; $v < $visitsOnDay; $v++) {
                             $visitDate = $weekStart->copy()->addDays($dayIndex);
-                            $startHour = 8 + ($visitNum * 2) + rand(0, 1);
-                            $scheduledStart = $visitDate->copy()->setTime($startHour, 0);
-                            $scheduledEnd = $scheduledStart->copy()->addMinutes($durationMinutes);
 
-                            // Determine if this assignment goes to internal or SSPO (80/20 split)
-                            $useSSPO = rand(1, 100) <= 20 && !empty($availableStaff['sspo']);
-                            $staff = $useSSPO
-                                ? $availableStaff['sspo'][array_rand($availableStaff['sspo'])]
-                                : ($availableStaff['internal'][array_rand($availableStaff['internal'])] ?? null);
-
-                            if (!$staff) continue;
-
-                            $source = $useSSPO ? ServiceAssignment::SOURCE_SSPO : ServiceAssignment::SOURCE_INTERNAL;
-                            $orgId = $useSSPO ? $sspo->id : $spo->id;
-
-                            // Status: past weeks = completed, current week = scheduled/planned
-                            $status = $isCurrentWeek ? 'planned' : 'completed';
-
-                            ServiceAssignment::updateOrCreate(
-                                [
-                                    'care_plan_id' => $carePlan->id,
-                                    'patient_id' => $patient->id,
-                                    'service_type_id' => $serviceTypeId,
-                                    'scheduled_start' => $scheduledStart,
-                                ],
-                                [
-                                    'assigned_user_id' => $staff->id,
-                                    'service_provider_organization_id' => $orgId,
-                                    'status' => $status,
-                                    'scheduled_end' => $scheduledEnd,
-                                    'actual_start' => $isCurrentWeek ? null : $scheduledStart,
-                                    'actual_end' => $isCurrentWeek ? null : $scheduledEnd,
-                                    'frequency_rule' => "{$frequencyPerWeek}x per week",
-                                    'estimated_hours_per_week' => round(($frequencyPerWeek * $durationMinutes) / 60, 2),
-                                    'source' => $source,
-                                    'notes' => $isCurrentWeek ? "Scheduled: {$serviceCode}" : "Completed: {$serviceCode}",
-                                ]
-                            );
-                            $assignmentCount++;
+                            $queue[] = [
+                                'care_plan_id' => $carePlan->id,
+                                'patient_id' => $patient->id,
+                                'service_type_id' => $service['service_type_id'],
+                                'service_code' => $service['code'],
+                                'frequency' => $frequencyPerWeek,
+                                'duration' => $durationMinutes,
+                                'date' => $visitDate,
+                            ];
                         }
                     }
                 }
             }
         }
 
-        $this->command->info("Seeded {$assignmentCount} service assignments (past 3 weeks + current week).");
+        return $queue;
+    }
+
+    /**
+     * Get service duration from metadata or category defaults.
+     */
+    protected function getServiceDuration(array $service): int
+    {
+        // Use explicit duration if set
+        if (!empty($service['duration']) && $service['duration'] > 0) {
+            return $service['duration'];
+        }
+
+        // Get from service type model
+        $serviceType = ServiceType::find($service['service_type_id']);
+        if ($serviceType && $serviceType->default_duration_minutes) {
+            return $serviceType->default_duration_minutes;
+        }
+
+        // Fall back to category defaults
+        $category = strtolower($serviceType->category ?? 'other');
+        return $this->categoryDurations[$category] ?? 60;
+    }
+
+    /**
+     * Find an available slot for a staff member on a given day.
+     *
+     * @param array $staffPool Array of staff members who can provide the service
+     * @param Carbon $visitDate The date for the visit
+     * @param int $durationMinutes Required duration
+     * @return array|null ['staff' => User, 'start' => Carbon, 'end' => Carbon] or null
+     */
+    protected function findAvailableSlot(
+        array $staffPool,
+        Carbon $visitDate,
+        int $durationMinutes
+    ): ?array {
+        // Shuffle staff to distribute load
+        shuffle($staffPool);
+
+        foreach ($staffPool as $staff) {
+            $slot = $this->getNextSlotForStaff($staff, $visitDate, $durationMinutes);
+            if ($slot) {
+                return [
+                    'staff' => $staff,
+                    'start' => $slot['start'],
+                    'end' => $slot['end'],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the next available slot for a staff member on a specific day.
+     *
+     * @param User $staff
+     * @param Carbon $visitDate
+     * @param int $durationMinutes
+     * @return array|null ['start' => Carbon, 'end' => Carbon] or null
+     */
+    protected function getNextSlotForStaff(
+        User $staff,
+        Carbon $visitDate,
+        int $durationMinutes
+    ): ?array {
+        $dateKey = $visitDate->toDateString();
+        $staffKey = $staff->id;
+        $dayOfWeek = $visitDate->dayOfWeek;
+
+        // Get staff's availability for this day of week
+        $availability = $staff->availabilities
+            ->where('day_of_week', $dayOfWeek)
+            ->first();
+
+        if (!$availability) {
+            // No availability defined for this day - skip weekends, use default for weekdays
+            if ($dayOfWeek == 0 || $dayOfWeek == 6) {
+                return null;
+            }
+            // Default: 08:00 - 16:00 for weekdays if no availability set
+            $dayStart = $visitDate->copy()->setTime(8, 0, 0);
+            $dayEnd = $visitDate->copy()->setTime(16, 0, 0);
+        } else {
+            // Parse availability times
+            $startTime = Carbon::parse($availability->start_time);
+            $endTime = Carbon::parse($availability->end_time);
+
+            $dayStart = $visitDate->copy()->setTime(
+                $startTime->hour,
+                $startTime->minute,
+                0
+            );
+            $dayEnd = $visitDate->copy()->setTime(
+                $endTime->hour,
+                $endTime->minute,
+                0
+            );
+        }
+
+        // Get or initialize the staff's next available time for this day
+        if (!isset($this->staffSchedules[$staffKey][$dateKey])) {
+            $this->staffSchedules[$staffKey][$dateKey] = $dayStart->copy();
+        }
+
+        $nextAvailable = $this->staffSchedules[$staffKey][$dateKey];
+
+        // Calculate potential slot
+        $slotStart = $nextAvailable->copy();
+        $slotEnd = $slotStart->copy()->addMinutes($durationMinutes);
+
+        // Check if slot fits within day's availability
+        if ($slotEnd->gt($dayEnd)) {
+            return null; // No more room today
+        }
+
+        // Reserve the slot (update next available time with buffer)
+        $this->staffSchedules[$staffKey][$dateKey] = $slotEnd->copy()->addMinutes($this->bufferMinutes);
+
+        return [
+            'start' => $slotStart,
+            'end' => $slotEnd,
+        ];
+    }
+
+    /**
+     * Get staff with their availabilities loaded.
+     */
+    protected function getStaffWithAvailability(ServiceProviderOrganization $spo): \Illuminate\Support\Collection
+    {
+        return User::where('organization_id', $spo->id)
+            ->where('role', User::ROLE_FIELD_STAFF)
+            ->where('staff_status', User::STAFF_STATUS_ACTIVE)
+            ->with(['staffRole', 'availabilities'])
+            ->get();
+    }
+
+    /**
+     * Group staff by role code.
+     */
+    protected function groupStaffByRole($staff): array
+    {
+        $grouped = [];
+        foreach ($staff as $member) {
+            $roleCode = $member->staffRole?->code ?? $member->organization_role;
+            if ($roleCode) {
+                $grouped[$roleCode][] = $member;
+            }
+        }
+        return $grouped;
     }
 
     /**

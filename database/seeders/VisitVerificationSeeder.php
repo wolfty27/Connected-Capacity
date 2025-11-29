@@ -44,6 +44,17 @@ class VisitVerificationSeeder extends Seeder
      */
     protected int $weeksBack = 4;
 
+    /**
+     * Buffer time between assignments in minutes.
+     */
+    protected int $bufferMinutes = 10;
+
+    /**
+     * Staff schedule tracker for non-overlapping assignments.
+     * Structure: [staff_id => [date_string => Carbon (next available start time)]]
+     */
+    protected array $staffSchedules = [];
+
     public function run(): void
     {
         $this->command->info('Creating visit verification data for the last 4 weeks...');
@@ -97,6 +108,16 @@ class VisitVerificationSeeder extends Seeder
 
         $this->command->info('No existing assignments found. Creating new visit verification data...');
 
+        // Reset staff schedules tracker
+        $this->staffSchedules = [];
+
+        // Load staff with availabilities for non-overlapping scheduling
+        $staffWithAvailability = User::where('organization_id', $spo->id)
+            ->where('role', User::ROLE_FIELD_STAFF)
+            ->where('staff_status', 'active')
+            ->with('availabilities')
+            ->get();
+
         // Generate visits for the last 4 weeks
         $startDate = Carbon::now()->subWeeks($this->weeksBack)->startOfWeek();
         $endDate = Carbon::now()->endOfWeek();
@@ -105,6 +126,7 @@ class VisitVerificationSeeder extends Seeder
         $verifiedCount = 0;
         $missedCount = 0;
         $pendingCount = 0;
+        $skippedCount = 0;
 
         // Calculate expected visits per week per patient (based on typical care bundle)
         $visitsPerWeekPerPatient = rand(3, 7);
@@ -127,14 +149,27 @@ class VisitVerificationSeeder extends Seeder
                 // Generate visits for this patient this week
                 for ($i = 0; $i < $visitsPerWeekPerPatient; $i++) {
                     $serviceType = $serviceTypes->random();
-                    $staffMember = $staff->random();
-
-                    // Random day and time within the week
-                    $dayOffset = rand(0, 4); // Mon-Fri
-                    $hour = rand(8, 16);
-                    $scheduledStart = $currentWeekStart->copy()->addDays($dayOffset)->setTime($hour, 0);
                     $durationMinutes = $serviceType->default_duration_minutes ?? 60;
-                    $scheduledEnd = $scheduledStart->copy()->addMinutes($durationMinutes);
+
+                    // Random day within the week (Mon-Fri)
+                    $dayOffset = rand(0, 4);
+                    $visitDate = $currentWeekStart->copy()->addDays($dayOffset);
+
+                    // Find an available staff member with an open slot
+                    $slot = $this->findAvailableSlotForStaff(
+                        $staffWithAvailability,
+                        $visitDate,
+                        $durationMinutes
+                    );
+
+                    if (!$slot) {
+                        $skippedCount++;
+                        continue;
+                    }
+
+                    $staffMember = $slot['staff'];
+                    $scheduledStart = $slot['start'];
+                    $scheduledEnd = $slot['end'];
 
                     // Determine status and verification based on timing
                     $isPast = $scheduledStart->lt(Carbon::now());
@@ -156,6 +191,7 @@ class VisitVerificationSeeder extends Seeder
                         'assigned_user_id' => $staffMember->id,
                         'scheduled_start' => $scheduledStart,
                         'scheduled_end' => $scheduledEnd,
+                        'duration_minutes' => $durationMinutes,
                         'status' => $assignmentData['status'],
                         'verification_status' => $assignmentData['verification_status'],
                         'verified_at' => $assignmentData['verified_at'],
@@ -179,6 +215,10 @@ class VisitVerificationSeeder extends Seeder
             }
 
             $currentWeekStart->addWeek();
+        }
+
+        if ($skippedCount > 0) {
+            $this->command->warn("Skipped {$skippedCount} visits (no available staff slots).");
         }
 
         // Create specific overdue alerts for jeopardy board
@@ -260,12 +300,26 @@ class VisitVerificationSeeder extends Seeder
 
     /**
      * Create specific overdue alerts for the jeopardy board demo.
+     * Uses non-overlapping scheduling to ensure realistic data.
      */
     protected function createJeopardyAlerts($patients, $staff, $serviceTypes, $spo): void
     {
         $this->command->info("Creating {$this->overdueAlertsCount} overdue alerts for Jeopardy Board...");
 
-        for ($i = 0; $i < $this->overdueAlertsCount; $i++) {
+        // Load staff with availabilities
+        $staffWithAvailability = User::where('organization_id', $spo->id)
+            ->where('role', User::ROLE_FIELD_STAFF)
+            ->where('staff_status', 'active')
+            ->with('availabilities')
+            ->get();
+
+        $createdCount = 0;
+        $attempts = 0;
+        $maxAttempts = $this->overdueAlertsCount * 3;
+
+        while ($createdCount < $this->overdueAlertsCount && $attempts < $maxAttempts) {
+            $attempts++;
+
             $patient = $patients->random();
             $carePlan = $patient->carePlans->first();
             if (!$carePlan) {
@@ -273,22 +327,32 @@ class VisitVerificationSeeder extends Seeder
             }
 
             $serviceType = $serviceTypes->random();
-            $staffMember = $staff->random();
+            $durationMinutes = $serviceType->default_duration_minutes ?? 60;
 
             // Schedule 1-7 days ago (past the 24h grace period)
             $daysAgo = rand(1, 7);
-            $hour = rand(8, 16);
-            $scheduledStart = Carbon::now()->subDays($daysAgo)->setTime($hour, 0);
-            $durationMinutes = $serviceType->default_duration_minutes ?? 60;
+            $visitDate = Carbon::now()->subDays($daysAgo);
+
+            // Find an available slot for this staff member
+            $slot = $this->findAvailableSlotForStaff(
+                $staffWithAvailability,
+                $visitDate,
+                $durationMinutes
+            );
+
+            if (!$slot) {
+                continue;
+            }
 
             ServiceAssignment::create([
                 'care_plan_id' => $carePlan->id,
                 'patient_id' => $patient->id,
                 'service_type_id' => $serviceType->id,
                 'service_provider_organization_id' => $spo->id,
-                'assigned_user_id' => $staffMember->id,
-                'scheduled_start' => $scheduledStart,
-                'scheduled_end' => $scheduledStart->copy()->addMinutes($durationMinutes),
+                'assigned_user_id' => $slot['staff']->id,
+                'scheduled_start' => $slot['start'],
+                'scheduled_end' => $slot['end'],
+                'duration_minutes' => $durationMinutes,
                 'status' => ServiceAssignment::STATUS_PLANNED,
                 'verification_status' => ServiceAssignment::VERIFICATION_PENDING,
                 'verified_at' => null,
@@ -297,7 +361,109 @@ class VisitVerificationSeeder extends Seeder
                 'source' => ServiceAssignment::SOURCE_INTERNAL,
                 'notes' => 'Overdue - requires verification',
             ]);
+
+            $createdCount++;
         }
+
+        if ($createdCount < $this->overdueAlertsCount) {
+            $this->command->warn("Only created {$createdCount} overdue alerts (limited staff availability).");
+        }
+    }
+
+    /**
+     * Find an available slot for any staff member on a given day.
+     *
+     * @param \Illuminate\Support\Collection $staffCollection Collection of staff with availabilities
+     * @param Carbon $visitDate The date for the visit
+     * @param int $durationMinutes Required duration
+     * @return array|null ['staff' => User, 'start' => Carbon, 'end' => Carbon] or null
+     */
+    protected function findAvailableSlotForStaff($staffCollection, Carbon $visitDate, int $durationMinutes): ?array
+    {
+        // Shuffle to distribute load
+        $shuffledStaff = $staffCollection->shuffle();
+
+        foreach ($shuffledStaff as $staff) {
+            $slot = $this->getNextSlotForStaff($staff, $visitDate, $durationMinutes);
+            if ($slot) {
+                return [
+                    'staff' => $staff,
+                    'start' => $slot['start'],
+                    'end' => $slot['end'],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the next available slot for a staff member on a specific day.
+     *
+     * @param User $staff
+     * @param Carbon $visitDate
+     * @param int $durationMinutes
+     * @return array|null ['start' => Carbon, 'end' => Carbon] or null
+     */
+    protected function getNextSlotForStaff(User $staff, Carbon $visitDate, int $durationMinutes): ?array
+    {
+        $dateKey = $visitDate->toDateString();
+        $staffKey = $staff->id;
+        $dayOfWeek = $visitDate->dayOfWeek;
+
+        // Get staff's availability for this day of week
+        $availability = $staff->availabilities
+            ->where('day_of_week', $dayOfWeek)
+            ->first();
+
+        if (!$availability) {
+            // No availability defined for this day - skip weekends, use default for weekdays
+            if ($dayOfWeek == 0 || $dayOfWeek == 6) {
+                return null;
+            }
+            // Default: 08:00 - 16:00 for weekdays if no availability set
+            $dayStart = $visitDate->copy()->setTime(8, 0, 0);
+            $dayEnd = $visitDate->copy()->setTime(16, 0, 0);
+        } else {
+            // Parse availability times
+            $startTime = Carbon::parse($availability->start_time);
+            $endTime = Carbon::parse($availability->end_time);
+
+            $dayStart = $visitDate->copy()->setTime(
+                $startTime->hour,
+                $startTime->minute,
+                0
+            );
+            $dayEnd = $visitDate->copy()->setTime(
+                $endTime->hour,
+                $endTime->minute,
+                0
+            );
+        }
+
+        // Get or initialize the staff's next available time for this day
+        if (!isset($this->staffSchedules[$staffKey][$dateKey])) {
+            $this->staffSchedules[$staffKey][$dateKey] = $dayStart->copy();
+        }
+
+        $nextAvailable = $this->staffSchedules[$staffKey][$dateKey];
+
+        // Calculate potential slot
+        $slotStart = $nextAvailable->copy();
+        $slotEnd = $slotStart->copy()->addMinutes($durationMinutes);
+
+        // Check if slot fits within day's availability
+        if ($slotEnd->gt($dayEnd)) {
+            return null; // No more room today
+        }
+
+        // Reserve the slot (update next available time with buffer)
+        $this->staffSchedules[$staffKey][$dateKey] = $slotEnd->copy()->addMinutes($this->bufferMinutes);
+
+        return [
+            'start' => $slotStart,
+            'end' => $slotEnd,
+        ];
     }
 
     /**
