@@ -1,0 +1,104 @@
+[
+  {
+    "id": "scheduling.travel_time_google",
+    "area": "Scheduling",
+    "title": "Travel-aware scheduling using Google Distance Matrix",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "TravelTimeService implemented with Google Distance Matrix API.",
+      "SchedulingEngine uses canAssignWithTravel (prev + next travel + buffer).",
+      "Seeding uses FakeTravelTimeService and generates travel-feasible schedules.",
+      "Tests written for travel constraints."
+    ]
+  },
+  {
+    "id": "scheduling.patient_non_concurrency",
+    "area": "Scheduling",
+    "title": "Prevent patients from having overlapping visits",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "PatientSchedulingRules::patientHasOverlap implemented.",
+      "SchedulingEngine rejects visits when another visit exists for the same patient.",
+      "Seeding prevents generating overlapping patient visits.",
+      "Patient timeline never shows two visits at the same time."
+    ]
+  },
+  {
+    "id": "scheduling.psw_spacing",
+    "area": "Scheduling",
+    "title": "Space PSW visits across the day instead of bunching",
+    "status": "not_started",
+    "depends_on": ["scheduling.patient_non_concurrency"],
+    "acceptance_criteria": [
+      "ServiceType.min_gap_between_visits_minutes field exists.",
+      "PSW visits spaced across morning/midday/afternoon.",
+      "Seeding distributes PSW visits using spacing rules.",
+      "Tests validate spacing."
+    ]
+  },
+  {
+    "id": "rpm.fixed_two_visits",
+    "area": "ServiceLogic",
+    "title": "RPM has exactly 2 scheduled visits per care plan (Setup & Discharge)",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "ServiceType.scheduling_mode = 'fixed_visits' for RPM.",
+      "fixed_visits_per_plan = 2.",
+      "Two RPM visits appear in Care Plan: Setup & Discharge.",
+      "Unscheduled Care shows RPM until both are scheduled.",
+      "No ongoing daily/weekly RPM visits."
+    ]
+  },
+  {
+    "id": "regions.metadata_and_auto_assignment",
+    "area": "Regions",
+    "title": "Region & RegionArea metadata with automatic assignment",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "Region and RegionArea tables created.",
+      "RegionArea seeded with Toronto/GTA FSAs (M4X, M5B, M5G, etc).",
+      "Patients auto-assigned region via RegionService using metadata lookup.",
+      "NO hardcoded region names."
+    ]
+  },
+  {
+    "id": "seeding.realistic_toronto_addresses",
+    "area": "Seeding",
+    "title": "Seed realistic Toronto/GTA addresses with lat/lng for patients",
+    "status": "not_started",
+    "depends_on": ["regions.metadata_and_auto_assignment"],
+    "acceptance_criteria": [
+      "Patients seeded with real Toronto/GTA demo addresses.",
+      "lat/lng included and region auto-assigned.",
+      "Multiple regions available (Toronto Central, Central East, etc)."
+    ]
+  },
+  {
+    "id": "scheduling.patient_timeline_correctness",
+    "area": "UI",
+    "title": "Patient-centric timeline is clean, sorted by time, no overlaps, no clutter",
+    "status": "not_started",
+    "depends_on": ["scheduling.patient_non_concurrency"],
+    "acceptance_criteria": [
+      "Timeline shows a single vertical list of visits ordered by start time.",
+      "No staff rows or multi-row clutter.",
+      "Spacing and sequencing reflect real-world workflow."
+    ]
+  },
+  {
+    "id": "bundles.unscheduled_care_correctness",
+    "area": "Bundles",
+    "title": "Correct Unscheduled Care logic based on required vs scheduled units",
+    "status": "not_started",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "CareBundleAssignmentPlanner computes required/scheduled/remaining units for all service types.",
+      "Unscheduled Care panel shows patients with remaining units > 0.",
+      "RPM handled per fixed_visit logic."
+    ]
+  }
+]

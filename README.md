@@ -81,3 +81,32 @@ The codebase has moved away from legacy "split-brain" Blade views to a unified R
 ## Security
 *   **RBAC:** Role-Based Access Control is enforced via `App\Policies` and Middleware.
 *   **Roles:** `MASTER`, `ADMIN`, `SPO_ADMIN`, `FIELD_STAFF`, `HOSPITAL`, `RETIREMENT_HOME` (See `App\Models\User` constants).
+
+## CC 2.1 Long-Running Harness
+
+This project uses a long-running engineering harness that allows Claude Code to
+contribute safely and incrementally over many sessions.
+
+### How to use it:
+
+1. **Before each Claude Code session:**
+   - Ask Claude to read `harness/feature_list.json` and read `harness/progress.md`.
+
+2. **During each session:**
+   - Claude picks 1–2 features with status `"not_started"` or `"in_progress"`.
+   - Implements them fully:
+     - backend models/services
+     - front-end components
+     - tests
+     - database seeding adjustments
+   - Ensures no partial or broken state is left behind.
+
+3. **After implementing:**
+   - Claude updates:
+     - `feature_list.json` (status)
+     - `progress.md` (summary of what changed)
+     - `session_log.md` (session notes)
+   - Runs tests and ensures build passes.
+   - Commits cleanly.
+
+This harness allows CC2.1 to be built steadily despite LLM statelessness.
