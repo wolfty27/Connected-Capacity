@@ -56,7 +56,8 @@ class CoreDataSeeder extends Seeder
                 'cost_driver' => 'Hourly Labour or Per Visit Rate',
                 'cost_per_visit' => 120.00,
                 'source' => 'Sched 3 (Nursing)',
-                'default_duration_minutes' => 60,
+                'default_duration_minutes' => 45,
+                'min_gap_between_visits_minutes' => 60,
                 'description' => 'Wound Care (surgical, pressure ulcers, negative pressure therapy), Infusion (IV therapy, CVAD maintenance, hypodermoclysis), Palliative (pain/symptom management, end-of-life care), Meds (administration, reconciliation)',
             ],
             [
@@ -69,6 +70,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 140.00,
                 'source' => 'Sched 3 (PT)',
                 'default_duration_minutes' => 45,
+                'min_gap_between_visits_minutes' => 120,
                 'description' => 'Mobility (gait training, fall prevention, transfer training), Chest PT (postural drainage, suctioning), Modalities (ultrasound, TENS, laser)',
             ],
             [
@@ -81,6 +83,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 150.00,
                 'source' => 'Sched 3 (OT)',
                 'default_duration_minutes' => 45,
+                'min_gap_between_visits_minutes' => 120,
                 'description' => 'ADL Training (feeding, dressing, bathing retraining), Safety (home environment assessment, equipment prescription/ADP)',
             ],
             [
@@ -155,6 +158,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 45.00,
                 'source' => 'Sched 3 (PSW)',
                 'default_duration_minutes' => 60,
+                'min_gap_between_visits_minutes' => 120,
                 'description' => 'Hygiene (bathing, grooming, toileting/incontinence care), Mobility (transfers with lifts, turning/positioning)',
             ],
             [
@@ -166,7 +170,8 @@ class CoreDataSeeder extends Seeder
                 'cost_driver' => 'Hourly Labour',
                 'cost_per_visit' => 40.00,
                 'source' => 'Sched 3 (PSW)',
-                'default_duration_minutes' => 60,
+                'default_duration_minutes' => 90,
+                'min_gap_between_visits_minutes' => 180,
                 'description' => 'Cleaning (light housekeeping, laundry, changing linens), Errands (banking, grocery shopping assistance)',
             ],
             [
@@ -297,7 +302,7 @@ class CoreDataSeeder extends Seeder
                 'cost_driver' => 'Per Meal Cost',
                 'cost_per_visit' => 15.00,
                 'source' => 'Bundle RFS',
-                'default_duration_minutes' => 15,
+                'default_duration_minutes' => 30,
                 'description' => 'Nutrition Support: Coordination and payment for prepared meal delivery (e.g., Meals on Wheels)',
             ],
             [
@@ -322,6 +327,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 100.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 60,
+                'min_gap_between_visits_minutes' => 120,
                 'description' => 'Dementia Care: Specialized support strategies for responsive behaviors (BSO)',
             ],
         ];

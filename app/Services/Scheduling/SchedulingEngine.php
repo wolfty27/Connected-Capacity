@@ -237,6 +237,90 @@ class SchedulingEngine
     }
 
     /**
+     * Check if a patient has any overlapping assignments during a time range.
+     *
+     * This is a simpler version of hasPatientConflicts() that returns a boolean
+     * for use in validation flows.
+     *
+     * @param int $patientId The patient's ID
+     * @param Carbon $start Proposed start time
+     * @param Carbon $end Proposed end time
+     * @param int|null $ignoreAssignmentId Assignment ID to exclude (for updates)
+     * @return bool True if the patient has overlapping assignments
+     */
+    public function patientHasOverlap(
+        int $patientId,
+        Carbon $start,
+        Carbon $end,
+        ?int $ignoreAssignmentId = null
+    ): bool {
+        return $this->hasPatientConflicts($patientId, $start, $end, $ignoreAssignmentId);
+    }
+
+    /**
+     * Check if scheduling a service violates the minimum gap rule.
+     *
+     * For services with min_gap_between_visits_minutes defined, this ensures
+     * sufficient time has elapsed since the last visit of the same service type.
+     *
+     * Example: PSW visits require 120 min gap, so if last PSW ended at 09:00,
+     * next PSW cannot start before 11:00 (09:00 + 120 min).
+     *
+     * @param int $patientId The patient's ID
+     * @param int $serviceTypeId The service type ID
+     * @param Carbon $start Proposed start time
+     * @param int|null $ignoreAssignmentId Assignment ID to exclude (for updates)
+     * @return string|null Error message if violated, null if valid
+     */
+    public function checkSpacingRule(
+        int $patientId,
+        int $serviceTypeId,
+        Carbon $start,
+        ?int $ignoreAssignmentId = null
+    ): ?string {
+        // Get the service type to check for min_gap requirement
+        $serviceType = ServiceType::find($serviceTypeId);
+        if (!$serviceType || !$serviceType->min_gap_between_visits_minutes) {
+            return null; // No spacing rule for this service type
+        }
+
+        $minGapMinutes = $serviceType->min_gap_between_visits_minutes;
+
+        // Find the most recent previous assignment of the same service type
+        // that ended before the proposed start time
+        $previousAssignment = ServiceAssignment::where('patient_id', $patientId)
+            ->where('service_type_id', $serviceTypeId)
+            ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
+            ->where('scheduled_end', '<=', $start)
+            ->orderBy('scheduled_end', 'desc');
+
+        if ($ignoreAssignmentId) {
+            $previousAssignment->where('id', '!=', $ignoreAssignmentId);
+        }
+
+        $previous = $previousAssignment->first();
+
+        if ($previous) {
+            $actualGapMinutes = $previous->scheduled_end->diffInMinutes($start);
+
+            if ($actualGapMinutes < $minGapMinutes) {
+                $earliestAllowed = $previous->scheduled_end->copy()->addMinutes($minGapMinutes);
+                return sprintf(
+                    'Spacing rule violated: %s visits require %d min gap. Last visit ended at %s, earliest next visit is %s (gap is %d min, need %d min)',
+                    $serviceType->name,
+                    $minGapMinutes,
+                    $previous->scheduled_end->format('H:i'),
+                    $earliestAllowed->format('H:i'),
+                    $actualGapMinutes,
+                    $minGapMinutes
+                );
+            }
+        }
+
+        return null; // Valid - no previous assignment or sufficient gap
+    }
+
+    /**
      * Get conflicting assignments.
      */
     public function getConflicts(
@@ -611,6 +695,21 @@ class SchedulingEngine
         $earliestStart = null;
         $latestEnd = null;
 
+        // 0. Check patient non-concurrency FIRST (patient cannot have multiple providers at same time)
+        if ($this->patientHasOverlap($patient->id, $start, $end, $excludeAssignmentId)) {
+            $errors[] = 'Patient already has another visit scheduled during that time.';
+            return TravelValidationResultDTO::invalid($errors, $warnings);
+        }
+
+        // 0b. Check spacing rule for repeated services (e.g., PSW visits need 120 min gap)
+        if ($serviceTypeId) {
+            $spacingError = $this->checkSpacingRule($patient->id, $serviceTypeId, $start, $excludeAssignmentId);
+            if ($spacingError) {
+                $errors[] = $spacingError;
+                return TravelValidationResultDTO::invalid($errors, $warnings);
+            }
+        }
+
         // Check if patient has coordinates
         if (!$patient->hasCoordinates()) {
             $warnings[] = 'Patient location unknown - travel time cannot be calculated';
@@ -624,18 +723,6 @@ class SchedulingEngine
                 $patientName = $conflict->patient?->user?->name ?? 'Unknown';
                 $conflictTime = $conflict->scheduled_start->format('H:i');
                 $errors[] = "Staff conflict: already assigned to {$patientName} at {$conflictTime}";
-            }
-            return TravelValidationResultDTO::invalid($errors, $warnings);
-        }
-
-        // 2. Check for patient non-concurrency (patient cannot have multiple providers at same time)
-        if ($this->hasPatientConflicts($patient->id, $start, $end, $excludeAssignmentId)) {
-            $patientConflicts = $this->getPatientConflicts($patient->id, $start, $end, $excludeAssignmentId);
-            foreach ($patientConflicts as $conflict) {
-                $staffName = $conflict->assignedUser?->name ?? 'Unknown';
-                $serviceName = $conflict->serviceType?->name ?? 'Unknown';
-                $conflictTime = $conflict->scheduled_start->format('H:i');
-                $errors[] = "Patient conflict: already receiving {$serviceName} from {$staffName} at {$conflictTime}";
             }
             return TravelValidationResultDTO::invalid($errors, $warnings);
         }

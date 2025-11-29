@@ -21,6 +21,7 @@ class ServiceType extends Model
         'category',
         'category_id',
         'default_duration_minutes',
+        'min_gap_between_visits_minutes',
         'description',
         'cost_code',
         'cost_driver',
@@ -34,6 +35,7 @@ class ServiceType extends Model
 
     protected $casts = [
         'default_duration_minutes' => 'integer',
+        'min_gap_between_visits_minutes' => 'integer',
         'cost_per_visit' => 'decimal:2',
         'active' => 'boolean',
         'fixed_visits_per_plan' => 'integer',

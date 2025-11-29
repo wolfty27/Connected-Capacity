@@ -340,6 +340,17 @@ class WorkforceSeeder extends Seeder
     protected ?FakeTravelTimeService $travelTimeService = null;
 
     /**
+     * Scheduling engine for validating patient constraints.
+     */
+    protected ?SchedulingEngine $schedulingEngine = null;
+
+    /**
+     * Patient schedule tracker for non-concurrency validation.
+     * Structure: [patient_id => [date_string => [['start' => Carbon, 'end' => Carbon, 'service_type_id' => int]]]]
+     */
+    protected array $patientSchedules = [];
+
+    /**
      * Seed service assignments for past 3 weeks (completed) + current week (scheduled).
      *
      * NEW: Generates non-overlapping, travel-aware assignments by:
@@ -354,9 +365,14 @@ class WorkforceSeeder extends Seeder
     ): void {
         // Reset staff schedules tracker
         $this->staffSchedules = [];
+        $this->patientSchedules = [];
 
         // Initialize travel time service for seeding (uses fake/deterministic values)
         $this->travelTimeService = new FakeTravelTimeService();
+
+        // Initialize scheduling engine for patient constraint validation
+        $this->schedulingEngine = new SchedulingEngine();
+        $this->schedulingEngine->setTravelTimeService($this->travelTimeService);
 
         // Get active patients with care plans (using new bundle template system)
         $patients = Patient::where('status', 'Active')
@@ -438,6 +454,20 @@ class WorkforceSeeder extends Seeder
             $staff = $assignment['staff'];
             $scheduledStart = $assignment['start'];
             $scheduledEnd = $assignment['end'];
+
+            // Validate patient constraints before creating assignment
+            if (!$this->isPatientSlotAvailable($visit['patient_id'], $scheduledStart, $scheduledEnd)) {
+                $skippedCount++;
+                continue; // Patient has overlapping visit
+            }
+
+            if (!$this->respectsSpacingRule($visit['patient_id'], $visit['service_type_id'], $scheduledStart)) {
+                $skippedCount++;
+                continue; // Spacing rule violated
+            }
+
+            // Record patient visit for tracking
+            $this->recordPatientVisit($visit['patient_id'], $visit['service_type_id'], $scheduledStart, $scheduledEnd);
 
             $source = $useSSPO ? ServiceAssignment::SOURCE_SSPO : ServiceAssignment::SOURCE_INTERNAL;
             $orgId = $useSSPO ? $sspo->id : $spo->id;
@@ -989,5 +1019,103 @@ class WorkforceSeeder extends Seeder
         }
 
         $this->command->info("Seeded {$createdCount} staff availability blocks.");
+    }
+
+    /**
+     * Check if a time slot is available for a patient (non-concurrency check).
+     *
+     * Ensures the patient doesn't have overlapping visits.
+     *
+     * @param int $patientId Patient ID
+     * @param Carbon $start Proposed start time
+     * @param Carbon $end Proposed end time
+     * @return bool True if slot is available
+     */
+    protected function isPatientSlotAvailable(int $patientId, Carbon $start, Carbon $end): bool
+    {
+        $dateKey = $start->toDateString();
+
+        if (!isset($this->patientSchedules[$patientId][$dateKey])) {
+            return true; // No visits scheduled for this patient on this day
+        }
+
+        // Check for overlaps with existing visits
+        foreach ($this->patientSchedules[$patientId][$dateKey] as $visit) {
+            // Check if [start, end) overlaps with existing visit
+            if ($start->lt($visit['end']) && $end->gt($visit['start'])) {
+                return false; // Overlap detected
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if a time slot respects spacing rules for the service type.
+     *
+     * Ensures minimum gap between visits of the same service type.
+     *
+     * @param int $patientId Patient ID
+     * @param int $serviceTypeId Service type ID
+     * @param Carbon $start Proposed start time
+     * @return bool True if spacing rule is satisfied
+     */
+    protected function respectsSpacingRule(int $patientId, int $serviceTypeId, Carbon $start): bool
+    {
+        $serviceType = ServiceType::find($serviceTypeId);
+        if (!$serviceType || !$serviceType->min_gap_between_visits_minutes) {
+            return true; // No spacing rule
+        }
+
+        $minGapMinutes = $serviceType->min_gap_between_visits_minutes;
+        $dateKey = $start->toDateString();
+
+        if (!isset($this->patientSchedules[$patientId][$dateKey])) {
+            return true; // No visits scheduled yet
+        }
+
+        // Find the most recent visit of the same service type
+        $lastVisitEnd = null;
+        foreach ($this->patientSchedules[$patientId][$dateKey] as $visit) {
+            if ($visit['service_type_id'] === $serviceTypeId && $visit['end']->lte($start)) {
+                if (!$lastVisitEnd || $visit['end']->gt($lastVisitEnd)) {
+                    $lastVisitEnd = $visit['end'];
+                }
+            }
+        }
+
+        if ($lastVisitEnd) {
+            $actualGap = $lastVisitEnd->diffInMinutes($start);
+            return $actualGap >= $minGapMinutes;
+        }
+
+        return true; // No previous visit of this service type
+    }
+
+    /**
+     * Record a patient visit in the schedule tracker.
+     *
+     * @param int $patientId Patient ID
+     * @param int $serviceTypeId Service type ID
+     * @param Carbon $start Start time
+     * @param Carbon $end End time
+     */
+    protected function recordPatientVisit(int $patientId, int $serviceTypeId, Carbon $start, Carbon $end): void
+    {
+        $dateKey = $start->toDateString();
+
+        if (!isset($this->patientSchedules[$patientId])) {
+            $this->patientSchedules[$patientId] = [];
+        }
+
+        if (!isset($this->patientSchedules[$patientId][$dateKey])) {
+            $this->patientSchedules[$patientId][$dateKey] = [];
+        }
+
+        $this->patientSchedules[$patientId][$dateKey][] = [
+            'start' => $start,
+            'end' => $end,
+            'service_type_id' => $serviceTypeId,
+        ];
     }
 }
