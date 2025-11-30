@@ -1175,10 +1175,10 @@ class WorkforceSeeder extends Seeder
             return;
         }
 
-        // Get patients to assign to SSPOs
-        $patients = Patient::limit(12)->get();
+        // Get patients with care plans (required for service assignments)
+        $patients = Patient::whereHas('carePlans')->with('carePlans')->limit(12)->get();
         if ($patients->isEmpty()) {
-            $this->command->warn('  No patients found - skipping SSPO assignments');
+            $this->command->warn('  No patients with care plans found - skipping SSPO assignments');
             return;
         }
 
@@ -1204,6 +1204,12 @@ class WorkforceSeeder extends Seeder
             $sspoPatients = $patients->random(min(3, $patients->count()));
 
             foreach ($sspoPatients as $patientIndex => $patient) {
+                // Get the patient's care plan
+                $carePlan = $patient->carePlans->first();
+                if (!$carePlan) {
+                    continue;
+                }
+
                 foreach ($serviceTypes as $serviceIndex => $serviceType) {
                     // Create upcoming appointments (next 7 days)
                     $upcomingDays = rand(1, 6);
@@ -1211,6 +1217,7 @@ class WorkforceSeeder extends Seeder
 
                     ServiceAssignment::create([
                         'patient_id' => $patient->id,
+                        'care_plan_id' => $carePlan->id,
                         'service_provider_organization_id' => $sspo->id,
                         'service_type_id' => $serviceType->id,
                         'assigned_user_id' => $staffUser?->id,
@@ -1231,6 +1238,7 @@ class WorkforceSeeder extends Seeder
 
                         ServiceAssignment::create([
                             'patient_id' => $patient->id,
+                            'care_plan_id' => $carePlan->id,
                             'service_provider_organization_id' => $sspo->id,
                             'service_type_id' => $serviceType->id,
                             'assigned_user_id' => $staffUser?->id,
