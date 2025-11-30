@@ -128,6 +128,58 @@ This document tracks progress on key scheduling and care bundle features.
 
 ## Session Notes
 
+### 2025-11-30 - SSPO Marketplace Phase 1 + 2
+
+1. Extended ServiceProviderOrganization model for SSPO-specific fields:
+   - Added: website_url, logo_url, cover_photo_url, description, tagline, notes
+   - Added: status (active/draft/inactive), region_code, capacity_metadata (JSON)
+   - Added: serviceTypes() relationship via organization_service_types pivot table
+   - Added: scopes for sspo(), activeOnly(), inRegion(), offeringService(), search()
+
+2. Extended ServiceType model for provider metadata:
+   - Added: allowed_provider_types (JSON), delivery_mode (in_person/remote/either)
+   - Added: PROVIDER_SSPO, PROVIDER_SPO, PROVIDER_EITHER constants
+   - Added: isSspoOwned(), isSpoOwned(), allowsProviderType(), isRemote(), isInPerson() methods
+   - Added: organizations() inverse relationship
+
+3. Created migrations:
+   - 2025_11_30_220000_add_sspo_fields_to_service_provider_organizations.php
+   - 2025_11_30_220100_add_provider_metadata_to_service_types.php
+   - Created organization_service_types pivot table
+
+4. Created SSPOSeeder with 4 SSPO organizations:
+   - Alexis Lodge Retirement Residence (dementia care specialist)
+   - Reconnect Health Services (community/mental health)
+   - Toronto Grace Health Centre RCM (remote monitoring)
+   - WellHaus (virtual care platform)
+   - Each with complete data: services, contact info, region, capacity metadata
+
+5. Created SspoMarketplaceController with API endpoints:
+   - GET /api/v2/sspo-marketplace - List with filtering (search, region, service_type, status)
+   - GET /api/v2/sspo-marketplace/{id} - Full profile with services
+   - GET /api/v2/sspo-marketplace/filters - Available filter options
+   - GET /api/v2/sspo-marketplace/stats - Marketplace statistics
+
+6. Updated SspoMarketplacePage.jsx:
+   - Replaced mock data with real API integration
+   - Added SSPOCard component with capacity indicators
+   - Added search and filter controls (region, service type, status)
+   - Added loading/error states
+   - Grid layout for partner cards
+
+7. Created SspoProfilePage.jsx:
+   - Full profile view with header (logo, name, tagline, status)
+   - About section, Services Offered, Contact Information
+   - Capacity status display with progress bar
+   - Location information, Special Capabilities
+   - Action buttons (Assign Service, Send Message, View Reports)
+
+8. Updated App.jsx with routes:
+   - /sspo-marketplace - Marketplace listing
+   - /sspo-marketplace/:id - Profile page
+
+---
+
 ### 2025-11-30 - Workforce Capacity Dashboard
 
 1. Implemented WorkforceCapacityService with capacity vs required care calculation

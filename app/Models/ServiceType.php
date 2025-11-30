@@ -20,6 +20,14 @@ class ServiceType extends Model
      */
     public const PROVIDER_SSPO = 'sspo';
     public const PROVIDER_SPO = 'spo';
+    public const PROVIDER_EITHER = 'either';
+
+    /**
+     * Delivery mode constants.
+     */
+    public const DELIVERY_IN_PERSON = 'in_person';
+    public const DELIVERY_REMOTE = 'remote';
+    public const DELIVERY_EITHER = 'either';
 
     protected $fillable = [
         'name',
@@ -38,6 +46,8 @@ class ServiceType extends Model
         'fixed_visits_per_plan',
         'fixed_visit_labels',
         'preferred_provider',
+        'allowed_provider_types',
+        'delivery_mode',
     ];
 
     protected $casts = [
@@ -47,6 +57,7 @@ class ServiceType extends Model
         'active' => 'boolean',
         'fixed_visits_per_plan' => 'integer',
         'fixed_visit_labels' => 'array',
+        'allowed_provider_types' => 'array',
     ];
 
     /**
@@ -100,6 +111,52 @@ class ServiceType extends Model
 
         return in_array(strtolower($this->category ?? ''), $spoCategories)
             || in_array(strtoupper($this->code ?? ''), $spoCodes);
+    }
+
+    /**
+     * Check if this service allows the specified provider type.
+     */
+    public function allowsProviderType(string $providerType): bool
+    {
+        // If allowed_provider_types is set, check it
+        if (!empty($this->allowed_provider_types)) {
+            return in_array($providerType, $this->allowed_provider_types);
+        }
+
+        // Fall back to preferred_provider logic
+        if ($this->preferred_provider === self::PROVIDER_EITHER) {
+            return true;
+        }
+
+        return $this->preferred_provider === $providerType;
+    }
+
+    /**
+     * Check if this service is delivered remotely.
+     */
+    public function isRemote(): bool
+    {
+        return $this->delivery_mode === self::DELIVERY_REMOTE;
+    }
+
+    /**
+     * Check if this service can be delivered in person.
+     */
+    public function isInPerson(): bool
+    {
+        return $this->delivery_mode === self::DELIVERY_IN_PERSON
+            || $this->delivery_mode === self::DELIVERY_EITHER
+            || empty($this->delivery_mode);
+    }
+
+    /**
+     * Get organizations that offer this service type.
+     */
+    public function organizations()
+    {
+        return $this->belongsToMany(ServiceProviderOrganization::class, 'organization_service_types')
+            ->withPivot(['is_primary', 'metadata'])
+            ->withTimestamps();
     }
 
     /**

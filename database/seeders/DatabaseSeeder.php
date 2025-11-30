@@ -61,6 +61,14 @@ class DatabaseSeeder extends Seeder
             RegionSeeder::class,
 
             // ============================================
+            // SSPO ORGANIZATIONS: Secondary Service Providers
+            // ============================================
+
+            // 8. SSPO organizations with service type mappings
+            // Creates: Alexis Lodge, Reconnect, Toronto Grace RCM, WellHaus
+            SSPOSeeder::class,
+
+            // ============================================
             // DEMO DATA: Patients, Assessments, Plans
             // ============================================
 

@@ -312,4 +312,19 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/metadata/roles', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'metadataRoles']);
         Route::get('/metadata/employment-types', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'metadataEmploymentTypes']);
     });
+
+    // SSPO Marketplace API - Browse and view SSPO organizations
+    Route::prefix('v2/sspo-marketplace')->group(function () {
+        // List SSPOs with filtering
+        Route::get('/', [\App\Http\Controllers\Api\V2\SspoMarketplaceController::class, 'index']);
+
+        // Get filter options (service types, regions, statuses)
+        Route::get('/filters', [\App\Http\Controllers\Api\V2\SspoMarketplaceController::class, 'filters']);
+
+        // Get marketplace statistics
+        Route::get('/stats', [\App\Http\Controllers\Api\V2\SspoMarketplaceController::class, 'stats']);
+
+        // Get SSPO profile details
+        Route::get('/{id}', [\App\Http\Controllers\Api\V2\SspoMarketplaceController::class, 'show'])->where('id', '[0-9]+');
+    });
 });

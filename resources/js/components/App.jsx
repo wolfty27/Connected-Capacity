@@ -31,6 +31,7 @@ import SpoStaffPage from '../pages/CareOps/SpoStaffPage';
 import WorkforceManagementPage from '../pages/CareOps/WorkforceManagementPage';
 import WorkforceCapacityPage from '../pages/CareOps/WorkforceCapacityPage';
 import SspoMarketplacePage from '../pages/CarePlanning/SspoMarketplacePage';
+import SspoProfilePage from '../pages/CarePlanning/SspoProfilePage';
 import ShadowBillingPage from '../pages/Finance/ShadowBillingPage';
 import SuppliesPage from '../pages/Logistics/SuppliesPage';
 import SspoDashboardPage from '../pages/SSPO/SspoDashboardPage';
@@ -102,6 +103,7 @@ const AppRoutes = () => {
                         <Route path="/workforce" element={<WorkforceManagementPage />} />
                         <Route path="/workforce/capacity" element={<WorkforceCapacityPage />} />
                         <Route path="/sspo-marketplace" element={<SspoMarketplacePage />} />
+                        <Route path="/sspo-marketplace/:id" element={<SspoProfilePage />} />
                         <Route path="/sspo-capabilities" element={<SspoCapabilityPage />} />
                         <Route path="/weekly-huddle" element={<WeeklyHuddlePage />} />
                         <Route path="/spo/scheduling" element={<SchedulingPage isSspoMode={false} />} />
