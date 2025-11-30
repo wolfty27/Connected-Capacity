@@ -444,7 +444,7 @@ class ServiceAssignment extends Model
      * - verification_status = PENDING
      * - scheduled_start + grace period < now
      */
-    public function scopeOverdueUnverified(Builder $query, int $graceMinutes = null): Builder
+    public function scopeOverdueUnverified(Builder $query, ?int $graceMinutes = null): Builder
     {
         $grace = $graceMinutes ?? self::DEFAULT_VERIFICATION_GRACE_MINUTES;
         $threshold = now()->subMinutes($grace);
@@ -486,7 +486,7 @@ class ServiceAssignment extends Model
     /**
      * Check if this appointment is overdue for verification.
      */
-    public function isOverdueForVerification(int $graceMinutes = null): bool
+    public function isOverdueForVerification(?int $graceMinutes = null): bool
     {
         if (!$this->isVerificationPending()) {
             return false;
