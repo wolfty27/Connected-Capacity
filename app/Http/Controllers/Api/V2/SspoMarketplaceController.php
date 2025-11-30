@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\V2;
 
 use App\Http\Controllers\Controller;
 use App\Models\Region;
+use App\Models\ServiceAssignment;
 use App\Models\ServiceProviderOrganization;
 use App\Models\ServiceType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * SSPO Marketplace Controller
@@ -311,6 +313,15 @@ class SspoMarketplaceController extends Controller
             'capacity_metadata' => $sspo->capacity_metadata,
             'capacity_status' => $this->getCapacityStatus($sspo),
 
+            // Upcoming appointments (next 7 days)
+            'upcoming_assignments' => $this->getUpcomingAssignments($sspo),
+
+            // Recent service history (past 7 days)
+            'recent_assignments' => $this->getRecentAssignments($sspo),
+
+            // Capacity summary with utilization metrics
+            'capacity_summary' => $this->getCapacitySummary($sspo),
+
             // Metadata
             'created_at' => $sspo->created_at?->toIso8601String(),
             'updated_at' => $sspo->updated_at?->toIso8601String(),
@@ -353,5 +364,179 @@ class SspoMarketplaceController extends Controller
         }
 
         return 'Low';
+    }
+
+    /**
+     * Get upcoming assignments for an SSPO (next 7 days).
+     *
+     * Returns assignments grouped by patient with appointment details.
+     */
+    protected function getUpcomingAssignments(ServiceProviderOrganization $sspo): array
+    {
+        $now = Carbon::now();
+        $weekFromNow = $now->copy()->addDays(7);
+
+        $assignments = ServiceAssignment::forOrganization($sspo->id)
+            ->with(['patient', 'serviceType', 'assignedUser'])
+            ->whereBetween('scheduled_start', [$now, $weekFromNow])
+            ->whereIn('status', [
+                ServiceAssignment::STATUS_PLANNED,
+                ServiceAssignment::STATUS_PENDING,
+                ServiceAssignment::STATUS_ACTIVE,
+            ])
+            ->orderBy('scheduled_start', 'asc')
+            ->limit(20)
+            ->get();
+
+        // Group by patient
+        $byPatient = $assignments->groupBy('patient_id');
+
+        return $byPatient->map(function ($patientAssignments, $patientId) {
+            $patient = $patientAssignments->first()->patient;
+
+            return [
+                'patient' => [
+                    'id' => $patient?->id,
+                    'name' => $patient?->full_name ?? 'Unknown Patient',
+                    'initials' => $patient?->initials ?? '??',
+                ],
+                'appointments' => $patientAssignments->map(function ($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'service_type' => [
+                            'id' => $assignment->serviceType?->id,
+                            'code' => $assignment->serviceType?->code,
+                            'name' => $assignment->serviceType?->name,
+                            'category' => $assignment->serviceType?->category,
+                        ],
+                        'scheduled_start' => $assignment->scheduled_start?->toIso8601String(),
+                        'scheduled_end' => $assignment->scheduled_end?->toIso8601String(),
+                        'duration_minutes' => $assignment->duration_minutes,
+                        'staff' => [
+                            'id' => $assignment->assignedUser?->id,
+                            'name' => $assignment->assignedUser?->name ?? 'Unassigned',
+                        ],
+                        'status' => $assignment->status,
+                    ];
+                })->values()->toArray(),
+            ];
+        })->values()->toArray();
+    }
+
+    /**
+     * Get recent service history for an SSPO (past 7 days).
+     *
+     * Returns completed assignments with verification status.
+     */
+    protected function getRecentAssignments(ServiceProviderOrganization $sspo): array
+    {
+        $now = Carbon::now();
+        $weekAgo = $now->copy()->subDays(7);
+
+        $assignments = ServiceAssignment::forOrganization($sspo->id)
+            ->with(['patient', 'serviceType', 'assignedUser'])
+            ->where('scheduled_start', '<', $now)
+            ->where('scheduled_start', '>=', $weekAgo)
+            ->whereIn('status', [
+                ServiceAssignment::STATUS_COMPLETED,
+                ServiceAssignment::STATUS_MISSED,
+            ])
+            ->orderBy('scheduled_start', 'desc')
+            ->limit(15)
+            ->get();
+
+        return $assignments->map(function ($assignment) {
+            return [
+                'id' => $assignment->id,
+                'patient' => [
+                    'id' => $assignment->patient?->id,
+                    'name' => $assignment->patient?->full_name ?? 'Unknown Patient',
+                    'initials' => $assignment->patient?->initials ?? '??',
+                ],
+                'service_type' => [
+                    'id' => $assignment->serviceType?->id,
+                    'code' => $assignment->serviceType?->code,
+                    'name' => $assignment->serviceType?->name,
+                    'category' => $assignment->serviceType?->category,
+                ],
+                'scheduled_start' => $assignment->scheduled_start?->toIso8601String(),
+                'scheduled_end' => $assignment->scheduled_end?->toIso8601String(),
+                'actual_start' => $assignment->actual_start?->toIso8601String(),
+                'actual_end' => $assignment->actual_end?->toIso8601String(),
+                'staff' => [
+                    'id' => $assignment->assignedUser?->id,
+                    'name' => $assignment->assignedUser?->name ?? 'Unassigned',
+                ],
+                'status' => $assignment->status,
+                'verification_status' => $assignment->verification_status,
+                'verified_at' => $assignment->verified_at?->toIso8601String(),
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Get capacity summary for an SSPO.
+     *
+     * Returns utilization metrics including scheduled hours, patient count, visit count.
+     */
+    protected function getCapacitySummary(ServiceProviderOrganization $sspo): array
+    {
+        $now = Carbon::now();
+        $weekStart = $now->copy()->startOfWeek();
+        $weekEnd = $now->copy()->endOfWeek();
+
+        // Get this week's assignments
+        $weekAssignments = ServiceAssignment::forOrganization($sspo->id)
+            ->whereBetween('scheduled_start', [$weekStart, $weekEnd])
+            ->whereIn('status', [
+                ServiceAssignment::STATUS_PLANNED,
+                ServiceAssignment::STATUS_PENDING,
+                ServiceAssignment::STATUS_ACTIVE,
+                ServiceAssignment::STATUS_IN_PROGRESS,
+                ServiceAssignment::STATUS_COMPLETED,
+            ])
+            ->get();
+
+        // Calculate scheduled hours (sum of duration_minutes / 60)
+        $scheduledMinutes = $weekAssignments->sum('duration_minutes');
+        $scheduledHours = round($scheduledMinutes / 60, 1);
+
+        // Unique patients served this week
+        $patientCount = $weekAssignments->pluck('patient_id')->unique()->count();
+
+        // Total visit count
+        $visitCount = $weekAssignments->count();
+
+        // Completed visits this week
+        $completedCount = $weekAssignments->where('status', ServiceAssignment::STATUS_COMPLETED)->count();
+
+        // Get available hours from capacity metadata
+        $metadata = $sspo->capacity_metadata ?? [];
+        $maxWeeklyHours = $metadata['max_weekly_hours'] ?? 40;
+
+        // Calculate utilization
+        $utilizationPct = $maxWeeklyHours > 0
+            ? round(($scheduledHours / $maxWeeklyHours) * 100, 1)
+            : 0;
+
+        // Determine availability status
+        $availabilityStatus = match (true) {
+            $utilizationPct >= 90 => 'Low',
+            $utilizationPct >= 70 => 'Moderate',
+            default => 'High',
+        };
+
+        return [
+            'scheduled_hours' => $scheduledHours,
+            'available_hours' => max(0, $maxWeeklyHours - $scheduledHours),
+            'max_weekly_hours' => $maxWeeklyHours,
+            'utilization_pct' => $utilizationPct,
+            'patient_count' => $patientCount,
+            'visit_count' => $visitCount,
+            'completed_count' => $completedCount,
+            'availability_status' => $availabilityStatus,
+            'week_start' => $weekStart->toDateString(),
+            'week_end' => $weekEnd->toDateString(),
+        ];
     }
 }

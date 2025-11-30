@@ -222,6 +222,71 @@ This document tracks progress on key scheduling and care bundle features.
 
 ---
 
+### 2025-11-30 - SSPO Profile Page Upgrade (Session 3)
+
+**Goal:** Upgrade SSPO Profile page to combine existing styling with redesign layout, adding:
+- Assigned Patients & Appointments section
+- Recent Service History section
+- Enhanced Capacity Block
+
+**New Harness Features Created:**
+- `sspo.profile_assigned_patients` - Upcoming appointments for SSPO
+- `sspo.profile_service_history` - Recent completed visits
+- `sspo.profile_capacity_block` - Enhanced capacity visualization
+
+**Implementation Plan:**
+
+**Step 1: Extend API (Backend)**
+- Add to `SspoMarketplaceController::show()`:
+  - `upcoming_assignments`: ServiceAssignments for next 7 days where staff belongs to this SSPO
+  - `recent_assignments`: Completed ServiceAssignments from past 7 days
+  - `capacity_summary`: scheduled_hours, available_hours, utilization_pct, patient_count, visit_count
+
+**Step 2: Design Merge**
+- Keep existing styling: gradient header, avatar tile, pill badges, teal CTAs
+- Two-column layout (2:1 ratio)
+- Left column sections:
+  1. About/Description
+  2. Services Offered (existing)
+  3. Assigned Patients & Appointments (NEW)
+  4. Recent Service History (NEW)
+- Right column sections:
+  1. Contact & Website (existing)
+  2. Capacity & Utilization (ENHANCED)
+  3. Region/Location (existing)
+  4. Actions (existing)
+
+**Step 3: Implement UI Sections**
+- `UpcomingAppointmentsSection` - Patient cards with appointment details
+- `ServiceHistorySection` - Condensed list with verification status
+- `CapacityBlock` - Enhanced with utilization metrics
+
+**Step 4: Verify Seed Data**
+- Ensure 4 SSPOs have ServiceAssignments via their staff
+- Alexis Lodge, Reconnect, Toronto Grace RCM, WellHaus
+
+**Step 5: Test & Commit**
+- Verify API returns expected data
+- UI renders correctly for all 4 SSPOs
+- Commit and push
+
+**Work Completed:**
+1. Extended `SspoMarketplaceController::show()` with:
+   - `getUpcomingAssignments()` - Returns next 7 days of appointments grouped by patient
+   - `getRecentAssignments()` - Returns past 7 days of completed visits with verification status
+   - `getCapacitySummary()` - Returns weekly utilization metrics
+
+2. Updated `SspoProfilePage.jsx` with:
+   - Assigned Patients & Appointments section (left column)
+   - Recent Service History section with verification status badges
+   - Enhanced Capacity & Utilization block with weekly metrics
+
+3. Enhanced `SSPOSeeder.php` with:
+   - `seedSspoAssignments()` method creates sample upcoming/past assignments
+   - Each SSPO gets 2-3 patients with appointments using their primary service types
+
+---
+
 ### 2025-11-29 - Initial Setup & Analysis
 
 1. Merged `investigate-branch-workflow` branch into current branch
