@@ -81,6 +81,9 @@ class WorkforceSeeder extends Seeder
         // Seed staff availability blocks based on employment type
         $this->seedStaffAvailability($spo);
 
+        // Seed SSPO assignments (now that patients exist)
+        $this->seedSspoAssignments();
+
         $this->command->info('Workforce seeder completed.');
     }
 
@@ -1152,5 +1155,102 @@ class WorkforceSeeder extends Seeder
             'end' => $end,
             'service_type_id' => $serviceTypeId,
         ];
+    }
+
+    /**
+     * Seed sample service assignments for SSPO organizations.
+     *
+     * Creates realistic upcoming and past appointments for each SSPO
+     * to demonstrate the SSPO profile page features.
+     */
+    protected function seedSspoAssignments(): void
+    {
+        $this->command->info('Creating sample SSPO service assignments...');
+
+        // Get all SSPO organizations
+        $sspos = ServiceProviderOrganization::sspo()->get();
+
+        if ($sspos->isEmpty()) {
+            $this->command->warn('  No SSPO organizations found - skipping SSPO assignments');
+            return;
+        }
+
+        // Get patients to assign to SSPOs
+        $patients = Patient::limit(12)->get();
+        if ($patients->isEmpty()) {
+            $this->command->warn('  No patients found - skipping SSPO assignments');
+            return;
+        }
+
+        // Get a staff user to assign (or use null)
+        $staffUser = User::where('role', User::ROLE_FIELD_STAFF)->first();
+
+        $now = Carbon::now();
+        $assignmentCount = 0;
+
+        foreach ($sspos as $sspo) {
+            // Get this SSPO's primary service types
+            $serviceTypes = $sspo->serviceTypes()->wherePivot('is_primary', true)->limit(3)->get();
+
+            if ($serviceTypes->isEmpty()) {
+                $serviceTypes = $sspo->serviceTypes()->limit(2)->get();
+            }
+
+            if ($serviceTypes->isEmpty()) {
+                continue;
+            }
+
+            // Assign 2-3 patients to each SSPO
+            $sspoPatients = $patients->random(min(3, $patients->count()));
+
+            foreach ($sspoPatients as $patientIndex => $patient) {
+                foreach ($serviceTypes as $serviceIndex => $serviceType) {
+                    // Create upcoming appointments (next 7 days)
+                    $upcomingDays = rand(1, 6);
+                    $upcomingHour = rand(9, 16);
+
+                    ServiceAssignment::create([
+                        'patient_id' => $patient->id,
+                        'service_provider_organization_id' => $sspo->id,
+                        'service_type_id' => $serviceType->id,
+                        'assigned_user_id' => $staffUser?->id,
+                        'status' => ServiceAssignment::STATUS_PLANNED,
+                        'scheduled_start' => $now->copy()->addDays($upcomingDays)->setHour($upcomingHour)->setMinute(0),
+                        'scheduled_end' => $now->copy()->addDays($upcomingDays)->setHour($upcomingHour)->addMinutes($serviceType->default_duration_minutes ?? 60),
+                        'duration_minutes' => $serviceType->default_duration_minutes ?? 60,
+                        'source' => ServiceAssignment::SOURCE_SSPO,
+                        'sspo_acceptance_status' => ServiceAssignment::SSPO_ACCEPTED,
+                        'verification_status' => ServiceAssignment::VERIFICATION_PENDING,
+                    ]);
+                    $assignmentCount++;
+
+                    // Create some past/completed appointments (past 7 days)
+                    if ($serviceIndex === 0) {
+                        $pastDays = rand(1, 6);
+                        $pastHour = rand(9, 16);
+
+                        ServiceAssignment::create([
+                            'patient_id' => $patient->id,
+                            'service_provider_organization_id' => $sspo->id,
+                            'service_type_id' => $serviceType->id,
+                            'assigned_user_id' => $staffUser?->id,
+                            'status' => ServiceAssignment::STATUS_COMPLETED,
+                            'scheduled_start' => $now->copy()->subDays($pastDays)->setHour($pastHour)->setMinute(0),
+                            'scheduled_end' => $now->copy()->subDays($pastDays)->setHour($pastHour)->addMinutes($serviceType->default_duration_minutes ?? 60),
+                            'actual_start' => $now->copy()->subDays($pastDays)->setHour($pastHour)->setMinute(0),
+                            'actual_end' => $now->copy()->subDays($pastDays)->setHour($pastHour)->addMinutes($serviceType->default_duration_minutes ?? 60),
+                            'duration_minutes' => $serviceType->default_duration_minutes ?? 60,
+                            'source' => ServiceAssignment::SOURCE_SSPO,
+                            'sspo_acceptance_status' => ServiceAssignment::SSPO_ACCEPTED,
+                            'verification_status' => ServiceAssignment::VERIFICATION_VERIFIED,
+                            'verified_at' => $now->copy()->subDays($pastDays)->addHours(2),
+                        ]);
+                        $assignmentCount++;
+                    }
+                }
+            }
+        }
+
+        $this->command->info("  Created {$assignmentCount} SSPO service assignments.");
     }
 }
