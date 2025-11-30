@@ -115,10 +115,10 @@ const PatientQueueList = () => {
         { value: 'pending_intake', label: 'Pending Intake' },
         { value: 'triage_in_progress', label: 'Triage In Progress' },
         { value: 'triage_complete', label: 'Triage Complete' },
-        { value: 'assessment_in_progress', label: 'Assessment In Progress' },
-        { value: 'assessment_complete', label: 'Ready for Bundle' },
+        { value: 'assessment_in_progress', label: 'InterRAI HC - In Progress' },
+        { value: 'assessment_complete', label: 'InterRAI HC - Complete (Ready for Bundle)' },
         { value: 'bundle_building', label: 'Bundle Building' },
-        { value: 'bundle_review', label: 'Under Review' },
+        { value: 'bundle_review', label: 'Bundle Under Review' },
     ];
 
     if (loading && queue.length === 0) {

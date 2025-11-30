@@ -39,6 +39,9 @@ class SchedulingController extends Controller
      *
      * Returns patients with care bundle services that have remaining
      * hours/visits to be scheduled.
+     *
+     * @param Request $request
+     *   - provider_type: 'sspo' | 'spo' - Filter services by preferred_provider
      */
     public function requirements(Request $request): JsonResponse
     {
@@ -46,11 +49,13 @@ class SchedulingController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'patient_id' => 'nullable|integer|exists:patients,id',
+            'provider_type' => 'nullable|string|in:sspo,spo',
         ]);
 
         $startDate = Carbon::parse($request->start_date)->startOfDay();
         $endDate = Carbon::parse($request->end_date)->endOfDay();
         $organizationId = $request->user()?->organization_id;
+        $providerType = $request->provider_type;
 
         $requirements = $this->planner->getUnscheduledRequirements(
             $organizationId,
@@ -58,6 +63,40 @@ class SchedulingController extends Controller
             $endDate,
             $request->patient_id
         );
+
+        // Filter by provider_type if specified (SSPO vs SPO dashboard)
+        if ($providerType) {
+            $requirements = $requirements->map(function ($dto) use ($providerType) {
+                // Filter services to only those matching the provider type
+                $filteredServices = collect($dto->services)->filter(function ($service) use ($providerType) {
+                    $serviceType = ServiceType::find($service->serviceTypeId);
+                    if (!$serviceType) return false;
+
+                    // Check explicit preferred_provider or fall back to defaults
+                    if ($providerType === 'sspo') {
+                        return $serviceType->isSspoOwned();
+                    } else {
+                        return $serviceType->isSpoOwned();
+                    }
+                })->values()->all();
+
+                // Return null if no services remain after filtering
+                if (empty($filteredServices)) {
+                    return null;
+                }
+
+                // Create new DTO with filtered services
+                return new \App\DTOs\RequiredAssignmentDTO(
+                    patientId: $dto->patientId,
+                    patientName: $dto->patientName,
+                    rugCategory: $dto->rugCategory,
+                    riskFlags: $dto->riskFlags,
+                    services: $filteredServices,
+                    carePlanId: $dto->carePlanId,
+                    careBundleTemplateId: $dto->careBundleTemplateId
+                );
+            })->filter()->values();
+        }
 
         return response()->json([
             'data' => $requirements->map(fn($dto) => $dto->toArray())->values(),

@@ -7,7 +7,7 @@ import Spinner from '../../components/UI/Spinner';
 import Button from '../../components/UI/Button';
 import BundleSummary from '../../components/care/BundleSummary';
 import FullInterraiAssessment from '../../components/InterRAI/FullInterraiAssessment';
-import { X, Send, FileText } from 'lucide-react';
+import { X, Send, FileText, Calendar, Clock, CheckCircle } from 'lucide-react';
 
 /**
  * PatientDetailPage - Central hub for patient care management
@@ -27,8 +27,9 @@ const PatientDetailPage = () => {
     const [carePlans, setCarePlans] = useState([]);
     const [notesData, setNotesData] = useState({ summary_note: null, notes: [] });
     const [interraiData, setInterraiData] = useState(null);
+    const [scheduleData, setScheduleData] = useState({ upcoming: [], history: [] });
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('overview'); // overview | interrai | notes
+    const [activeTab, setActiveTab] = useState('overview'); // overview | interrai | notes | schedule
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [newNoteContent, setNewNoteContent] = useState('');
     const [submittingNote, setSubmittingNote] = useState(false);
@@ -37,13 +38,23 @@ const PatientDetailPage = () => {
         try {
             setLoading(true);
 
+            // Calculate date ranges for schedule
+            const today = new Date();
+            const startDate = today.toISOString().split('T')[0];
+            const futureDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const pastDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
             // Fetch all data in parallel
-            const [patientRes, overviewRes, carePlansRes, notesRes, interraiRes] = await Promise.all([
+            const [patientRes, overviewRes, carePlansRes, notesRes, interraiRes, upcomingRes, historyRes] = await Promise.all([
                 api.get(`/patients/${id}`),
                 api.get(`/v2/patients/${id}/overview`).catch(() => ({ data: { data: null } })),
                 api.get(`/v2/care-plans?patient_id=${id}`).catch(() => ({ data: { data: [] } })),
                 api.get(`/v2/patients/${id}/notes`).catch(() => ({ data: { data: { summary_note: null, notes: [] } } })),
                 api.get(`/v2/interrai/patients/${id}/status`).catch(() => ({ data: { data: null } })),
+                // Upcoming appointments (next 30 days)
+                api.get(`/v2/scheduling/grid?patient_id=${id}&start_date=${startDate}&end_date=${futureDate}`).catch(() => ({ data: { data: { assignments: [] } } })),
+                // Past appointments (last 90 days)
+                api.get(`/v2/scheduling/grid?patient_id=${id}&start_date=${pastDate}&end_date=${startDate}`).catch(() => ({ data: { data: { assignments: [] } } })),
             ]);
 
             setPatient({
@@ -55,6 +66,10 @@ const PatientDetailPage = () => {
             setCarePlans(carePlansRes.data.data || carePlansRes.data || []);
             setNotesData(notesRes.data?.data || { summary_note: null, notes: [] });
             setInterraiData(interraiRes.data?.data || null);
+            setScheduleData({
+                upcoming: upcomingRes.data?.data?.assignments || [],
+                history: historyRes.data?.data?.assignments || [],
+            });
         } catch (error) {
             console.error('Failed to fetch patient data:', error);
         } finally {
@@ -173,6 +188,7 @@ const PatientDetailPage = () => {
                 <nav className="-mb-px flex gap-6">
                     {[
                         { id: 'overview', label: 'Overview' },
+                        { id: 'schedule', label: 'Schedule & History', badge: scheduleData.upcoming.length > 0 ? `${scheduleData.upcoming.length} upcoming` : null },
                         { id: 'interrai', label: 'InterRAI HC', badge: interraiData?.requires_assessment ? 'Action Needed' : null },
                         { id: 'notes', label: 'Notes / Narrative' },
                     ].map((tab) => (
@@ -412,6 +428,133 @@ const PatientDetailPage = () => {
                             )}
                         </Card>
                     </div>
+                </div>
+            )}
+
+            {/* Schedule & History Tab */}
+            {activeTab === 'schedule' && (
+                <div className="space-y-6">
+                    {/* Upcoming Appointments */}
+                    <Card title="Upcoming Appointments">
+                        {scheduleData.upcoming.length > 0 ? (
+                            <div className="space-y-3">
+                                {scheduleData.upcoming.slice(0, 10).map((appointment, index) => (
+                                    <div key={appointment.id || index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="flex items-start gap-4">
+                                            <div className="p-2 bg-teal-100 rounded-lg">
+                                                <Calendar className="w-5 h-5 text-teal-600" />
+                                            </div>
+                                            <div>
+                                                <div className="font-medium text-slate-900">
+                                                    {appointment.service_type_name || 'Service Visit'}
+                                                </div>
+                                                <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                                                    <Clock className="w-4 h-4" />
+                                                    {appointment.date} at {appointment.start_time || 'TBD'}
+                                                    {appointment.duration_minutes && ` (${appointment.duration_minutes} min)`}
+                                                </div>
+                                                {appointment.staff_name && (
+                                                    <div className="text-sm text-slate-500 mt-1">
+                                                        Provider: {appointment.staff_name}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                                appointment.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                appointment.status === 'planned' ? 'bg-blue-100 text-blue-700' :
+                                                appointment.status === 'cancelled' ? 'bg-slate-100 text-slate-600' :
+                                                'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {appointment.status || 'scheduled'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {scheduleData.upcoming.length > 10 && (
+                                    <div className="text-center text-sm text-slate-500 pt-2">
+                                        +{scheduleData.upcoming.length - 10} more appointments
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                <p className="text-slate-500 font-medium">No upcoming appointments</p>
+                                <p className="text-sm text-slate-400 mt-1">Appointments will appear here once scheduled</p>
+                                <Button
+                                    variant="outline"
+                                    className="mt-4"
+                                    onClick={() => navigate(`/spo/scheduling?patient_id=${id}`)}
+                                >
+                                    View Schedule
+                                </Button>
+                            </div>
+                        )}
+                    </Card>
+
+                    {/* Service History */}
+                    <Card title="Service History (Last 90 Days)">
+                        {scheduleData.history.length > 0 ? (
+                            <div className="space-y-3">
+                                {scheduleData.history.slice(0, 20).map((visit, index) => (
+                                    <div key={visit.id || index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-1.5 rounded ${
+                                                visit.status === 'completed' ? 'bg-emerald-100' :
+                                                visit.status === 'missed' ? 'bg-rose-100' :
+                                                'bg-slate-100'
+                                            }`}>
+                                                {visit.status === 'completed' ? (
+                                                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                                ) : (
+                                                    <Clock className="w-4 h-4 text-slate-500" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-medium text-slate-800 text-sm">
+                                                    {visit.service_type_name || 'Service Visit'}
+                                                </div>
+                                                <div className="text-xs text-slate-500">
+                                                    {visit.date} • {visit.staff_name || 'Unassigned'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {visit.verification_status && (
+                                                <span className={`px-2 py-0.5 text-xs rounded font-medium ${
+                                                    visit.verification_status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-700' :
+                                                    visit.verification_status === 'MISSED' ? 'bg-rose-100 text-rose-700' :
+                                                    'bg-amber-100 text-amber-700'
+                                                }`}>
+                                                    {visit.verification_status.toLowerCase()}
+                                                </span>
+                                            )}
+                                            <span className={`px-2 py-0.5 text-xs rounded font-medium ${
+                                                visit.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                visit.status === 'cancelled' ? 'bg-slate-100 text-slate-600' :
+                                                visit.status === 'missed' ? 'bg-rose-100 text-rose-700' :
+                                                'bg-blue-100 text-blue-700'
+                                            }`}>
+                                                {visit.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {scheduleData.history.length > 20 && (
+                                    <div className="text-center text-sm text-slate-500 pt-2">
+                                        Showing 20 of {scheduleData.history.length} visits
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6">
+                                <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                                <p className="text-slate-500 text-sm">No service history available</p>
+                            </div>
+                        )}
+                    </Card>
                 </div>
             )}
 

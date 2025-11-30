@@ -43,7 +43,8 @@ class ServiceAssignment extends Model
     public const VERIFICATION_SOURCE_COORDINATOR = 'coordinator_override';
 
     // Default grace period in minutes before a visit is considered overdue
-    public const DEFAULT_VERIFICATION_GRACE_MINUTES = 1440; // 24 hours
+    // Per OHaH contract: 12-hour window for timely visit verification
+    public const DEFAULT_VERIFICATION_GRACE_MINUTES = 720; // 12 hours
 
     protected $fillable = [
         'care_plan_id',

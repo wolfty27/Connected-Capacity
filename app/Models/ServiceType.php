@@ -15,6 +15,12 @@ class ServiceType extends Model
     public const SCHEDULING_MODE_WEEKLY = 'weekly';
     public const SCHEDULING_MODE_FIXED_VISITS = 'fixed_visits';
 
+    /**
+     * Preferred provider constants - which org type owns this service.
+     */
+    public const PROVIDER_SSPO = 'sspo';
+    public const PROVIDER_SPO = 'spo';
+
     protected $fillable = [
         'name',
         'code',
@@ -31,6 +37,7 @@ class ServiceType extends Model
         'scheduling_mode',
         'fixed_visits_per_plan',
         'fixed_visit_labels',
+        'preferred_provider',
     ];
 
     protected $casts = [
@@ -57,6 +64,42 @@ class ServiceType extends Model
     {
         return $this->scheduling_mode === self::SCHEDULING_MODE_WEEKLY
             || $this->scheduling_mode === null;
+    }
+
+    /**
+     * Check if this service type is primarily provided by SSPO.
+     * Typically includes: Nursing, Allied Health (OT, PT, SLP, SW, RD)
+     */
+    public function isSspoOwned(): bool
+    {
+        if ($this->preferred_provider) {
+            return $this->preferred_provider === self::PROVIDER_SSPO;
+        }
+
+        // Default based on category if not explicitly set
+        $sspoCategories = ['nursing', 'rehab', 'therapy', 'allied_health'];
+        $sspoCodes = ['RN', 'RPN', 'OT', 'PT', 'SLP', 'SW', 'RD', 'RT', 'RPM'];
+
+        return in_array(strtolower($this->category ?? ''), $sspoCategories)
+            || in_array(strtoupper($this->code ?? ''), $sspoCodes);
+    }
+
+    /**
+     * Check if this service type is primarily provided by SPO.
+     * Typically includes: PSW, Homemaking, Behaviour Support
+     */
+    public function isSpoOwned(): bool
+    {
+        if ($this->preferred_provider) {
+            return $this->preferred_provider === self::PROVIDER_SPO;
+        }
+
+        // Default based on category if not explicitly set
+        $spoCategories = ['psw', 'personal_support', 'homemaking', 'behaviour', 'behavioral'];
+        $spoCodes = ['PSW', 'HM', 'BS'];
+
+        return in_array(strtolower($this->category ?? ''), $spoCategories)
+            || in_array(strtoupper($this->code ?? ''), $spoCodes);
     }
 
     /**

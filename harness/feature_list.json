@@ -60,20 +60,22 @@
       "id": "bundles.unscheduled_care_correctness",
       "name": "Unscheduled Care Correctness",
       "description": "Unscheduled Care panel must correctly show patients who need scheduled care based on their care bundle requirements.",
-      "status": "done",
+      "status": "in_progress",
       "acceptance_criteria": [
         "Computes required_units from CareBundleService (hours/week or visits/week)",
         "Computes scheduled_units from ServiceAssignments in the selected week",
         "remaining_units = max(required_units - scheduled_units, 0)",
         "For RPM: uses fixed_visits logic (2 visits per plan)",
         "API returns all patient+service combinations with remaining > 0",
-        "FE shows 'All required care scheduled' only when API returns empty"
+        "FE shows 'All required care scheduled' only when API returns empty",
+        "Seeded data ensures some patients have unscheduled care in current/future weeks for demo"
       ],
       "files": [
         "app/Services/Scheduling/CareBundleAssignmentPlanner.php",
         "app/DTOs/RequiredAssignmentDTO.php",
         "app/DTOs/UnscheduledServiceDTO.php",
-        "app/Http/Controllers/Api/V2/SchedulingController.php"
+        "app/Http/Controllers/Api/V2/SchedulingController.php",
+        "database/seeders/VisitVerificationSeeder.php"
       ]
     },
     {
@@ -92,11 +94,211 @@
         "app/Services/Scheduling/CareBundleAssignmentPlanner.php",
         "database/seeders/CoreDataSeeder.php"
       ]
+    },
+    {
+      "id": "scheduling.quick_navigation",
+      "name": "Quick Navigation Selection",
+      "description": "Quick Navigation allows choosing specific staff or patient instead of hardcoded examples.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Staff-Centric View shows dropdown to select any active staff member",
+        "Patient-Centric View shows dropdown to select any active patient",
+        "Selected staff navigates to /spo/scheduling?staff_id={id}",
+        "Selected patient navigates to /spo/scheduling?patient_id={id}",
+        "Full Dashboard clears all filters",
+        "No hardcoded staff or patient IDs",
+        "Selection persists via URL params"
+      ],
+      "files": [
+        "resources/js/pages/CareOps/SchedulingPage.jsx",
+        "app/Http/Controllers/Api/V2/SchedulingController.php"
+      ]
+    },
+    {
+      "id": "ui.scheduler_layout",
+      "name": "Scheduler Layout - Unscheduled Care Above Grid",
+      "description": "Unscheduled Care panel should be above the calendar grid for better viewport utilization.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Unscheduled Care panel is positioned above the calendar grid",
+        "Calendar grid has full viewport width",
+        "Unscheduled Care panel is collapsible or scrollable horizontally",
+        "Responsive layout still works on smaller screens",
+        "Both panel and grid are visible without excessive scrolling"
+      ],
+      "files": [
+        "resources/js/pages/CareOps/SchedulingPage.jsx"
+      ]
+    },
+    {
+      "id": "sspo.scheduling_integration",
+      "name": "SSPO Scheduling Dashboard Separation",
+      "description": "SPO and SSPO scheduling dashboards are properly separated with correct access.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "SPO admins see SPO scheduling at /spo/scheduling (their internal staff + SSPOs serving them)",
+        "SSPO admins see SSPO scheduling at /sspo/scheduling (their own staff)",
+        "SPO admins do NOT see SSPO admin dashboard",
+        "Quick Navigation includes SSPO staff as selectable for SPO admins",
+        "Route guards enforce proper access"
+      ],
+      "files": [
+        "resources/js/pages/CareOps/SchedulingPage.jsx",
+        "resources/js/components/App.jsx",
+        "routes/web.php"
+      ]
+    },
+    {
+      "id": "sspo.assignment_prioritization",
+      "name": "SSPO vs SPO Service Ownership",
+      "description": "Certain services are preferentially assigned to SSPOs vs SPO internal staff.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "ServiceType has preferred_provider metadata (SPO/SSPO/either)",
+        "Lifeline/PERS, RPM, Security Checks, Behavioural Supports, In-Home Lab, Pharmacy, Meal Delivery → SSPO preferred",
+        "Core nursing/PSW/OT/PT → SPO preferred or 'either'",
+        "Assign-Care workflow shows provider type choice informed by ServiceType.preferred_provider",
+        "SSPOs shown by default for SSPO-preferred services",
+        "SPO staff prioritized for SPO-preferred services",
+        "No hardcoded service lists"
+      ],
+      "files": [
+        "app/Models/ServiceType.php",
+        "database/seeders/CoreDataSeeder.php",
+        "resources/js/components/scheduling/AssignCareServiceModal.jsx"
+      ]
+    },
+    {
+      "id": "intake.queue_status_standardization",
+      "name": "Queue Status Badge Standardization",
+      "description": "Patient queue badges use standardized InterRAI HC assessment status labels.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Status: InterRAI HC Assessment Required (never started)",
+        "Status: InterRAI HC Assessment Incomplete (started but not complete)",
+        "Status: InterRAI HC Assessment Complete - Ready for Bundle",
+        "Remove ad-hoc labels like 'Triage Complete' or 'InterRAI HC Assessment In Progress'",
+        "Badge colors consistent with status meaning",
+        "Driven by metadata, not hardcoded strings"
+      ],
+      "files": [
+        "app/Models/PatientQueue.php",
+        "resources/js/pages/Intake/PatientQueueList.jsx"
+      ]
+    },
+    {
+      "id": "jeopardy.visit_verification_workflow",
+      "name": "Visit Verification Threshold & Resolve",
+      "description": "Visit verification overdue threshold matches RFP/Q&A and Resolve button works correctly.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Overdue threshold is 12 hours after visit completion (per RFP/Q&A), not 24 hours",
+        "Resolve button marks ServiceAssignment.verification_status = VERIFIED",
+        "Resolve sets verified_at = now()",
+        "Jeopardy count updates immediately after resolve",
+        "Missed Care Rate recomputes after resolve",
+        "Seeded data has 3-10 overdue visits for demo, not excessive"
+      ],
+      "files": [
+        "app/Services/CareOps/VisitVerificationService.php",
+        "app/Services/CareOps/JeopardyBoardService.php",
+        "resources/js/pages/CareOps/CareDashboardPage.jsx",
+        "database/seeders/VisitVerificationSeeder.php"
+      ]
+    },
+    {
+      "id": "profile.service_history_and_upcoming",
+      "name": "Patient Profile Service History & Upcoming",
+      "description": "Patient profile shows upcoming service appointments and full service history.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Overview tab shows 'Upcoming Service Appointments' for today and tomorrow",
+        "New 'Service History' tab after Notes/Narrative",
+        "Service History shows upcoming appointments (configurable days ahead)",
+        "Service History shows completed visits sorted by date",
+        "Each visit shows: time, service type, staff, verification status",
+        "Paginated if needed",
+        "Uses existing metadata for ServiceType, staff"
+      ],
+      "files": [
+        "resources/js/pages/Patients/PatientDetailPage.jsx",
+        "app/Http/Controllers/Api/PatientController.php"
+      ]
+    },
+    {
+      "id": "profile.satisfaction_reports",
+      "name": "Patient Profile Satisfaction Reports",
+      "description": "Satisfaction reports are visible on patient profile.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "SatisfactionReport model exists or alternative tracking visible",
+        "Patient profile shows most recent satisfaction rating",
+        "Link to full satisfaction report details if available",
+        "Section in Service History or separate panel"
+      ],
+      "files": [
+        "app/Models/User.php",
+        "resources/js/pages/Patients/PatientDetailPage.jsx"
+      ]
+    },
+    {
+      "id": "metrics.fte_trend_and_utilization",
+      "name": "FTE Trend Graph Population",
+      "description": "FTE compliance trend graph populates with real data.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "FTE ratio = FT direct staff / (FT + PT + Casual direct staff) per week",
+        "Last 8 weeks of data shown in trend chart",
+        "Data computed from seeded StaffMember & assignments",
+        "Chart renders with actual values, not flat/empty",
+        "Color-coded bands: Green >=80%, Yellow 75-79%, Red <75%"
+      ],
+      "files": [
+        "app/Services/CareOps/FteComplianceService.php",
+        "resources/js/pages/Workforce/WorkforceManagementPage.jsx",
+        "database/seeders/WorkforceSeeder.php"
+      ]
+    },
+    {
+      "id": "command_center.tiles_and_deep_links",
+      "name": "Command Center Metrics & Deep Links",
+      "description": "Command Center shows all OHAH-required metrics with working deep links.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Referral Acceptance Rate tile with real data",
+        "Time-to-First-Service tile with real data",
+        "Missed Care Rate tile (0% target)",
+        "Direct Care FTE tile with green/amber/red banding",
+        "Tile clicks navigate: Missed Care → Jeopardy, TFS → patients needing first visit, FTE → Workforce page",
+        "Metrics backed by real queries, not stubbed"
+      ],
+      "files": [
+        "resources/js/pages/CareOps/CareDashboardPage.jsx",
+        "app/Services/CareOpsMetricsService.php"
+      ]
+    },
+    {
+      "id": "seeding.historical_assignments_realism",
+      "name": "Realistic Historical ServiceAssignments",
+      "description": "Seeded ServiceAssignments have varied dates and realistic patterns.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Service durations match ServiceType metadata, no 8-hour mega-visits",
+        "Start dates vary across past weeks",
+        "RPM Setup visits near plan start dates",
+        "RPM Discharge visits near plan end dates",
+        "Staff travel + spacing rules remain valid",
+        "SSPO-preferred services assigned to SSPO staff"
+      ],
+      "files": [
+        "database/seeders/VisitVerificationSeeder.php",
+        "database/seeders/WorkforceSeeder.php"
+      ]
     }
   ],
   "metadata": {
     "project": "Connected Capacity 2.1",
-    "last_updated": "2025-11-29",
-    "version": "1.0.0"
+    "last_updated": "2025-11-30",
+    "version": "1.1.0"
   }
 }

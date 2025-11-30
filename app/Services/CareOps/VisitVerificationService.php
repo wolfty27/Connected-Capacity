@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Grace period is configurable via:
  * - config('careops.verification_grace_minutes') or
- * - ServiceAssignment::DEFAULT_VERIFICATION_GRACE_MINUTES (24 hours default)
+ * - ServiceAssignment::DEFAULT_VERIFICATION_GRACE_MINUTES (12 hours default)
  */
 class VisitVerificationService
 {

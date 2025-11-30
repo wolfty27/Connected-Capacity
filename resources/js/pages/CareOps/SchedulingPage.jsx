@@ -36,6 +36,8 @@ const SchedulingPage = ({ isSspoMode = false }) => {
     const [navExamples, setNavExamples] = useState({ staff: null, patient: null });
     const [roles, setRoles] = useState([]);
     const [employmentTypes, setEmploymentTypes] = useState([]);
+    const [allStaff, setAllStaff] = useState([]);
+    const [allPatients, setAllPatients] = useState([]);
 
     // Filters
     const [weekOffset, setWeekOffset] = useState(0);
@@ -105,13 +107,15 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                 start_date: weekRange.start,
                 end_date: weekRange.end,
                 ...(patientIdParam && { patient_id: patientIdParam }),
+                ...(isSspoMode && { provider_type: 'sspo' }),
+                ...(!isSspoMode && { provider_type: 'spo' }),
             });
             const response = await api.get(`/v2/scheduling/requirements?${params}`);
             setRequirements(response.data);
         } catch (error) {
             console.error('Failed to fetch requirements:', error);
         }
-    }, [weekRange.start, weekRange.end, patientIdParam]);
+    }, [weekRange.start, weekRange.end, patientIdParam, isSspoMode]);
 
     // Fetch metadata (includes navigation examples with current context)
     const fetchMetadata = useCallback(async () => {
@@ -120,14 +124,18 @@ const SchedulingPage = ({ isSspoMode = false }) => {
             if (staffIdParam) params.set('current_staff_id', staffIdParam);
             if (patientIdParam) params.set('current_patient_id', patientIdParam);
 
-            const [rolesRes, empTypesRes, navRes] = await Promise.all([
+            const [rolesRes, empTypesRes, navRes, staffRes, patientsRes] = await Promise.all([
                 api.get('/v2/workforce/metadata/roles'),
                 api.get('/v2/workforce/metadata/employment-types'),
                 api.get(`/v2/scheduling/navigation-examples?${params}`),
+                api.get('/v2/workforce/staff?status=active&limit=100'),
+                api.get('/v2/patients?status=Active&limit=100'),
             ]);
             setRoles(rolesRes.data.data || []);
             setEmploymentTypes(empTypesRes.data.data || []);
             setNavExamples(navRes.data.data || {});
+            setAllStaff(staffRes.data.data || []);
+            setAllPatients(patientsRes.data.data || []);
         } catch (error) {
             console.error('Failed to fetch metadata:', error);
         }
@@ -251,14 +259,16 @@ const SchedulingPage = ({ isSspoMode = false }) => {
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4">
+            <div className={`border-b px-6 py-4 ${isSspoMode ? 'bg-purple-50 border-purple-200' : 'bg-white border-slate-200'}`}>
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div>
-                        <h1 className="text-xl font-bold text-slate-900">
-                            {isSspoMode ? 'SSPO' : 'Staff'} Scheduling Dashboard
+                        <h1 className={`text-xl font-bold ${isSspoMode ? 'text-purple-900' : 'text-slate-900'}`}>
+                            {isSspoMode ? 'SSPO Scheduling' : 'SPO Scheduling'} Dashboard
                         </h1>
-                        <p className="text-sm text-slate-500">
-                            Schedule and manage care assignments
+                        <p className={`text-sm ${isSspoMode ? 'text-purple-600' : 'text-slate-500'}`}>
+                            {isSspoMode
+                                ? 'Nursing, Allied Health & Specialized Services'
+                                : 'PSW, Homemaking & Support Services'}
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -338,59 +348,77 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                 </div>
             </div>
 
-            {/* Navigation Examples Card */}
+            {/* Quick Navigation Card */}
             <div className="max-w-7xl mx-auto px-6 py-4">
                 <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4">
                     <h3 className="text-sm font-bold text-slate-700 mb-3">Quick Navigation</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Staff-centric view */}
                         <div className={`p-3 rounded-lg border ${staffIdParam ? 'bg-blue-100 border-blue-400' : 'bg-blue-50 border-blue-200'}`}>
-                            <div className="text-xs font-bold text-blue-800 mb-1">
+                            <div className="text-xs font-bold text-blue-800 mb-2">
                                 Staff-Centric View
                                 {staffIdParam && <span className="ml-1 text-blue-600">(Active)</span>}
                             </div>
-                            {navExamples.staff ? (
-                                <button
-                                    onClick={() => setSearchParams({ staff_id: navExamples.staff.id })}
-                                    className="text-sm text-blue-600 hover:underline text-left"
-                                >
-                                    View {navExamples.staff.name}'s schedule
-                                    {navExamples.staff.role && (
-                                        <span className="block text-xs text-blue-400">({navExamples.staff.role})</span>
-                                    )}
-                                </button>
-                            ) : (
-                                <span className="text-sm text-slate-400">No staff available</span>
-                            )}
+                            <select
+                                value={staffIdParam || ''}
+                                onChange={(e) => {
+                                    if (e.target.value) {
+                                        setSearchParams({ staff_id: e.target.value });
+                                    } else {
+                                        clearFilters();
+                                    }
+                                }}
+                                className="w-full text-sm border border-blue-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                                <option value="">Select a staff member...</option>
+                                {allStaff.map((staff) => (
+                                    <option key={staff.id} value={staff.id}>
+                                        {staff.name} ({staff.role?.code || staff.organization_role || 'Staff'})
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Patient-centric view */}
                         <div className={`p-3 rounded-lg border ${patientIdParam ? 'bg-green-100 border-green-400' : 'bg-green-50 border-green-200'}`}>
-                            <div className="text-xs font-bold text-green-800 mb-1">
+                            <div className="text-xs font-bold text-green-800 mb-2">
                                 Patient-Centric View
                                 {patientIdParam && <span className="ml-1 text-green-600">(Active)</span>}
                             </div>
-                            {navExamples.patient ? (
-                                <button
-                                    onClick={() => setSearchParams({ patient_id: navExamples.patient.id })}
-                                    className="text-sm text-green-600 hover:underline text-left"
-                                >
-                                    View {navExamples.patient.name}'s care
-                                </button>
-                            ) : (
-                                <span className="text-sm text-slate-400">No patient available</span>
-                            )}
+                            <select
+                                value={patientIdParam || ''}
+                                onChange={(e) => {
+                                    if (e.target.value) {
+                                        setSearchParams({ patient_id: e.target.value });
+                                    } else {
+                                        clearFilters();
+                                    }
+                                }}
+                                className="w-full text-sm border border-green-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
+                            >
+                                <option value="">Select a patient...</option>
+                                {allPatients.map((patient) => (
+                                    <option key={patient.id} value={patient.id}>
+                                        {patient.name || patient.user?.name || `Patient ${patient.id}`}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Full dashboard view */}
                         <div className={`p-3 rounded-lg border ${!hasFilters ? 'bg-slate-100 border-slate-400' : 'bg-slate-50 border-slate-200'}`}>
-                            <div className="text-xs font-bold text-slate-700 mb-1">
+                            <div className="text-xs font-bold text-slate-700 mb-2">
                                 Full Dashboard View
                                 {!hasFilters && <span className="ml-1 text-slate-500">(Active)</span>}
                             </div>
                             <button
                                 onClick={clearFilters}
-                                className="text-sm text-slate-600 hover:underline"
+                                className={`w-full text-sm px-3 py-1.5 rounded ${
+                                    hasFilters
+                                        ? 'bg-slate-600 text-white hover:bg-slate-700'
+                                        : 'bg-slate-200 text-slate-600 cursor-default'
+                                }`}
+                                disabled={!hasFilters}
                             >
                                 {hasFilters ? 'Clear filters & view all' : 'Viewing all schedules'}
                             </button>
@@ -400,22 +428,29 @@ const SchedulingPage = ({ isSspoMode = false }) => {
             </div>
 
             {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-6 pb-8">
-                <div className="flex gap-6">
-                    {/* Left Panel - Unscheduled Care */}
-                    <div className="w-80 flex-shrink-0">
-                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                            <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
-                                <h2 className="text-sm font-bold text-slate-700">Unscheduled Care</h2>
-                                <p className="text-xs text-slate-500">
-                                    {requirements.summary?.patients_with_needs || 0} patients need scheduling
-                                </p>
-                            </div>
-                            <div className="max-h-[600px] overflow-y-auto p-4 space-y-4">
+            <div className="max-w-7xl mx-auto px-6 pb-8 space-y-4">
+                {/* Top Panel - Unscheduled Care (horizontal scrollable) */}
+                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between">
+                        <div>
+                            <h2 className="text-sm font-bold text-amber-800">Unscheduled Care</h2>
+                            <p className="text-xs text-amber-600">
+                                {requirements.summary?.patients_with_needs || 0} patients need scheduling
+                                {requirements.summary?.total_remaining_hours > 0 && (
+                                    <span className="ml-2">
+                                        ({requirements.summary.total_remaining_hours}h + {requirements.summary.total_remaining_visits || 0} visits remaining)
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                    {requirements.data?.length > 0 ? (
+                        <div className="overflow-x-auto p-4">
+                            <div className="flex gap-4 min-w-max">
                                 {requirements.data?.map((item) => (
                                     <div
                                         key={item.patient_id}
-                                        className="bg-slate-50 rounded-lg border border-slate-200 p-3"
+                                        className="bg-slate-50 rounded-lg border border-slate-200 p-3 w-72 flex-shrink-0"
                                     >
                                         <div className="flex items-start justify-between mb-2">
                                             <div>
@@ -432,12 +467,12 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            {item.services?.map((service) => (
+                                            {item.services?.slice(0, 3).map((service) => (
                                                 <div key={service.service_type_id} className="flex items-center justify-between">
                                                     <div className="flex-1">
                                                         <div className="text-xs font-medium">{service.service_type_name}</div>
                                                         <div className="text-xs text-slate-500">
-                                                            {service.scheduled}/{service.required} {service.unit_type} scheduled
+                                                            {service.scheduled}/{service.required} {service.unit_type}
                                                         </div>
                                                     </div>
                                                     <Button
@@ -450,21 +485,26 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                                     </Button>
                                                 </div>
                                             ))}
+                                            {item.services?.length > 3 && (
+                                                <div className="text-xs text-slate-400 text-center">
+                                                    +{item.services.length - 3} more services
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
-                                {(!requirements.data || requirements.data.length === 0) && (
-                                    <div className="text-center py-8 text-slate-400">
-                                        <div className="text-2xl mb-2">&#10003;</div>
-                                        <div className="text-sm">All required care scheduled</div>
-                                    </div>
-                                )}
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="text-center py-6 text-emerald-600">
+                            <div className="text-2xl mb-1">&#10003;</div>
+                            <div className="text-sm font-medium">All required care scheduled for this week</div>
+                        </div>
+                    )}
+                </div>
 
-                    {/* Right Panel - Schedule Grid or Patient Timeline */}
-                    <div className="flex-1">
+                {/* Bottom Panel - Schedule Grid or Patient Timeline */}
+                <div>
                         {/* Show PatientTimeline when a patient is selected, otherwise show Staff Grid */}
                         {patientIdParam ? (
                             <PatientTimeline

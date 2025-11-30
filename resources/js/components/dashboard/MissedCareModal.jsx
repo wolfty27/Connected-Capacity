@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import api from '../../services/api';
 
-const MissedCareModal = ({ isOpen, onClose, missedCareCount }) => {
-    const [step, setStep] = useState('loading'); // loading, analysis, action
+const MissedCareModal = ({ isOpen, onClose, missedCareCount, alertIds = [], onResolved }) => {
+    const [step, setStep] = useState('loading'); // loading, analysis, action, resolving
     const [analysis, setAnalysis] = useState(null);
+    const [resolving, setResolving] = useState(false);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
             setStep('loading');
+            setError(null);
             // Simulate AI Analysis delay
             setTimeout(() => {
                 setAnalysis({
@@ -19,6 +23,27 @@ const MissedCareModal = ({ isOpen, onClose, missedCareCount }) => {
             }, 2000);
         }
     }, [isOpen]);
+
+    const handleResolve = async () => {
+        setResolving(true);
+        setError(null);
+        try {
+            if (alertIds.length > 0) {
+                // Bulk resolve all alerts
+                await api.post('/v2/jeopardy/alerts/bulk-resolve', {
+                    alert_ids: alertIds,
+                    resolution_notes: analysis?.recommendation || 'Resolved via Missed Care Modal',
+                });
+            }
+            onResolved?.();
+            onClose();
+        } catch (err) {
+            console.error('Failed to resolve alerts:', err);
+            setError(err.response?.data?.message || 'Failed to resolve alerts');
+        } finally {
+            setResolving(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -70,17 +95,33 @@ const MissedCareModal = ({ isOpen, onClose, missedCareCount }) => {
                                 </div>
                             </div>
 
+                            {/* Error message */}
+                            {error && (
+                                <div className="p-3 bg-red-100 border border-red-200 rounded-lg text-red-700 text-sm">
+                                    {error}
+                                </div>
+                            )}
+
                             {/* Actions */}
                             <div className="flex gap-3 pt-4">
                                 <button
-                                    onClick={onClose}
-                                    className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-colors"
+                                    onClick={handleResolve}
+                                    disabled={resolving}
+                                    className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
                                 >
-                                    Accept & Resolve
+                                    {resolving ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Resolving...
+                                        </>
+                                    ) : (
+                                        'Accept & Resolve'
+                                    )}
                                 </button>
                                 <button
                                     onClick={onClose}
-                                    className="px-4 py-2 text-slate-500 font-medium hover:bg-slate-50 rounded-lg"
+                                    disabled={resolving}
+                                    className="px-4 py-2 text-slate-500 font-medium hover:bg-slate-50 rounded-lg disabled:opacity-50"
                                 >
                                     Dismiss
                                 </button>

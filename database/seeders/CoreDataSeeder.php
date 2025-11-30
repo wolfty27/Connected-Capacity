@@ -46,7 +46,7 @@ class CoreDataSeeder extends Seeder
         $logistics = ServiceCategory::where('code', 'LOGISTICS')->first();
 
         $serviceTypes = [
-            // Clinical Services
+            // Clinical Services - SSPO owned (specialized/regulated professionals)
             [
                 'code' => 'NUR',
                 'name' => 'Nursing (RN/RPN)',
@@ -58,6 +58,7 @@ class CoreDataSeeder extends Seeder
                 'source' => 'Sched 3 (Nursing)',
                 'default_duration_minutes' => 45,
                 'min_gap_between_visits_minutes' => 60,
+                'preferred_provider' => 'sspo',
                 'description' => 'Wound Care (surgical, pressure ulcers, negative pressure therapy), Infusion (IV therapy, CVAD maintenance, hypodermoclysis), Palliative (pain/symptom management, end-of-life care), Meds (administration, reconciliation)',
             ],
             [
@@ -71,6 +72,7 @@ class CoreDataSeeder extends Seeder
                 'source' => 'Sched 3 (PT)',
                 'default_duration_minutes' => 45,
                 'min_gap_between_visits_minutes' => 120,
+                'preferred_provider' => 'sspo',
                 'description' => 'Mobility (gait training, fall prevention, transfer training), Chest PT (postural drainage, suctioning), Modalities (ultrasound, TENS, laser)',
             ],
             [
@@ -84,6 +86,7 @@ class CoreDataSeeder extends Seeder
                 'source' => 'Sched 3 (OT)',
                 'default_duration_minutes' => 45,
                 'min_gap_between_visits_minutes' => 120,
+                'preferred_provider' => 'sspo',
                 'description' => 'ADL Training (feeding, dressing, bathing retraining), Safety (home environment assessment, equipment prescription/ADP)',
             ],
             [
@@ -96,6 +99,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 130.00,
                 'source' => 'Sched 3 (RT)',
                 'default_duration_minutes' => 45,
+                'preferred_provider' => 'sspo',
                 'description' => 'Airway (tracheostomy care, deep suctioning, ventilator management), Oxygen (home oxygen titration and setup)',
             ],
             [
@@ -108,6 +112,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 135.00,
                 'source' => 'Sched 3 (SW)',
                 'default_duration_minutes' => 60,
+                'preferred_provider' => 'sspo',
                 'description' => 'Counseling (grief, adjustment to illness, crisis intervention), Navigation (financial aid, housing, LTC placement applications)',
             ],
             [
@@ -120,6 +125,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 125.00,
                 'source' => 'Sched 3 (RD)',
                 'default_duration_minutes' => 45,
+                'preferred_provider' => 'sspo',
                 'description' => 'Nutrition (therapeutic diets for diabetes, dysphagia, tube feeding formulas), Assessment (weight monitoring, malnutrition strategies)',
             ],
             [
@@ -132,6 +138,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 145.00,
                 'source' => 'Sched 3 (SLP)',
                 'default_duration_minutes' => 45,
+                'preferred_provider' => 'sspo',
                 'description' => 'Swallowing (dysphagia management, texture modification), Communication (aphasia therapy, voice devices)',
             ],
             [
@@ -144,10 +151,11 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 200.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 60,
+                'preferred_provider' => 'sspo',
                 'description' => 'Advanced Care: Prescribing, diagnosing, higher-acuity management to prevent ED visits',
             ],
 
-            // Personal Support & Daily Living
+            // Personal Support & Daily Living - SPO owned (unregulated workers)
             [
                 'code' => 'PSW',
                 'name' => 'Personal Care (PSW)',
@@ -159,6 +167,7 @@ class CoreDataSeeder extends Seeder
                 'source' => 'Sched 3 (PSW)',
                 'default_duration_minutes' => 60,
                 'min_gap_between_visits_minutes' => 120,
+                'preferred_provider' => 'spo',
                 'description' => 'Hygiene (bathing, grooming, toileting/incontinence care), Mobility (transfers with lifts, turning/positioning)',
             ],
             [
@@ -172,6 +181,7 @@ class CoreDataSeeder extends Seeder
                 'source' => 'Sched 3 (PSW)',
                 'default_duration_minutes' => 90,
                 'min_gap_between_visits_minutes' => 180,
+                'preferred_provider' => 'spo',
                 'description' => 'Cleaning (light housekeeping, laundry, changing linens), Errands (banking, grocery shopping assistance)',
             ],
             [
@@ -184,6 +194,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 50.00,
                 'source' => 'Sched 3 (PSW)',
                 'default_duration_minutes' => 30,
+                'preferred_provider' => 'spo',
                 'description' => 'Regulated Tasks: Pre-loaded injections, glucometer testing, suctioning (must be taught/delegated by Nurse)',
             ],
             [
@@ -196,10 +207,11 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 45.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 240,
+                'preferred_provider' => 'spo',
                 'description' => 'Caregiver Relief: In-home supervision to allow family caregivers a break',
             ],
 
-            // Safety, Monitoring & Technology
+            // Safety, Monitoring & Technology - Mixed ownership
             [
                 'code' => 'PERS',
                 'name' => 'Lifeline (PERS)',
@@ -210,6 +222,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 50.00,
                 'source' => 'Bundle Q&A',
                 'default_duration_minutes' => 0,
+                'preferred_provider' => 'spo',
                 'description' => 'Personal Emergency Response System: Wearable button (pendant/wrist) connecting to 24/7 emergency response, may include fall detection',
             ],
             [
@@ -222,6 +235,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 150.00,
                 'source' => 'Bundle Q&A',
                 'default_duration_minutes' => 60,
+                'preferred_provider' => 'sspo',
                 'description' => 'Digital Health Tracking: Equipment (tablets, BP cuffs, scales) to track vitals remotely, includes staff time to monitor alerts',
                 // RPM has exactly 2 scheduled visits per care plan:
                 // Visit 1: Setup (device installation & patient education)
@@ -241,10 +255,11 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 30.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 15,
+                'preferred_provider' => 'spo',
                 'description' => 'Safety Checks: Telephone reassurance or physical safety checks for isolated patients',
             ],
 
-            // Logistics & Access Services
+            // Logistics & Access Services - Mostly SPO, but BEH is specialized (SSPO)
             [
                 'code' => 'TRANS',
                 'name' => 'Medical Transportation',
@@ -255,6 +270,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 80.00,
                 'source' => 'Bundle Q&A',
                 'default_duration_minutes' => 60,
+                'preferred_provider' => 'spo',
                 'description' => 'Patient Transport: Travel to medical appointments, includes local and out-of-town specialist appointments',
             ],
             [
@@ -267,6 +283,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 60.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 30,
+                'preferred_provider' => 'spo',
                 'description' => 'Mobile Lab Services: Technicians dispatched to home for blood draws/specimen collection (OHIP covers test; SPO pays visit fee)',
             ],
             [
@@ -279,6 +296,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 25.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 15,
+                'preferred_provider' => 'spo',
                 'description' => 'Medication Logistics: Delivery fees, blister packing, medication reconciliation support (Drug cost is ODB/OHIP)',
             ],
             [
@@ -291,6 +309,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 100.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 60,
+                'preferred_provider' => 'spo',
                 'description' => 'Interpretation: Professional translation/interpretation for non-English/French speaking patients',
             ],
             [
@@ -303,6 +322,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 15.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 30,
+                'preferred_provider' => 'spo',
                 'description' => 'Nutrition Support: Coordination and payment for prepared meal delivery (e.g., Meals on Wheels)',
             ],
             [
@@ -315,6 +335,7 @@ class CoreDataSeeder extends Seeder
                 'cost_per_visit' => 50.00,
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 120,
+                'preferred_provider' => 'spo',
                 'description' => 'Activation: Adult day programs, friendly visiting, social inclusion programming',
             ],
             [
@@ -328,6 +349,7 @@ class CoreDataSeeder extends Seeder
                 'source' => 'Bundle RFS',
                 'default_duration_minutes' => 60,
                 'min_gap_between_visits_minutes' => 120,
+                'preferred_provider' => 'sspo',
                 'description' => 'Dementia Care: Specialized support strategies for responsive behaviors (BSO)',
             ],
         ];

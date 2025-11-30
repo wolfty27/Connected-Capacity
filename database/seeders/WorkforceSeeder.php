@@ -419,6 +419,13 @@ class WorkforceSeeder extends Seeder
                 $currentWeekStart->copy()->endOfWeek()
             );
 
+            // DEMO: Intentionally skip ~40% of current week visits to show unscheduled care
+            // This ensures the Unscheduled Care panel has meaningful data for demo purposes
+            if ($isCurrentWeek && rand(1, 100) <= 40) {
+                $skippedCount++;
+                continue;
+            }
+
             // Find staff that can provide this service
             $availableStaff = $this->findStaffForService(
                 $serviceCode,
@@ -482,6 +489,30 @@ class WorkforceSeeder extends Seeder
                 $notes = "{$visitLabel} - {$notes}";
             }
 
+            // For completed (past) assignments, simulate verification
+            // 95% verified, 3% pending, 2% missed (for realistic demo data)
+            $verificationStatus = ServiceAssignment::VERIFICATION_PENDING;
+            $verifiedAt = null;
+            $verificationSource = null;
+
+            if (!$isCurrentWeek) {
+                $verificationRand = rand(1, 100);
+                if ($verificationRand <= 95) {
+                    $verificationStatus = ServiceAssignment::VERIFICATION_VERIFIED;
+                    $verifiedAt = $scheduledEnd->copy()->addHours(rand(1, 4));
+                    $verificationSource = rand(1, 100) <= 80
+                        ? ServiceAssignment::VERIFICATION_SOURCE_STAFF_MANUAL
+                        : ServiceAssignment::VERIFICATION_SOURCE_DEVICE;
+                } elseif ($verificationRand <= 98) {
+                    // Leave as pending (overdue for verification)
+                    $verificationStatus = ServiceAssignment::VERIFICATION_PENDING;
+                } else {
+                    $verificationStatus = ServiceAssignment::VERIFICATION_MISSED;
+                    $verifiedAt = $scheduledEnd->copy()->addHours(24);
+                    $verificationSource = ServiceAssignment::VERIFICATION_SOURCE_COORDINATOR;
+                }
+            }
+
             ServiceAssignment::create([
                 'care_plan_id' => $visit['care_plan_id'],
                 'patient_id' => $visit['patient_id'],
@@ -498,6 +529,10 @@ class WorkforceSeeder extends Seeder
                 'estimated_hours_per_week' => round(($visit['frequency'] * $durationMinutes) / 60, 2),
                 'source' => $source,
                 'notes' => $notes,
+                // Visit verification fields
+                'verification_status' => $verificationStatus,
+                'verified_at' => $verifiedAt,
+                'verification_source' => $verificationSource,
             ]);
             $assignmentCount++;
         }
