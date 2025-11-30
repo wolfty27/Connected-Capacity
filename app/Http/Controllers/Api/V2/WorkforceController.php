@@ -8,6 +8,7 @@ use App\Models\ServiceAssignment;
 use App\Models\StaffRole;
 use App\Models\User;
 use App\Services\CareOps\FteComplianceService;
+use App\Services\CareOps\WorkforceCapacityService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,10 +31,12 @@ use Illuminate\Support\Facades\Auth;
 class WorkforceController extends Controller
 {
     protected FteComplianceService $fteService;
+    protected WorkforceCapacityService $capacityService;
 
-    public function __construct(FteComplianceService $fteService)
+    public function __construct(FteComplianceService $fteService, WorkforceCapacityService $capacityService)
     {
         $this->fteService = $fteService;
+        $this->capacityService = $capacityService;
     }
 
     /**
@@ -57,6 +60,88 @@ class WorkforceController extends Controller
 
         return response()->json([
             'data' => $summary,
+        ]);
+    }
+
+    /**
+     * GET /api/v2/workforce/capacity
+     *
+     * Returns workforce capacity vs required care hours.
+     * Supports filtering by provider type (spo/sspo) and date range.
+     *
+     * Query params:
+     * - period_type: 'week' | 'month' (default: 'week')
+     * - start_date: Date string (default: start of current week/month)
+     * - provider_type: 'spo' | 'sspo' | null (all)
+     * - forecast_weeks: Number of weeks to forecast (default: 0)
+     */
+    public function capacity(Request $request): JsonResponse
+    {
+        $organizationId = $this->getOrganizationId($request);
+
+        if (!$this->authorizeOrganization($organizationId)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $periodType = $request->input('period_type', 'week');
+        $providerType = $request->input('provider_type');
+        $forecastWeeks = min((int) $request->input('forecast_weeks', 0), 12);
+
+        // Calculate date range based on period type
+        if ($request->filled('start_date')) {
+            $startDate = Carbon::parse($request->input('start_date'));
+        } else {
+            $startDate = $periodType === 'month'
+                ? Carbon::now()->startOfMonth()
+                : Carbon::now()->startOfWeek();
+        }
+
+        $endDate = $periodType === 'month'
+            ? $startDate->copy()->endOfMonth()
+            : $startDate->copy()->endOfWeek();
+
+        // Get capacity snapshot
+        $snapshot = $this->capacityService->getCapacitySnapshot(
+            $organizationId,
+            $startDate,
+            $endDate,
+            $providerType
+        );
+
+        // Get forecast if requested
+        $forecast = [];
+        if ($forecastWeeks > 0) {
+            $forecast = $this->capacityService->getCapacityForecast(
+                $organizationId,
+                $forecastWeeks,
+                $providerType
+            );
+        }
+
+        // Get provider type comparison if no filter applied
+        $providerComparison = null;
+        if (!$providerType) {
+            $providerComparison = $this->capacityService->getCapacityByProviderType(
+                $organizationId,
+                $startDate,
+                $endDate
+            );
+        }
+
+        return response()->json([
+            'data' => [
+                'snapshot' => $snapshot,
+                'forecast' => $forecast,
+                'provider_comparison' => $providerComparison,
+            ],
+            'meta' => [
+                'period_type' => $periodType,
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+                'provider_type' => $providerType,
+                'forecast_weeks' => $forecastWeeks,
+                'default_travel_minutes' => WorkforceCapacityService::DEFAULT_TRAVEL_MINUTES_PER_VISIT,
+            ],
         ]);
     }
 

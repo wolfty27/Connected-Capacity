@@ -29,6 +29,7 @@ import QipFormPage from '../pages/Compliance/QipFormPage';
 import WeeklyHuddlePage from '../pages/CareOps/WeeklyHuddlePage';
 import SpoStaffPage from '../pages/CareOps/SpoStaffPage';
 import WorkforceManagementPage from '../pages/CareOps/WorkforceManagementPage';
+import WorkforceCapacityPage from '../pages/CareOps/WorkforceCapacityPage';
 import SspoMarketplacePage from '../pages/CarePlanning/SspoMarketplacePage';
 import ShadowBillingPage from '../pages/Finance/ShadowBillingPage';
 import SuppliesPage from '../pages/Logistics/SuppliesPage';
@@ -99,6 +100,7 @@ const AppRoutes = () => {
                         <Route path="/care-bundles/create/:patientId" element={<CareBundleWizard />} />
                         <Route path="/staff" element={<SpoStaffPage />} />
                         <Route path="/workforce" element={<WorkforceManagementPage />} />
+                        <Route path="/workforce/capacity" element={<WorkforceCapacityPage />} />
                         <Route path="/sspo-marketplace" element={<SspoMarketplacePage />} />
                         <Route path="/sspo-capabilities" element={<SspoCapabilityPage />} />
                         <Route path="/weekly-huddle" element={<WeeklyHuddlePage />} />

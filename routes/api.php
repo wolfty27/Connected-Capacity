@@ -285,6 +285,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Main workforce summary (combines FTE, HHR, satisfaction)
         Route::get('/summary', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'summary']);
 
+        // Capacity vs Required Care Hours
+        Route::get('/capacity', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'capacity']);
+
         // FTE Compliance
         Route::get('/fte-trend', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'fteTrend']);
         Route::get('/compliance-gap', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'complianceGap']);

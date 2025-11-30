@@ -97,7 +97,47 @@ This document tracks progress on key scheduling and care bundle features.
 
 ---
 
+### workforce.capacity_dashboard
+
+**Status:** IN_PROGRESS (Backend Complete)
+
+**Implemented:**
+- `WorkforceCapacityService.php` - computes capacity vs required care
+  - `getCapacitySnapshot()` - comprehensive capacity analysis
+  - `getAvailableCapacity()` - staff hours by role
+  - `getRequiredCare()` - care bundle requirements by service
+  - `getScheduledHours()` - currently assigned hours
+  - `calculateTravelOverhead()` - travel time estimation (30 min default)
+  - `getCapacityForecast()` - projection for upcoming weeks
+  - `getCapacityByProviderType()` - SPO vs SSPO comparison
+- API endpoint: `GET /v2/workforce/capacity`
+  - Query params: period_type, start_date, provider_type, forecast_weeks
+  - Returns: snapshot, forecast, provider_comparison
+- `WorkforceCapacityPage.jsx` - React dashboard
+  - Summary cards: Available, Required, Scheduled, Travel, Net Capacity
+  - SPO vs SSPO comparison panel
+  - Capacity forecast chart
+  - Breakdowns by role and service type
+- Sidebar navigation link added
+
+**Remaining:**
+- Verify FTE trend graph populates with real data
+- Update seeders for realistic historical data
+
+---
+
 ## Session Notes
+
+### 2025-11-30 - Workforce Capacity Dashboard
+
+1. Implemented WorkforceCapacityService with capacity vs required care calculation
+2. Added /api/v2/workforce/capacity endpoint with filtering support
+3. Created WorkforceCapacityPage React component with:
+   - Summary metrics cards
+   - SPO vs SSPO comparison
+   - Capacity forecast visualization
+   - Role and service type breakdowns
+4. Added sidebar navigation under "Workforce" section
 
 ### 2025-11-29 - Initial Setup & Analysis
 

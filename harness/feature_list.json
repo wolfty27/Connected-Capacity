@@ -1,6 +1,30 @@
 {
   "features": [
     {
+      "id": "workforce.capacity_dashboard",
+      "name": "Workforce Capacity Dashboard",
+      "description": "Dashboard showing available capacity vs required care hours by role, service type, and provider type.",
+      "status": "in_progress",
+      "acceptance_criteria": [
+        "WorkforceCapacityService computes available hours from staff availability",
+        "Required hours computed from care bundle requirements",
+        "Net capacity = available - required - travel overhead",
+        "Travel overhead uses default 30 min or actual travel times",
+        "API endpoint /api/v2/workforce/capacity returns summary and breakdowns",
+        "Breakdowns by role, service type, provider type (SPO/SSPO)",
+        "React dashboard with period selector (week/month)",
+        "Summary cards: total available, required, net capacity, travel overhead",
+        "Table breakdown by role and service type",
+        "Sidebar link for SPO admin/coordinator"
+      ],
+      "files": [
+        "app/Services/CareOps/WorkforceCapacityService.php",
+        "app/Http/Controllers/Api/V2/WorkforceController.php",
+        "resources/js/pages/CareOps/WorkforceCapacityPage.jsx",
+        "resources/js/components/App.jsx"
+      ]
+    },
+    {
       "id": "scheduling.patient_non_concurrency",
       "name": "Patient Non-Concurrency",
       "description": "A patient must never have two visits at the same time by default. PT & OT cannot be scheduled for the same patient at the same time.",
@@ -60,7 +84,7 @@
       "id": "bundles.unscheduled_care_correctness",
       "name": "Unscheduled Care Correctness",
       "description": "Unscheduled Care panel must correctly show patients who need scheduled care based on their care bundle requirements.",
-      "status": "in_progress",
+      "status": "done",
       "acceptance_criteria": [
         "Computes required_units from CareBundleService (hours/week or visits/week)",
         "Computes scheduled_units from ServiceAssignments in the selected week",
@@ -299,6 +323,6 @@
   "metadata": {
     "project": "Connected Capacity 2.1",
     "last_updated": "2025-11-30",
-    "version": "1.1.0"
+    "version": "1.2.0"
   }
 }
