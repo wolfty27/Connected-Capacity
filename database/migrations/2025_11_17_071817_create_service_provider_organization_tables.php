@@ -18,7 +18,7 @@ class CreateServiceProviderOrganizationTables extends Migration
                 $table->id();
                 $table->string('name')->unique();
                 $table->string('slug')->unique();
-                $table->enum('type', ['se_health', 'partner', 'external'])->default('partner');
+                $table->enum('type', ['se_health', 'partner', 'sspo', 'external'])->default('partner');
                 $table->string('contact_email')->nullable();
                 $table->string('contact_phone')->nullable();
                 $table->string('address')->nullable();
