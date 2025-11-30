@@ -77,17 +77,14 @@ const PatientQueueList = () => {
         }
     };
 
-    const getStatusBadgeClasses = (status) => {
-        const color = patientQueueApi.getStatusColor(status);
+    /**
+     * Get badge classes based on the standardized InterRAI badge color.
+     */
+    const getInterraiBadgeClasses = (color) => {
         return {
             gray: 'bg-gray-100 text-gray-700 border-gray-200',
             yellow: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-            blue: 'bg-blue-100 text-blue-700 border-blue-200',
             green: 'bg-green-100 text-green-700 border-green-200',
-            purple: 'bg-purple-100 text-purple-700 border-purple-200',
-            orange: 'bg-orange-100 text-orange-700 border-orange-200',
-            emerald: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-            slate: 'bg-slate-100 text-slate-700 border-slate-200',
         }[color] || 'bg-gray-100 text-gray-700';
     };
 
@@ -110,13 +107,20 @@ const PatientQueueList = () => {
         return `${days}d`;
     };
 
+    /**
+     * Status filter options - grouped by standardized InterRAI status.
+     */
     const statusFilterOptions = [
         { value: 'all', label: 'All Patients' },
-        { value: 'pending_intake', label: 'Pending Intake' },
-        { value: 'triage_in_progress', label: 'Triage In Progress' },
-        { value: 'triage_complete', label: 'Triage Complete' },
-        { value: 'assessment_in_progress', label: 'InterRAI HC - In Progress' },
-        { value: 'assessment_complete', label: 'InterRAI HC - Complete (Ready for Bundle)' },
+        // Assessment Required group
+        { value: 'pending_intake', label: 'Assessment Required - Pending Intake' },
+        { value: 'triage_in_progress', label: 'Assessment Required - Triage In Progress' },
+        // Assessment Incomplete group
+        { value: 'triage_complete', label: 'Assessment Incomplete - Awaiting Assessment' },
+        { value: 'assessment_in_progress', label: 'Assessment Incomplete - In Progress' },
+        // Assessment Complete group
+        { value: 'assessment_complete', label: 'Assessment Complete - Ready for Bundle' },
+        // Bundle phase
         { value: 'bundle_building', label: 'Bundle Building' },
         { value: 'bundle_review', label: 'Bundle Under Review' },
     ];
@@ -160,20 +164,24 @@ const PatientQueueList = () => {
                     <div className="text-2xl font-bold text-green-700">{summary.ready_for_bundle || 0}</div>
                 </div>
 
-                <div className="bg-white rounded-lg border border-yellow-200 p-4">
-                    <div className="flex items-center gap-2 text-yellow-600 text-sm mb-1">
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
                         <Clock className="w-4 h-4" />
-                        <span>Pending Intake</span>
+                        <span>Assessment Required</span>
                     </div>
-                    <div className="text-2xl font-bold text-yellow-700">{summary.pending_intake || 0}</div>
+                    <div className="text-2xl font-bold text-gray-700">
+                        {(summary.pending_intake || 0) + (summary.triage_in_progress || 0)}
+                    </div>
                 </div>
 
-                <div className="bg-white rounded-lg border border-blue-200 p-4">
-                    <div className="flex items-center gap-2 text-blue-600 text-sm mb-1">
+                <div className="bg-white rounded-lg border border-yellow-200 p-4">
+                    <div className="flex items-center gap-2 text-yellow-600 text-sm mb-1">
                         <AlertCircle className="w-4 h-4" />
-                        <span>Triage Complete</span>
+                        <span>Assessment Incomplete</span>
                     </div>
-                    <div className="text-2xl font-bold text-blue-700">{summary.triage_complete || 0}</div>
+                    <div className="text-2xl font-bold text-yellow-700">
+                        {(summary.triage_complete || 0) + (summary.assessment_in_progress || 0)}
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-lg border border-purple-200 p-4">
@@ -259,8 +267,8 @@ const PatientQueueList = () => {
                                         </div>
                                     </td>
                                     <td className="px-4 py-4">
-                                        <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getStatusBadgeClasses(entry.queue_status)}`}>
-                                            {patientQueueApi.getStatusLabel(entry.queue_status)}
+                                        <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getInterraiBadgeClasses(entry.interrai_badge_color || patientQueueApi.getInterraiBadgeColor(entry))}`}>
+                                            {entry.interrai_status || patientQueueApi.getInterraiStatus(entry)}
                                         </span>
                                     </td>
                                     <td className="px-4 py-4">

@@ -35,9 +35,9 @@ class VisitVerificationSeeder extends Seeder
     protected float $missedRate = 0.01;
 
     /**
-     * Number of overdue alerts for jeopardy board demo.
+     * Number of overdue alerts for jeopardy board demo (per CC2.1: 3-10 for demo).
      */
-    protected int $overdueAlertsCount = 35;
+    protected int $overdueAlertsCount = 8;
 
     /**
      * Number of weeks to generate data for.
@@ -172,8 +172,9 @@ class VisitVerificationSeeder extends Seeder
                     $scheduledEnd = $slot['end'];
 
                     // Determine status and verification based on timing
+                    // Overdue threshold is 12 hours per CC2.1/RFP/Q&A requirements
                     $isPast = $scheduledStart->lt(Carbon::now());
-                    $isOverdueThreshold = $scheduledStart->lt(Carbon::now()->subHours(24));
+                    $isOverdueThreshold = $scheduledStart->lt(Carbon::now()->subHours(12));
 
                     $assignmentData = $this->generateAssignmentData(
                         $isPast,
@@ -509,7 +510,8 @@ class VisitVerificationSeeder extends Seeder
                 Carbon::now()->startOfWeek(),
                 Carbon::now()->endOfWeek()
             );
-            $isOverdueThreshold = $assignment->scheduled_start->lt(Carbon::now()->subHours(24));
+            // Overdue threshold is 12 hours per CC2.1/RFP/Q&A requirements
+            $isOverdueThreshold = $assignment->scheduled_start->lt(Carbon::now()->subHours(12));
 
             $data = $this->generateAssignmentData(
                 $isPast,
@@ -541,8 +543,9 @@ class VisitVerificationSeeder extends Seeder
         if ($overdueCount < $this->overdueAlertsCount) {
             $this->command->info("Creating additional overdue alerts (currently {$overdueCount})...");
             // Update some of the pending assignments to be overdue
+            // Overdue threshold is 12 hours per CC2.1/RFP/Q&A requirements
             $pendingAssignments = ServiceAssignment::where('verification_status', ServiceAssignment::VERIFICATION_PENDING)
-                ->where('scheduled_start', '<', Carbon::now()->subHours(24))
+                ->where('scheduled_start', '<', Carbon::now()->subHours(12))
                 ->limit($this->overdueAlertsCount - $overdueCount)
                 ->get();
 

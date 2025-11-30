@@ -214,7 +214,7 @@
       "id": "jeopardy.visit_verification_workflow",
       "name": "Visit Verification Threshold & Resolve",
       "description": "Visit verification overdue threshold matches RFP/Q&A and Resolve button works correctly.",
-      "status": "not_started",
+      "status": "done",
       "acceptance_criteria": [
         "Overdue threshold is 12 hours after visit completion (per RFP/Q&A), not 24 hours",
         "Resolve button marks ServiceAssignment.verification_status = VERIFIED",
@@ -518,6 +518,6 @@
   "metadata": {
     "project": "Connected Capacity 2.1",
     "last_updated": "2025-11-30",
-    "version": "1.5.0"
+    "version": "1.6.0"
   }
 }

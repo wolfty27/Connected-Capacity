@@ -328,6 +328,46 @@ This document tracks progress on key scheduling and care bundle features.
 
 ---
 
+### 2025-11-30 - Queue Status & Visit Verification Fix (Session 5)
+
+**Goal:** Re-validate and fix features marked "done" but not meeting acceptance criteria.
+
+**Re-Validation Results:**
+
+| Feature | Status Before | Issue Found |
+|---------|--------------|-------------|
+| `intake.queue_status_standardization` | done | Still showing "Triage Complete" / "InterRAI HC Assessment In Progress" |
+| `jeopardy.visit_verification_workflow` | not_started | Seeder used 24hr threshold, created 35 overdue visits |
+| `workforce.capacity_dashboard` | done | Architecture correct, seeding was the issue (fixed in Session 4) |
+| `bundles.unscheduled_care_correctness` | done | Architecture correct, seeding was the issue (fixed in Session 4) |
+
+**Fixes Implemented:**
+
+1. **Queue Status Badge Standardization (intake.queue_status_standardization)**
+   - Added `INTERRAI_STATUS_MAP` constant to PatientQueue.php mapping internal statuses to 3 labels
+   - Added `getInterraiStatusAttribute()` and `getInterraiBadgeColorAttribute()` accessors
+   - Updated patientQueueApi.js with `INTERRAI_STATUSES`, `INTERRAI_STATUS_MAP`, and helper methods
+   - Updated PatientQueueList.jsx to use standardized labels in table and summary cards
+   - **Labels now shown:**
+     - "InterRAI HC Assessment Required" (gray) - pending_intake, triage_in_progress
+     - "InterRAI HC Assessment Incomplete" (yellow) - triage_complete, assessment_in_progress
+     - "InterRAI HC Assessment Complete - Ready for Bundle" (green) - assessment_complete
+
+2. **Visit Verification Workflow (jeopardy.visit_verification_workflow)**
+   - Changed `overdueAlertsCount` from 35 to 8 (per CC2.1: 3-10 for demo)
+   - Changed all `subHours(24)` to `subHours(12)` in VisitVerificationSeeder.php (lines 176, 513, 547)
+   - Service layer already correctly used 12-hour threshold (DEFAULT_VERIFICATION_GRACE_MINUTES = 720)
+   - Resolve workflow verified: correctly updates verification_status and verified_at
+
+**Files Modified:**
+- `app/Models/PatientQueue.php` - Added InterRAI status constants and accessor methods
+- `resources/js/services/patientQueueApi.js` - Added standardized InterRAI status helpers
+- `resources/js/pages/Queue/PatientQueueList.jsx` - Updated to use standardized labels
+- `database/seeders/VisitVerificationSeeder.php` - Fixed 12-hour threshold, reduced overdue count
+- `harness/feature_list.json` - Updated feature statuses
+
+---
+
 ### 2025-11-29 - Initial Setup & Analysis
 
 1. Merged `investigate-branch-workflow` branch into current branch

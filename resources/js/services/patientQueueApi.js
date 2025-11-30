@@ -127,14 +127,43 @@ const patientQueueApi = {
     },
 
     /**
-     * Status display labels.
+     * Standardized InterRAI HC Assessment status labels per CC2.1 requirements.
+     * These are the ONLY three labels to show in the queue badge.
+     */
+    INTERRAI_STATUSES: {
+        REQUIRED: 'InterRAI HC Assessment Required',
+        INCOMPLETE: 'InterRAI HC Assessment Incomplete',
+        COMPLETE: 'InterRAI HC Assessment Complete - Ready for Bundle',
+    },
+
+    /**
+     * Map internal queue_status to standardized InterRAI display status.
+     */
+    INTERRAI_STATUS_MAP: {
+        // Never started / pending phases
+        pending_intake: 'InterRAI HC Assessment Required',
+        triage_in_progress: 'InterRAI HC Assessment Required',
+        // Started but not complete
+        triage_complete: 'InterRAI HC Assessment Incomplete',
+        assessment_in_progress: 'InterRAI HC Assessment Incomplete',
+        // Complete and ready for bundle
+        assessment_complete: 'InterRAI HC Assessment Complete - Ready for Bundle',
+        // Bundle phases (fallback)
+        bundle_building: 'InterRAI HC Assessment Complete - Ready for Bundle',
+        bundle_review: 'InterRAI HC Assessment Complete - Ready for Bundle',
+        bundle_approved: 'InterRAI HC Assessment Complete - Ready for Bundle',
+        transitioned: 'InterRAI HC Assessment Complete - Ready for Bundle',
+    },
+
+    /**
+     * Status display labels (internal use only).
      */
     STATUS_LABELS: {
         pending_intake: 'Pending Intake',
         triage_in_progress: 'Triage In Progress',
         triage_complete: 'Triage Complete',
-        assessment_in_progress: 'InterRAI HC Assessment In Progress',
-        assessment_complete: 'InterRAI HC Assessment Complete - Ready for Bundle',
+        assessment_in_progress: 'Assessment In Progress',
+        assessment_complete: 'Assessment Complete',
         bundle_building: 'Building Care Bundle',
         bundle_review: 'Bundle Under Review',
         bundle_approved: 'Bundle Approved',
@@ -142,15 +171,44 @@ const patientQueueApi = {
     },
 
     /**
-     * Get display label for a status.
+     * Get the standardized InterRAI status for display.
+     * Prefer using item.interrai_status from API if available.
+     */
+    getInterraiStatus(queueItem) {
+        // Use API-provided status if available
+        if (queueItem?.interrai_status) {
+            return queueItem.interrai_status;
+        }
+        // Fallback to mapping
+        return this.INTERRAI_STATUS_MAP[queueItem?.queue_status] || this.INTERRAI_STATUSES.REQUIRED;
+    },
+
+    /**
+     * Get the badge color for standardized InterRAI status.
+     * Prefer using item.interrai_badge_color from API if available.
+     */
+    getInterraiBadgeColor(queueItem) {
+        // Use API-provided color if available
+        if (queueItem?.interrai_badge_color) {
+            return queueItem.interrai_badge_color;
+        }
+        // Fallback to mapping
+        const status = this.getInterraiStatus(queueItem);
+        if (status === this.INTERRAI_STATUSES.REQUIRED) return 'gray';
+        if (status === this.INTERRAI_STATUSES.INCOMPLETE) return 'yellow';
+        if (status === this.INTERRAI_STATUSES.COMPLETE) return 'green';
+        return 'gray';
+    },
+
+    /**
+     * Get display label for a status (internal use).
      */
     getStatusLabel(status) {
         return this.STATUS_LABELS[status] || status;
     },
 
     /**
-     * Status colors for UI - standardized per CC2.1 design:
-     * gray → intake | yellow → triage | blue → assessment | green → ready | purple → bundle_building
+     * Status colors for UI (internal use).
      */
     STATUS_COLORS: {
         pending_intake: 'gray',
@@ -165,7 +223,7 @@ const patientQueueApi = {
     },
 
     /**
-     * Get color class for a status.
+     * Get color class for a status (internal use).
      */
     getStatusColor(status) {
         return this.STATUS_COLORS[status] || 'gray';

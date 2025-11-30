@@ -54,6 +54,14 @@ class PatientQueue extends Model
     ];
 
     /**
+     * Appended attributes for JSON serialization.
+     */
+    protected $appends = [
+        'interrai_status',
+        'interrai_badge_color',
+    ];
+
+    /**
      * Valid queue statuses.
      */
     public const STATUSES = [
@@ -69,18 +77,49 @@ class PatientQueue extends Model
     ];
 
     /**
-     * Status display names.
+     * Standardized InterRAI HC Assessment status labels per CC2.1 requirements.
+     * These are the ONLY three labels to show in the queue badge.
+     */
+    public const INTERRAI_STATUS_REQUIRED = 'InterRAI HC Assessment Required';
+    public const INTERRAI_STATUS_INCOMPLETE = 'InterRAI HC Assessment Incomplete';
+    public const INTERRAI_STATUS_COMPLETE = 'InterRAI HC Assessment Complete - Ready for Bundle';
+
+    /**
+     * Status display names (internal use).
      */
     public const STATUS_LABELS = [
         'pending_intake' => 'Pending Intake',
         'triage_in_progress' => 'Triage In Progress',
         'triage_complete' => 'Triage Complete',
-        'assessment_in_progress' => 'InterRAI HC Assessment In Progress',
-        'assessment_complete' => 'InterRAI HC Assessment Complete - Ready for Bundle',
+        'assessment_in_progress' => 'Assessment In Progress',
+        'assessment_complete' => 'Assessment Complete',
         'bundle_building' => 'Building Care Bundle',
         'bundle_review' => 'Bundle Under Review',
         'bundle_approved' => 'Bundle Approved',
         'transitioned' => 'Transitioned to Active',
+    ];
+
+    /**
+     * Map internal queue_status to standardized InterRAI display status.
+     * Per CC2.1 acceptance criteria, the queue should show ONLY three statuses.
+     */
+    public const INTERRAI_STATUS_MAP = [
+        // Never started / pending phases
+        'pending_intake' => self::INTERRAI_STATUS_REQUIRED,
+        'triage_in_progress' => self::INTERRAI_STATUS_REQUIRED,
+
+        // Started but not complete
+        'triage_complete' => self::INTERRAI_STATUS_INCOMPLETE,
+        'assessment_in_progress' => self::INTERRAI_STATUS_INCOMPLETE,
+
+        // Complete and ready for bundle
+        'assessment_complete' => self::INTERRAI_STATUS_COMPLETE,
+
+        // Bundle phases (shouldn't show in assessment queue, but fallback)
+        'bundle_building' => self::INTERRAI_STATUS_COMPLETE,
+        'bundle_review' => self::INTERRAI_STATUS_COMPLETE,
+        'bundle_approved' => self::INTERRAI_STATUS_COMPLETE,
+        'transitioned' => self::INTERRAI_STATUS_COMPLETE,
     ];
 
     /**
@@ -181,11 +220,37 @@ class PatientQueue extends Model
     }
 
     /**
-     * Get the display label for the current status.
+     * Get the display label for the current status (internal use).
      */
     public function getStatusLabelAttribute(): string
     {
         return self::STATUS_LABELS[$this->queue_status] ?? $this->queue_status;
+    }
+
+    /**
+     * Get the standardized InterRAI HC Assessment status for queue display.
+     *
+     * Per CC2.1 acceptance criteria, returns ONLY one of three labels:
+     * - "InterRAI HC Assessment Required" (never started)
+     * - "InterRAI HC Assessment Incomplete" (started but not complete)
+     * - "InterRAI HC Assessment Complete - Ready for Bundle"
+     */
+    public function getInterraiStatusAttribute(): string
+    {
+        return self::INTERRAI_STATUS_MAP[$this->queue_status] ?? self::INTERRAI_STATUS_REQUIRED;
+    }
+
+    /**
+     * Get the badge color for the standardized InterRAI status.
+     */
+    public function getInterraiBadgeColorAttribute(): string
+    {
+        return match ($this->interrai_status) {
+            self::INTERRAI_STATUS_REQUIRED => 'gray',
+            self::INTERRAI_STATUS_INCOMPLETE => 'yellow',
+            self::INTERRAI_STATUS_COMPLETE => 'green',
+            default => 'gray',
+        };
     }
 
     /**
