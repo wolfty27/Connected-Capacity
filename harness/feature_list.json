@@ -4,7 +4,7 @@
       "id": "workforce.capacity_dashboard",
       "name": "Workforce Capacity Dashboard",
       "description": "Dashboard showing available capacity vs required care hours by role, service type, and provider type.",
-      "status": "in_progress",
+      "status": "done",
       "acceptance_criteria": [
         "WorkforceCapacityService computes available hours from staff availability",
         "Required hours computed from care bundle requirements",
@@ -305,7 +305,7 @@
       "id": "seeding.historical_assignments_realism",
       "name": "Realistic Historical ServiceAssignments",
       "description": "Seeded ServiceAssignments have varied dates and realistic patterns.",
-      "status": "in_progress",
+      "status": "done",
       "acceptance_criteria": [
         "Service durations match ServiceType metadata, no 8-hour mega-visits",
         "Start dates vary across past weeks",
@@ -346,7 +346,7 @@
       "id": "scheduling.unscheduled_panel_ui",
       "name": "Unscheduled Care Panel UI Wiring",
       "description": "Unscheduled Care panel correctly displays remaining care from /requirements API.",
-      "status": "not_started",
+      "status": "done",
       "acceptance_criteria": [
         "Panel calls /v2/scheduling/requirements with correct date range",
         "Non-empty response shows patient cards with remaining care",
@@ -518,6 +518,6 @@
   "metadata": {
     "project": "Connected Capacity 2.1",
     "last_updated": "2025-11-30",
-    "version": "1.4.0"
+    "version": "1.5.0"
   }
 }

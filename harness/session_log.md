@@ -79,6 +79,65 @@ The `canAssignWithTravel()` method has these checks but is not used by the contr
 | scheduling.patient_timeline_correctness | DONE |
 | bundles.unscheduled_care_correctness | DONE |
 
+---
+
+## 2025-11-30 - Session: Unscheduled Care & Capacity Dashboard Fix
+
+### Objectives
+1. Fix Unscheduled Care panel showing empty
+2. Fix Capacity Dashboard showing zeros
+3. Verify plan vs schedule separation in bundle flows
+4. Verify queue status badge standardization
+
+### Root Cause Analysis
+
+Explored codebase thoroughly and found:
+- **Architecture is correct**: CareBundleBuilderService stores service_requirements, CareBundleAssignmentPlanner computes remaining care correctly, API returns proper DTOs, UI is wired correctly
+- **Seeding was the issue**: DemoBundlesSeeder didn't populate service_requirements, WorkforceSeeder only created 4 weeks of data with wrong skip pattern
+
+### Work Performed
+
+#### Step 1: Fix DemoBundlesSeeder
+- Added `extractServiceRequirements()` method to create service requirements JSON
+- CarePlan now stores `service_requirements` field from template
+- Removed unused `createServiceAssignments()` method (plan vs schedule separation)
+- Cleaned up unused imports (ServiceAssignment, ServiceProviderOrganization)
+
+#### Step 2: Fix WorkforceSeeder
+- Changed from 4 weeks to 6 weeks (past 3 + current + future 2)
+- Updated week offset logic: [-3, -2, -1, 0, +1, +2]
+- New skip pattern:
+  - Past weeks: 0% skipped (all scheduled)
+  - Current week: 30% skipped
+  - Future week 1: 40% skipped
+  - Future week 2: 50% skipped
+- Fixed-visit services (RPM) work with new week index structure
+- Status logic updated: past = completed, current/future = planned
+
+#### Step 3: Verified Other Items
+- Sidebar: "Staff Management" label ✓
+- Sidebar: "Capacity Dashboard" only workforce link ✓
+- Queue status badges: Correctly standardized ✓
+
+### Files Modified
+- `database/seeders/DemoBundlesSeeder.php` - Added service_requirements extraction
+- `database/seeders/WorkforceSeeder.php` - Fixed week structure and skip pattern
+
+### Feature Status Summary
+| Feature | Status |
+|---------|--------|
+| bundles.plan_vs_schedule_separation | DONE |
+| bundles.unscheduled_care_correctness | DONE |
+| scheduling.unscheduled_panel_ui | DONE (seeding fixed) |
+| workforce.capacity_dashboard | DONE (seeding fixed) |
+| seeding.historical_assignments_realism | DONE |
+| nav.staff_page_renaming | DONE |
+| intake.queue_status_standardization | DONE |
+
+### Commits
+- fix: realistic scheduling with unscheduled care in current/future weeks
+
 ### Next Session
 - Run full test suite with database available
-- Consider adding API-level integration tests
+- Verify Unscheduled Care panel displays correctly
+- Verify Capacity Dashboard shows non-zero values

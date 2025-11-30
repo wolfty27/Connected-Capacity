@@ -403,7 +403,8 @@ class WorkforceSeeder extends Seeder
         }
 
         // Build a queue of required visits across all weeks
-        $visitQueue = $this->buildVisitQueue($patients, 4);
+        // Past 3 weeks + current week + next 2 weeks = 6 weeks total
+        $visitQueue = $this->buildVisitQueue($patients, 6);
 
         // Shuffle to randomize assignment distribution
         shuffle($visitQueue);
@@ -417,14 +418,32 @@ class WorkforceSeeder extends Seeder
             $serviceCode = $visit['service_code'];
             $durationMinutes = $visit['duration'];
             $visitDate = $visit['date'];
-            $isCurrentWeek = $visitDate->isBetween(
-                $currentWeekStart,
-                $currentWeekStart->copy()->endOfWeek()
-            );
 
-            // DEMO: Intentionally skip ~40% of current week visits to show unscheduled care
-            // This ensures the Unscheduled Care panel has meaningful data for demo purposes
-            if ($isCurrentWeek && rand(1, 100) <= 40) {
+            // Determine the week relative to current week
+            $currentWeekEnd = $currentWeekStart->copy()->endOfWeek();
+            $isPastWeek = $visitDate->lt($currentWeekStart);
+            $isCurrentWeek = $visitDate->isBetween($currentWeekStart, $currentWeekEnd);
+            $isFutureWeek = $visitDate->gt($currentWeekEnd);
+
+            // Calculate weeks ahead for future dates
+            $weeksAhead = $isFutureWeek
+                ? (int) ceil($visitDate->diffInDays($currentWeekEnd) / 7)
+                : 0;
+
+            // DEMO: Create realistic scheduling patterns
+            // - Past weeks: 100% scheduled (complete history, no gaps)
+            // - Current week: ~70% scheduled (~30% skipped for unscheduled care demo)
+            // - Future week 1: ~60% scheduled (~40% skipped)
+            // - Future week 2+: ~50% scheduled (~50% skipped)
+            $skipChance = 0;
+            if ($isCurrentWeek) {
+                $skipChance = 30;
+            } elseif ($isFutureWeek) {
+                $skipChance = $weeksAhead === 1 ? 40 : 50;
+            }
+            // Past weeks: skipChance remains 0 (all scheduled)
+
+            if ($skipChance > 0 && rand(1, 100) <= $skipChance) {
                 $skippedCount++;
                 continue;
             }
@@ -482,12 +501,12 @@ class WorkforceSeeder extends Seeder
             $source = $useSSPO ? ServiceAssignment::SOURCE_SSPO : ServiceAssignment::SOURCE_INTERNAL;
             $orgId = $useSSPO ? $sspo->id : $spo->id;
 
-            // Status: past weeks = completed, current week = scheduled/planned
-            $status = $isCurrentWeek ? 'planned' : 'completed';
+            // Status: past weeks = completed, current/future weeks = planned
+            $status = $isPastWeek ? 'completed' : 'planned';
 
             // Prepare notes - include visit label for fixed-visit services (like RPM)
             $visitLabel = $visit['visit_label'] ?? null;
-            $notes = $isCurrentWeek ? "Scheduled: {$serviceCode}" : "Completed: {$serviceCode}";
+            $notes = $isPastWeek ? "Completed: {$serviceCode}" : "Scheduled: {$serviceCode}";
             if ($visitLabel) {
                 $notes = "{$visitLabel} - {$notes}";
             }
@@ -498,7 +517,7 @@ class WorkforceSeeder extends Seeder
             $verifiedAt = null;
             $verificationSource = null;
 
-            if (!$isCurrentWeek) {
+            if ($isPastWeek) {
                 $verificationRand = rand(1, 100);
                 if ($verificationRand <= 95) {
                     $verificationStatus = ServiceAssignment::VERIFICATION_VERIFIED;
@@ -526,8 +545,8 @@ class WorkforceSeeder extends Seeder
                 'scheduled_start' => $scheduledStart,
                 'scheduled_end' => $scheduledEnd,
                 'duration_minutes' => $durationMinutes,
-                'actual_start' => $isCurrentWeek ? null : $scheduledStart,
-                'actual_end' => $isCurrentWeek ? null : $scheduledEnd,
+                'actual_start' => $isPastWeek ? $scheduledStart : null,
+                'actual_end' => $isPastWeek ? $scheduledEnd : null,
                 'frequency_rule' => $visitLabel ? "Fixed visit: {$visitLabel}" : "{$visit['frequency']}x per week",
                 'estimated_hours_per_week' => round(($visit['frequency'] * $durationMinutes) / 60, 2),
                 'source' => $source,
@@ -557,6 +576,9 @@ class WorkforceSeeder extends Seeder
      *
      * For fixed-visit services (like RPM), only schedules the exact number
      * of visits per care plan (e.g., 2 for RPM: Setup and Discharge).
+     *
+     * Week structure: past 3 weeks + current week + future 2 weeks = 6 weeks
+     * Week offsets: -3, -2, -1, 0, +1, +2
      */
     protected function buildVisitQueue($patients, int $weeks): array
     {
@@ -566,8 +588,11 @@ class WorkforceSeeder extends Seeder
         // Reset fixed visit tracker
         $this->fixedVisitTracker = [];
 
-        for ($weekOffset = $weeks - 1; $weekOffset >= 0; $weekOffset--) {
-            $weekStart = $currentWeekStart->copy()->subWeeks($weekOffset);
+        // Build weeks: past 3 (-3 to -1) + current (0) + future 2 (+1 to +2)
+        $weekOffsets = [-3, -2, -1, 0, 1, 2];
+
+        foreach ($weekOffsets as $weekIndex => $weekOffset) {
+            $weekStart = $currentWeekStart->copy()->addWeeks($weekOffset);
 
             foreach ($patients as $patient) {
                 $carePlan = $patient->carePlans->first();
@@ -580,14 +605,15 @@ class WorkforceSeeder extends Seeder
 
                     // Handle fixed-visit services (like RPM) differently
                     if ($serviceType && $serviceType->isFixedVisits()) {
+                        $totalWeeksCount = count($weekOffsets);
                         $this->buildFixedVisitQueue(
                             $queue,
                             $carePlan,
                             $patient,
                             $service,
                             $serviceType,
-                            $weekOffset,
-                            $weeks,
+                            $weekIndex,  // Use weekIndex (0-5) instead of weekOffset (-3 to +2)
+                            $totalWeeksCount,
                             $weekStart
                         );
                         continue;
@@ -624,8 +650,8 @@ class WorkforceSeeder extends Seeder
      * Build queue entries for fixed-visit services like RPM.
      *
      * RPM has exactly 2 visits per care plan:
-     * - Visit 1 (Setup): Scheduled in first week
-     * - Visit 2 (Discharge): Scheduled in last week
+     * - Visit 1 (Setup): Scheduled in first week (weekIndex = 0)
+     * - Visit 2 (Discharge): Scheduled in last week (weekIndex = totalWeeks - 1)
      */
     protected function buildFixedVisitQueue(
         array &$queue,
@@ -633,7 +659,7 @@ class WorkforceSeeder extends Seeder
         Patient $patient,
         array $service,
         ServiceType $serviceType,
-        int $weekOffset,
+        int $weekIndex,
         int $totalWeeks,
         Carbon $weekStart
     ): void {
@@ -655,16 +681,16 @@ class WorkforceSeeder extends Seeder
         $durationMinutes = $this->getServiceDuration($service);
 
         // Determine if this week should have a fixed visit
-        // Visit 1 (Setup): First week (weekOffset = totalWeeks - 1)
-        // Visit 2 (Discharge): Last week (weekOffset = 0)
+        // Visit 1 (Setup): First week (weekIndex = 0, i.e., 3 weeks ago)
+        // Visit 2 (Discharge): Last week (weekIndex = totalWeeks - 1, i.e., future week 2)
         $shouldSchedule = false;
         $visitLabel = null;
 
-        if ($currentVisitCount === 0 && $weekOffset === ($totalWeeks - 1)) {
+        if ($currentVisitCount === 0 && $weekIndex === 0) {
             // First visit (Setup) in the first week
             $shouldSchedule = true;
             $visitLabel = $visitLabels[0] ?? 'Visit 1';
-        } elseif ($currentVisitCount === 1 && $weekOffset === 0) {
+        } elseif ($currentVisitCount === 1 && $weekIndex === ($totalWeeks - 1)) {
             // Second visit (Discharge) in the last week
             $shouldSchedule = true;
             $visitLabel = $visitLabels[1] ?? 'Visit 2';

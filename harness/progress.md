@@ -287,6 +287,47 @@ This document tracks progress on key scheduling and care bundle features.
 
 ---
 
+### 2025-11-30 - Unscheduled Care & Capacity Dashboard Fix (Session 4)
+
+**Goal:** Fix Unscheduled Care showing empty and Capacity Dashboard showing zeros.
+
+**Root Cause Analysis:**
+
+| Issue | Root Cause |
+|-------|-----------|
+| Unscheduled Care empty | Seeding created 40% gaps only in past weeks; no future week data |
+| Care plans missing service_requirements | DemoBundlesSeeder didn't populate field |
+| Capacity Dashboard zeros | Future weeks had no seeded ServiceAssignments |
+
+**Architecture Verified:**
+- `CareBundleBuilderService` correctly stores `service_requirements` JSON, doesn't create ServiceAssignments
+- `CareBundleAssignmentPlanner` correctly computes `required - scheduled = remaining`
+- `/v2/scheduling/requirements` API returns correct DTOs
+- `SchedulingPage.jsx` correctly wires to API
+
+**Fixes Implemented:**
+
+1. **DemoBundlesSeeder.php** - Populate service_requirements in care plans
+   - Added `extractServiceRequirements()` method
+   - CarePlan now stores service requirements JSON from template
+   - Removed `createServiceAssignments()` (plan vs schedule separation)
+
+2. **WorkforceSeeder.php** - Realistic scheduling pattern
+   - Changed from 4 weeks (past 3 + current) to 6 weeks (past 3 + current + future 2)
+   - New skip logic:
+     - Past weeks: 0% skipped (100% scheduled - complete history)
+     - Current week: 30% skipped (70% scheduled)
+     - Future week 1: 40% skipped (60% scheduled)
+     - Future week 2: 50% skipped (50% scheduled)
+   - Fixed-visit services (RPM) schedule correctly across 6 weeks
+
+3. **Verification:**
+   - Sidebar: "Staff Management" label ✓
+   - Sidebar: "Capacity Dashboard" only workforce link ✓
+   - Queue status badges: Correctly standardized ✓
+
+---
+
 ### 2025-11-29 - Initial Setup & Analysis
 
 1. Merged `investigate-branch-workflow` branch into current branch

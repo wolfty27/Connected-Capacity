@@ -7,8 +7,6 @@ use App\Models\CareBundleTemplate;
 use App\Models\CarePlan;
 use App\Models\Patient;
 use App\Models\RUGClassification;
-use App\Models\ServiceAssignment;
-use App\Models\ServiceProviderOrganization;
 use Illuminate\Database\Seeder;
 
 /**
@@ -40,8 +38,6 @@ class DemoBundlesSeeder extends Seeder
             return;
         }
 
-        $spo = ServiceProviderOrganization::first();
-
         foreach ($activePatients as $patient) {
             $rug = $patient->latestRugClassification;
             if (!$rug) {
@@ -71,7 +67,12 @@ class DemoBundlesSeeder extends Seeder
             // Create or get CareBundle for backward compatibility
             $careBundle = $this->getOrCreateCareBundle($template);
 
-            // Create active care plan
+            // Extract service requirements from template
+            $serviceRequirements = $this->extractServiceRequirements($template, $rug);
+
+            // Create active care plan with service requirements
+            // NOTE: ServiceAssignments are NOT created here - they are created by WorkforceSeeder
+            // with proper scheduled dates. This maintains plan vs schedule separation.
             $carePlan = CarePlan::create([
                 'patient_id' => $patient->id,
                 'care_bundle_id' => $careBundle->id,
@@ -81,12 +82,10 @@ class DemoBundlesSeeder extends Seeder
                 'goals' => $this->generateGoals($rug),
                 'risks' => $this->generateRisks($rug),
                 'interventions' => [],
+                'service_requirements' => $serviceRequirements,
                 'approved_at' => now()->subDays(rand(7, 30)),
                 'notes' => "Created from RUG template: {$template->name} ({$template->code})",
             ]);
-
-            // Create service assignments from template
-            $this->createServiceAssignments($carePlan, $template, $rug, $spo);
 
             $this->command->info("  {$patient->user->name}: CarePlan from {$template->code} (RUG: {$rug->rug_group})");
         }
@@ -107,14 +106,15 @@ class DemoBundlesSeeder extends Seeder
         );
     }
 
-    protected function createServiceAssignments(
-        CarePlan $carePlan,
-        CareBundleTemplate $template,
-        RUGClassification $rug,
-        ?ServiceProviderOrganization $spo
-    ): void {
+    /**
+     * Extract service requirements from template based on patient's RUG flags.
+     * This stores the "what care is needed" in the care plan without creating assignments.
+     */
+    protected function extractServiceRequirements(CareBundleTemplate $template, RUGClassification $rug): array
+    {
         $flags = $rug->flags ?? [];
         $services = $template->getServicesForFlags($flags);
+        $requirements = [];
 
         foreach ($services as $templateService) {
             $serviceType = $templateService->serviceType;
@@ -122,20 +122,18 @@ class DemoBundlesSeeder extends Seeder
                 continue;
             }
 
-            ServiceAssignment::create([
-                'care_plan_id' => $carePlan->id,
-                'patient_id' => $carePlan->patient_id,
+            $requirements[] = [
                 'service_type_id' => $serviceType->id,
-                'service_provider_organization_id' => $spo?->id,
-                'status' => 'active',
-                'frequency_rule' => "{$templateService->default_frequency_per_week}x per week",
-                'estimated_hours_per_week' => round(
-                    ($templateService->default_frequency_per_week * ($templateService->default_duration_minutes ?? 60)) / 60,
-                    2
-                ),
-                'notes' => "From template: {$template->code}",
-            ]);
+                'frequency_per_week' => $templateService->default_frequency_per_week ?? 1,
+                'duration_minutes' => $templateService->default_duration_minutes ?? 60,
+                'duration_weeks' => 12, // Default care plan duration
+                'provider_preference' => null,
+                'assignment_type' => 'weekly',
+                'role_required' => $serviceType->category,
+            ];
         }
+
+        return $requirements;
     }
 
     protected function generateGoals(RUGClassification $rug): array
