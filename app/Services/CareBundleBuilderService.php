@@ -318,7 +318,8 @@ class CareBundleBuilderService
             // Get latest version for this patient
             $latestVersion = CarePlan::where('patient_id', $patientId)->max('version') ?? 0;
 
-            // Create the care plan
+            // Create the care plan with service requirements (NO ServiceAssignments yet)
+            // ServiceAssignments are created during scheduling, not plan building
             $carePlan = CarePlan::create([
                 'patient_id' => $patientId,
                 'care_bundle_id' => $careBundle->id,
@@ -328,15 +329,13 @@ class CareBundleBuilderService
                 'goals' => $this->extractGoals($serviceConfigurations),
                 'risks' => $patient->risk_flags ?? [],
                 'interventions' => $this->extractInterventions($serviceConfigurations),
+                'service_requirements' => $this->extractServiceRequirements($serviceConfigurations),
                 'notes' => "Created from RUG template: {$template->name} ({$template->code})",
             ]);
 
-            // Create service assignments
-            foreach ($serviceConfigurations as $config) {
-                if (($config['currentFrequency'] ?? 0) > 0) {
-                    $this->createServiceAssignment($carePlan, $config);
-                }
-            }
+            // NOTE: ServiceAssignments are NOT created here anymore.
+            // They are created during the scheduling phase when staff/times are assigned.
+            // The service_requirements field stores the customized requirements.
 
             // Update patient queue status
             try {
@@ -878,7 +877,8 @@ class CareBundleBuilderService
             $latestVersion = CarePlan::where('patient_id', $patientId)
                 ->max('version') ?? 0;
 
-            // Create the care plan
+            // Create the care plan with service requirements (NO ServiceAssignments yet)
+            // ServiceAssignments are created during scheduling, not plan building
             $carePlan = CarePlan::create([
                 'patient_id' => $patientId,
                 'care_bundle_id' => $bundleId,
@@ -887,15 +887,13 @@ class CareBundleBuilderService
                 'goals' => $this->extractGoals($serviceConfigurations),
                 'risks' => $patient->risk_flags ?? [],
                 'interventions' => $this->extractInterventions($serviceConfigurations),
+                'service_requirements' => $this->extractServiceRequirements($serviceConfigurations),
                 'notes' => "Created from bundle: {$bundle->name}",
             ]);
 
-            // Create service assignments
-            foreach ($serviceConfigurations as $config) {
-                if (($config['currentFrequency'] ?? 0) > 0) {
-                    $this->createServiceAssignment($carePlan, $config);
-                }
-            }
+            // NOTE: ServiceAssignments are NOT created here anymore.
+            // They are created during the scheduling phase when staff/times are assigned.
+            // The service_requirements field stores the customized requirements.
 
             // Update patient queue status (optional - won't fail if no queue entry)
             try {
@@ -1017,6 +1015,45 @@ class CareBundleBuilderService
     }
 
     /**
+     * Extract machine-readable service requirements from configurations.
+     *
+     * This stores the customized service requirements (frequency, duration, etc.)
+     * that the user selected in the bundle wizard. These requirements are used
+     * by the scheduling system to show unscheduled care needs.
+     *
+     * @param array $configurations Service configurations from the wizard
+     * @return array Array of service requirement objects
+     */
+    protected function extractServiceRequirements(array $configurations): array
+    {
+        $requirements = [];
+
+        foreach ($configurations as $config) {
+            $frequency = $config['currentFrequency'] ?? 0;
+            if ($frequency <= 0) {
+                continue;
+            }
+
+            $serviceTypeId = $config['service_type_id'] ?? null;
+            if (!$serviceTypeId) {
+                continue;
+            }
+
+            $requirements[] = [
+                'service_type_id' => (int) $serviceTypeId,
+                'frequency_per_week' => (int) $frequency,
+                'duration_minutes' => (int) ($config['defaultDurationMinutes'] ?? $config['default_duration_minutes'] ?? 60),
+                'duration_weeks' => (int) ($config['currentDuration'] ?? $config['defaultDuration'] ?? 12),
+                'provider_preference' => $config['provider_id'] ?? null,
+                'assignment_type' => $config['assignment_type'] ?? 'Either',
+                'role_required' => $config['role_required'] ?? null,
+            ];
+        }
+
+        return $requirements;
+    }
+
+    /**
      * Update patient queue status.
      */
     protected function updateQueueStatus(Patient $patient, string $status, ?int $userId): void
@@ -1054,8 +1091,12 @@ class CareBundleBuilderService
                 'approved_at' => now(),
             ]);
 
-            // Update service assignments to active
-            $carePlan->serviceAssignments()->update(['status' => 'active']);
+            // Update any existing service assignments to active (for backward compatibility)
+            // Note: With plan vs schedule separation, new plans may not have ServiceAssignments yet.
+            // ServiceAssignments are created during scheduling, not plan building.
+            if ($carePlan->serviceAssignments()->exists()) {
+                $carePlan->serviceAssignments()->update(['status' => 'active']);
+            }
 
             // Transition patient from queue to active profile
             $this->transitionPatientToActive($carePlan->patient_id, $userId);

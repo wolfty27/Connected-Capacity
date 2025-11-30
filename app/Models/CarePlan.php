@@ -28,6 +28,7 @@ class CarePlan extends Model
         'goals',
         'risks',
         'interventions',
+        'service_requirements',
         'approved_by',
         'approved_at',
         'first_service_delivered_at',
@@ -39,6 +40,7 @@ class CarePlan extends Model
         'goals' => 'array',
         'risks' => 'array',
         'interventions' => 'array',
+        'service_requirements' => 'array',
         'approved_at' => 'datetime',
         'first_service_delivered_at' => 'datetime',
     ];
@@ -208,5 +210,66 @@ class CarePlan extends Model
         }
 
         return $this->isFirstServiceSlaBreached() ? 'breached' : 'compliant';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Service Requirements Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Check if this care plan has customized service requirements.
+     */
+    public function hasServiceRequirements(): bool
+    {
+        return !empty($this->service_requirements);
+    }
+
+    /**
+     * Get service requirement for a specific service type.
+     *
+     * @param int $serviceTypeId
+     * @return array|null
+     */
+    public function getServiceRequirement(int $serviceTypeId): ?array
+    {
+        if (!$this->hasServiceRequirements()) {
+            return null;
+        }
+
+        foreach ($this->service_requirements as $req) {
+            if (($req['service_type_id'] ?? null) == $serviceTypeId) {
+                return $req;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get frequency per week for a service type (from requirements or template default).
+     *
+     * @param int $serviceTypeId
+     * @return int
+     */
+    public function getServiceFrequency(int $serviceTypeId): int
+    {
+        // Check plan-level requirements first
+        $req = $this->getServiceRequirement($serviceTypeId);
+        if ($req && isset($req['frequency_per_week'])) {
+            return (int) $req['frequency_per_week'];
+        }
+
+        // Fall back to template defaults
+        if ($this->careBundleTemplate) {
+            $templateService = $this->careBundleTemplate->services
+                ->firstWhere('service_type_id', $serviceTypeId);
+            if ($templateService) {
+                return (int) ($templateService->default_frequency_per_week ?? 1);
+            }
+        }
+
+        return 1;
     }
 }

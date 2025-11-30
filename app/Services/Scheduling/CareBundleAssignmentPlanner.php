@@ -120,6 +120,11 @@ class CareBundleAssignmentPlanner
 
     /**
      * Build requirements DTO for a single patient.
+     *
+     * Priority for determining required services:
+     * 1. CarePlan.service_requirements (customized in wizard)
+     * 2. CareBundleTemplate.services (template defaults)
+     * 3. CareBundle.serviceTypes (legacy system)
      */
     protected function buildPatientRequirements(
         Patient $patient,
@@ -128,8 +133,51 @@ class CareBundleAssignmentPlanner
     ): ?RequiredAssignmentDTO {
         $services = [];
 
-        // Try new CareBundleTemplate system first
-        if ($carePlan->careBundleTemplate && $carePlan->careBundleTemplate->services->isNotEmpty()) {
+        // Priority 1: Use plan-level service_requirements if available
+        // These are customized requirements from the bundle wizard
+        if ($carePlan->hasServiceRequirements()) {
+            foreach ($carePlan->service_requirements as $requirement) {
+                $serviceTypeId = $requirement['service_type_id'] ?? null;
+                if (!$serviceTypeId) {
+                    continue;
+                }
+
+                $serviceType = ServiceType::find($serviceTypeId);
+                if (!$serviceType) {
+                    continue;
+                }
+
+                $key = "{$patient->id}_{$serviceTypeId}";
+                $scheduled = $assignmentIndex[$key] ?? ['hours' => 0, 'visits' => 0];
+
+                $unitType = $this->getUnitType($serviceType);
+                $frequency = $requirement['frequency_per_week'] ?? 1;
+                $duration = $requirement['duration_minutes'] ?? 60;
+
+                // For fixed-visit services, use the fixed count
+                if ($serviceType->isFixedVisits()) {
+                    $required = (float) ($serviceType->fixed_visits_per_plan ?? 2);
+                    $scheduledUnits = $this->getScheduledVisitsForCarePlan($carePlan->id, $serviceTypeId);
+                } else {
+                    $required = $unitType === 'hours'
+                        ? round(($frequency * $duration) / 60, 2)
+                        : $frequency;
+                    $scheduledUnits = $unitType === 'hours' ? $scheduled['hours'] : $scheduled['visits'];
+                }
+
+                $services[] = new UnscheduledServiceDTO(
+                    serviceTypeId: $serviceTypeId,
+                    serviceTypeName: $serviceType->name,
+                    category: $serviceType->category ?? 'other',
+                    color: $this->getCategoryColor($serviceType->category ?? 'other'),
+                    required: $required,
+                    scheduled: $scheduledUnits,
+                    unitType: $unitType
+                );
+            }
+        }
+        // Priority 2: Use CareBundleTemplate system
+        elseif ($carePlan->careBundleTemplate && $carePlan->careBundleTemplate->services->isNotEmpty()) {
             foreach ($carePlan->careBundleTemplate->services as $templateService) {
                 $serviceType = $templateService->serviceType;
                 if (!$serviceType) {
@@ -163,7 +211,7 @@ class CareBundleAssignmentPlanner
                 );
             }
         }
-        // Fall back to legacy CareBundle
+        // Priority 3: Fall back to legacy CareBundle
         elseif ($carePlan->careBundle && $carePlan->careBundle->serviceTypes->isNotEmpty()) {
             foreach ($carePlan->careBundle->serviceTypes as $serviceType) {
                 $key = "{$patient->id}_{$serviceType->id}";

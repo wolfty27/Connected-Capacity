@@ -191,6 +191,37 @@ This document tracks progress on key scheduling and care bundle features.
    - Role and service type breakdowns
 4. Added sidebar navigation under "Workforce" section
 
+### 2025-11-30 - Capacity Investigation Fixes (Session 2)
+
+1. **Bundle Plan vs Schedule Separation (DONE)**
+   - Added `service_requirements` JSON field to care_plans table
+   - Modified `CareBundleBuilderService.buildCarePlan()` to store requirements, NOT create ServiceAssignments
+   - Modified `CareBundleBuilderService.buildCarePlanFromTemplate()` similarly
+   - Added `extractServiceRequirements()` helper method
+   - Updated `publishCarePlan()` to handle both old and new flows
+   - Updated `CareBundleAssignmentPlanner.buildPatientRequirements()` to use:
+     1. CarePlan.service_requirements (customized, if exists)
+     2. CareBundleTemplate.services (template defaults)
+     3. CareBundle.serviceTypes (legacy fallback)
+   - Migration: `2025_11_30_230000_add_service_requirements_to_care_plans.php`
+
+2. **Navigation Consolidation (DONE)**
+   - Removed redundant "Workforce Mgmt" link from sidebar
+   - Renamed "SPO Staff" to "Staff Management"
+   - Kept Capacity Dashboard as the main workforce metrics page
+
+3. **Queue Status Badge Standardization (DONE)**
+   - Standardized STATUS_COLORS in patientQueueApi.js:
+     - gray → intake
+     - yellow → triage
+     - blue → assessment
+     - green → ready
+     - purple → bundle_building
+   - Fixed triage_complete: blue → yellow
+   - Fixed assessment_in_progress: yellow → blue
+
+---
+
 ### 2025-11-29 - Initial Setup & Analysis
 
 1. Merged `investigate-branch-workflow` branch into current branch

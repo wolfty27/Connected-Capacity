@@ -196,7 +196,7 @@
       "id": "intake.queue_status_standardization",
       "name": "Queue Status Badge Standardization",
       "description": "Patient queue badges use standardized InterRAI HC assessment status labels.",
-      "status": "not_started",
+      "status": "done",
       "acceptance_criteria": [
         "Status: InterRAI HC Assessment Required (never started)",
         "Status: InterRAI HC Assessment Incomplete (started but not complete)",
@@ -305,18 +305,78 @@
       "id": "seeding.historical_assignments_realism",
       "name": "Realistic Historical ServiceAssignments",
       "description": "Seeded ServiceAssignments have varied dates and realistic patterns.",
-      "status": "not_started",
+      "status": "in_progress",
       "acceptance_criteria": [
         "Service durations match ServiceType metadata, no 8-hour mega-visits",
         "Start dates vary across past weeks",
         "RPM Setup visits near plan start dates",
         "RPM Discharge visits near plan end dates",
         "Staff travel + spacing rules remain valid",
-        "SSPO-preferred services assigned to SSPO staff"
+        "SSPO-preferred services assigned to SSPO staff",
+        "Past 3 weeks mostly fully scheduled",
+        "Current week 60-80% scheduled with 20-40% intentionally unscheduled",
+        "Future weeks show more unscheduled care"
       ],
       "files": [
         "database/seeders/VisitVerificationSeeder.php",
         "database/seeders/WorkforceSeeder.php"
+      ]
+    },
+    {
+      "id": "bundles.plan_vs_schedule_separation",
+      "name": "Bundle Plan vs Schedule Separation",
+      "description": "Bundle creation/publish creates care plan without auto-assigning staff. Scheduling happens separately.",
+      "status": "done",
+      "acceptance_criteria": [
+        "New care plan publish creates CareBundleServices only, not ServiceAssignments",
+        "All services in new bundle show up as remaining care in /requirements",
+        "Modify bundle: unchanged services keep existing future assignments",
+        "Modify bundle: removed services cancel future ServiceAssignments",
+        "Modify bundle: added services appear as unscheduled care",
+        "No 'assign staff' dropdowns in bundle builder UI",
+        "Scheduling happens in scheduler, not in bundle builder"
+      ],
+      "files": [
+        "app/Services/CareBundleBuilderService.php",
+        "app/Http/Controllers/Api/V2/CareBundleBuilderController.php",
+        "resources/js/pages/CarePlanning/CareBundleWizard.jsx"
+      ]
+    },
+    {
+      "id": "scheduling.unscheduled_panel_ui",
+      "name": "Unscheduled Care Panel UI Wiring",
+      "description": "Unscheduled Care panel correctly displays remaining care from /requirements API.",
+      "status": "not_started",
+      "acceptance_criteria": [
+        "Panel calls /v2/scheduling/requirements with correct date range",
+        "Non-empty response shows patient cards with remaining care",
+        "Empty response shows 'All required care scheduled' message",
+        "Past weeks show empty or near-empty (most care scheduled)",
+        "Current week shows some unscheduled items",
+        "Future weeks show more unscheduled items",
+        "Panel refreshes after assignments are created",
+        "No filters hide valid unscheduled care items"
+      ],
+      "files": [
+        "resources/js/pages/CareOps/SchedulingPage.jsx",
+        "app/Http/Controllers/Api/V2/SchedulingController.php"
+      ]
+    },
+    {
+      "id": "nav.staff_page_renaming",
+      "name": "Staff Page Renaming & Consolidation",
+      "description": "Rename SPO Staff to Staff Mgmt, remove redundant Workforce Mgmt page.",
+      "status": "done",
+      "acceptance_criteria": [
+        "Sidebar label 'SPO Staff' renamed to 'Staff Mgmt'",
+        "Redundant 'Workforce Mgmt' page removed from sidebar",
+        "Route /workforce removed or redirects to /workforce/capacity",
+        "All workforce metrics consolidated into Capacity Dashboard",
+        "Navigation is cleaner with no redundant entries"
+      ],
+      "files": [
+        "resources/js/components/Navigation/Sidebar.jsx",
+        "resources/js/components/App.jsx"
       ]
     }
     ,

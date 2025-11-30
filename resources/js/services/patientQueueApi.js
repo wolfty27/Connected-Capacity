@@ -149,13 +149,14 @@ const patientQueueApi = {
     },
 
     /**
-     * Status colors for UI.
+     * Status colors for UI - standardized per CC2.1 design:
+     * gray → intake | yellow → triage | blue → assessment | green → ready | purple → bundle_building
      */
     STATUS_COLORS: {
         pending_intake: 'gray',
         triage_in_progress: 'yellow',
-        triage_complete: 'blue',
-        assessment_in_progress: 'yellow',
+        triage_complete: 'yellow',
+        assessment_in_progress: 'blue',
         assessment_complete: 'green',
         bundle_building: 'purple',
         bundle_review: 'orange',
