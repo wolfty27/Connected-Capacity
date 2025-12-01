@@ -408,3 +408,22 @@ This resulted in the SPO dashboard showing almost no unscheduled care, even when
 2. Created harness directory and files
 3. Identified gap: `SchedulingController.validateAssignment()` missing patient non-concurrency and spacing rule checks
 4. Will update `validateAssignment()` to include these constraints
+
+---
+
+## Workforce Capacity Dashboard Repair – 2025-12-01
+
+- **Root Cause:**
+  - `RelationNotFoundException`: `CareBundleAssignmentPlanner` attempted to eager-load `riskFlags` as a relationship, but it is a JSON attribute on the `Patient` model.
+  - `SQL Error`: `duration_minutes` column was missing from `service_assignments` table (pending migration), causing query failure.
+- **Files Touched:** `app/Services/Scheduling/CareBundleAssignmentPlanner.php`
+- **Changes:**
+  - Removed `riskFlags` from `with()` eager-loading clause.
+  - Updated `extractRiskFlags()` to access `$patient->risk_flags` as an attribute.
+  - Removed `duration_minutes` from `COALESCE` expression in query; now relies on `scheduled_end - scheduled_start`.
+- **Verification:**
+  - Verified via `tinker` that `GET /v2/workforce/capacity` returns valid JSON with non-zero data.
+  - **Available Hours:** 320h
+  - **Required Hours:** 108h
+  - **Net Capacity:** 212h (Green Status)
+  - *Note: Scheduled hours are currently 0 in the demo because there are no assignments seeded for this week, but the calculation pipeline is correct.*

@@ -54,7 +54,6 @@ class CareBundleAssignmentPlanner
                         'careBundleTemplate.services.serviceType',
                         'careBundle.serviceTypes',
                     ]),
-                'riskFlags',
             ]);
 
         if ($patientId) {
@@ -73,7 +72,7 @@ class CareBundleAssignmentPlanner
             ->whereBetween('scheduled_start', [$startDate, $endDate])
             ->whereNotIn('status', [ServiceAssignment::STATUS_CANCELLED, ServiceAssignment::STATUS_MISSED])
             ->select('patient_id', 'service_type_id')
-            ->selectRaw('SUM(COALESCE(duration_minutes, EXTRACT(EPOCH FROM (scheduled_end - scheduled_start)) / 60)) as total_minutes')
+            ->selectRaw('SUM(EXTRACT(EPOCH FROM (scheduled_end - scheduled_start)) / 60) as total_minutes')
             ->selectRaw('COUNT(*) as total_visits')
             ->groupBy('patient_id', 'service_type_id');
 
@@ -332,11 +331,14 @@ class CareBundleAssignmentPlanner
         $flags = [];
 
         // Check for high-risk conditions from patient model or related data
-        if ($patient->riskFlags && $patient->riskFlags->isNotEmpty()) {
-            foreach ($patient->riskFlags as $flag) {
-                if ($flag->severity === 'high' || $flag->severity === 'critical') {
+        if (!empty($patient->risk_flags) && is_array($patient->risk_flags)) {
+            foreach ($patient->risk_flags as $flag) {
+                // Handle both array and object format for flexibility
+                $severity = is_array($flag) ? ($flag['severity'] ?? null) : ($flag->severity ?? null);
+
+                if ($severity === 'high' || $severity === 'critical') {
                     $flags[] = 'dangerous';
-                } elseif ($flag->severity === 'medium') {
+                } elseif ($severity === 'medium') {
                     $flags[] = 'warning';
                 }
             }

@@ -303,3 +303,12 @@ Most care bundle services (RN, RPN, OT, PT, SLP, SW, RD) are classified as SSPO-
 - Run `php artisan migrate:fresh --seed` with database available
 - Verify Unscheduled Care panel displays all service types
 - Verify week navigation shows expected patterns
+
+---
+
+## Session – Workforce Capacity Dashboard Repair (Gemini)
+
+- **Branch:** claude/continue-capacity-investigation-01FXW6pBHPYDfkG79v4kZiha
+- **Files changed:** `CareBundleAssignmentPlanner.php`, `harness/feature_list.json`, `harness/progress.md`
+- **Summary:** Fixed `riskFlags` eager-loading crash and `duration_minutes` query error. Capacity endpoint now returns non-zero available/required/net capacity.
+- **Tests/verification:** Verified via tinker/API call to `/v2/workforce/capacity` which returned valid JSON with available_hours=320, required_hours=108.

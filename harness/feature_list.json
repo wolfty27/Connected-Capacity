@@ -6,11 +6,12 @@
       "description": "Dashboard showing available capacity vs required care hours by role, service type, and provider type.",
       "status": "done",
       "acceptance_criteria": [
+        "Capacity endpoint no longer crashes (fixed riskFlags and duration query)",
         "WorkforceCapacityService computes available hours from staff availability",
         "Required hours computed from care bundle requirements",
         "Net capacity = available - required - travel overhead",
         "Travel overhead uses default 30 min or actual travel times",
-        "API endpoint /api/v2/workforce/capacity returns summary and breakdowns",
+        "API endpoint /api/v2/workforce/capacity returns non-zero summary and breakdowns",
         "Breakdowns by role, service type, provider type (SPO/SSPO)",
         "React dashboard with period selector (week/month)",
         "Summary cards: total available, required, net capacity, travel overhead",
@@ -378,8 +379,7 @@
         "resources/js/components/Navigation/Sidebar.jsx",
         "resources/js/components/App.jsx"
       ]
-    }
-    ,
+    },
     {
       "id": "sspo.marketplace_basic",
       "name": "SSPO Marketplace Directory",
