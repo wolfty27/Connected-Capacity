@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Workforce Capacity Service
@@ -69,8 +70,17 @@ class WorkforceCapacityService
     ): array {
         $orgId = $organizationId ?? Auth::user()?->organization_id;
 
+        // Fall back to default SPO (se-health) for admin/master users without org
         if (!$orgId) {
-            return $this->emptySnapshot();
+            $defaultSpo = ServiceProviderOrganization::where('slug', 'se-health')->first();
+            $orgId = $defaultSpo?->id;
+
+            if (!$orgId) {
+                Log::warning('WorkforceCapacityService: No organization ID and no default SPO found');
+                return $this->emptySnapshot();
+            }
+
+            Log::info("WorkforceCapacityService: Using default SPO (se-health) id={$orgId}");
         }
 
         // Get available capacity from staff

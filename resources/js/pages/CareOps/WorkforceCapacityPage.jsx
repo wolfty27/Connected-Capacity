@@ -185,7 +185,7 @@ const WorkforceCapacityPage = () => {
                         {summary.available_hours?.toFixed(1) || 0}h
                     </div>
                     <div className="text-xs text-slate-400 mt-2">
-                        {snapshot.staff_count || 0} staff members
+                        {snapshot.staff_count?.total || 0} staff members
                     </div>
                 </div>
 

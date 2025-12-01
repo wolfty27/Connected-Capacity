@@ -311,3 +311,69 @@ If any of these counts are zero, it indicates where the pipeline is breaking.
 2. If template services count is 0: Check CoreDataSeeder ran before RUGBundleTemplatesSeeder
 3. If care plan service_requirements is empty: Check templates have services attached
 4. If assignments are created but dashboard still empty: Check API/frontend
+
+---
+
+## 2025-12-01 - Session: Capacity Dashboard API Fix
+
+### Objectives
+1. Fix Capacity Dashboard showing all zeros and "No staff availability data"
+2. Make Available/Required/Scheduled hours display real data
+
+### Root Cause Analysis
+
+Traced the complete API pipeline from React → Controller → Service → Database:
+
+1. **WorkforceCapacityPage.jsx** calls `/v2/workforce/capacity`
+2. **WorkforceController::capacity()** calls `getOrganizationId()` which returns `Auth::user()->organization_id`
+3. **Issue**: Admin user has NO `organization_id` set (DemoSeeder line 22-26)
+4. When `organization_id` is null, **WorkforceCapacityService::getCapacitySnapshot()** returns `emptySnapshot()` with all zeros
+
+### Fixes Applied
+
+#### 1. WorkforceCapacityService.php - Fall back to default SPO
+When no organization ID is available (admin user without org), fall back to the default 'se-health' SPO:
+
+```php
+if (!$orgId) {
+    $defaultSpo = ServiceProviderOrganization::where('slug', 'se-health')->first();
+    $orgId = $defaultSpo?->id;
+
+    if (!$orgId) {
+        Log::warning('WorkforceCapacityService: No organization ID and no default SPO found');
+        return $this->emptySnapshot();
+    }
+
+    Log::info("WorkforceCapacityService: Using default SPO (se-health) id={$orgId}");
+}
+```
+
+#### 2. WorkforceCapacityPage.jsx - Fix staff_count display
+The `staff_count` field is an object with `{total, full_time, part_time, casual, sspo}`, not a number.
+
+Fixed: `{snapshot.staff_count || 0}` → `{snapshot.staff_count?.total || 0}`
+
+### Data Flow Verification
+
+After fix, the API will:
+1. Fall back to se-health SPO when admin has no org_id
+2. Query `User::where('organization_id', $seHealthId)->where('role', 'FIELD_STAFF')` → 20+ staff
+3. Query `ServiceAssignment::where('service_provider_organization_id', $seHealthId)` → 100+ assignments
+4. Query `CareBundleAssignmentPlanner::getUnscheduledRequirements()` → 10 patients with requirements
+
+### Files Modified
+- `app/Services/CareOps/WorkforceCapacityService.php` - Added fallback to default SPO, added logging
+- `resources/js/pages/CareOps/WorkforceCapacityPage.jsx` - Fixed staff_count display
+
+### Expected Result
+
+After `migrate:fresh --seed` and logging in as any user:
+- **Available Hours**: 800+ hours (20 staff × 40h/week)
+- **Required Hours**: Non-zero (10 patients with service requirements)
+- **Scheduled Hours**: Non-zero (100+ ServiceAssignments)
+- **Staff count**: 20+ staff members
+- **Available by Role table**: Shows PSW, RN, PT, OT, etc.
+- **Required by Service table**: Shows Nursing, PSW, PT, OT, etc.
+
+### Commits
+- fix: capacity dashboard falls back to default SPO when org_id missing

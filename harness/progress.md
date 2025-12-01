@@ -431,3 +431,33 @@ Updated `WorkforceSeeder.getCarePlanServices()` to:
 - `database/seeders/RUGBundleTemplatesSeeder.php`
 - `database/seeders/DemoBundlesSeeder.php`
 - `database/seeders/WorkforceSeeder.php`
+
+---
+
+### 2025-12-01 - Capacity Dashboard API Fix (Session 8)
+
+**Issue:** Capacity Dashboard showed all zeros and "No staff availability data"
+
+**Root Cause:** Admin user (from DemoSeeder) has NO `organization_id` set. When the API is called:
+1. `WorkforceController::getOrganizationId()` returns null for admin user
+2. `WorkforceCapacityService::getCapacitySnapshot()` receives null and returns `emptySnapshot()` with all zeros
+
+**Fixes Applied:**
+
+1. **WorkforceCapacityService.php** - Added fallback to default SPO:
+   - When `organization_id` is null, look up 'se-health' SPO and use its ID
+   - Added logging for debugging
+
+2. **WorkforceCapacityPage.jsx** - Fixed staff_count display:
+   - Changed `{snapshot.staff_count || 0}` to `{snapshot.staff_count?.total || 0}`
+   - staff_count is an object with {total, full_time, part_time, casual, sspo}, not a number
+
+**Expected Result:**
+- Available Hours: 800+ hours (20 staff × 40h/week)
+- Required Hours: Non-zero (from service_requirements)
+- Scheduled Hours: Non-zero (from ServiceAssignments)
+- Tables show real breakdown by role and service type
+
+**Files Modified:**
+- `app/Services/CareOps/WorkforceCapacityService.php`
+- `resources/js/pages/CareOps/WorkforceCapacityPage.jsx`
