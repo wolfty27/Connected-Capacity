@@ -210,3 +210,31 @@ Explored codebase and found:
 - Verify UI shows standardized queue badges
 - Verify Jeopardy Board shows 8 overdue visits
 - Verify Capacity Dashboard shows non-zero values
+
+---
+
+## 2025-12-01 - Session: Critical Seeding Bug Fix
+
+### Objectives
+1. Find root cause of Capacity Dashboard zeros and empty Unscheduled Care
+
+### Root Cause Found
+
+**WorkforceSeeder.getCarePlanServices()** completely ignored `service_requirements`:
+- It only read from `careBundleTemplate.services` or `careBundle.serviceTypes`
+- But DemoBundlesSeeder creates `service_requirements` in CarePlans
+- CareBundleAssignmentPlanner reads `service_requirements` as Priority 1
+- Result: Assignments created from different data source than requirements
+
+### Fix Applied
+
+Updated `WorkforceSeeder.getCarePlanServices()`:
+- Added Priority 1: Check `service_requirements` first
+- Map keys correctly: `frequency_per_week` → `frequency`, `duration_minutes` → `duration`
+- Fall back to template/bundle only if service_requirements is empty
+
+### Files Modified
+- `database/seeders/WorkforceSeeder.php` - getCarePlanServices() now reads service_requirements
+
+### Commits
+- fix: WorkforceSeeder reads service_requirements for capacity dashboard data

@@ -368,6 +368,31 @@ This document tracks progress on key scheduling and care bundle features.
 
 ---
 
+### 2025-12-01 - Critical Seeding Bug Fix (Session 6)
+
+**Goal:** Fix root cause of Capacity Dashboard zeros and empty Unscheduled Care panel.
+
+**Root Cause Found:**
+
+`WorkforceSeeder.getCarePlanServices()` completely ignored the `service_requirements` JSON field that DemoBundlesSeeder creates. It only read from `careBundleTemplate.services` or `careBundle.serviceTypes`.
+
+This caused a mismatch:
+- **Assignments created from:** template/bundle services
+- **Requirements calculated from:** `service_requirements` (Priority 1 in CareBundleAssignmentPlanner)
+- **Result:** Dashboard showed zeros because assignments didn't match requirements
+
+**Fix Implemented:**
+
+Updated `WorkforceSeeder.getCarePlanServices()` to:
+1. Check `service_requirements` as Priority 1 (matching CareBundleAssignmentPlanner)
+2. Map keys correctly: `frequency_per_week` → `frequency`, `duration_minutes` → `duration`
+3. Fall back to template/bundle only if service_requirements is empty
+
+**Files Modified:**
+- `database/seeders/WorkforceSeeder.php` - Fixed getCarePlanServices() to read service_requirements first
+
+---
+
 ### 2025-11-29 - Initial Setup & Analysis
 
 1. Merged `investigate-branch-workflow` branch into current branch

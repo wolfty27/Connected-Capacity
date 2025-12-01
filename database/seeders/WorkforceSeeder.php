@@ -894,13 +894,45 @@ class WorkforceSeeder extends Seeder
     }
 
     /**
-     * Get services from care plan (supports both new template system and legacy bundle).
+     * Get services from care plan.
+     *
+     * Priority order (matches CareBundleAssignmentPlanner):
+     * 1. service_requirements JSON (customized in care plan)
+     * 2. CareBundleTemplate.services (template defaults)
+     * 3. CareBundle.serviceTypes (legacy fallback)
      */
     protected function getCarePlanServices(CarePlan $carePlan): array
     {
         $services = [];
 
-        // Try new CareBundleTemplate system first
+        // PRIORITY 1: Check service_requirements (customized requirements stored in care plan)
+        if ($carePlan->hasServiceRequirements()) {
+            foreach ($carePlan->service_requirements as $requirement) {
+                $serviceTypeId = $requirement['service_type_id'] ?? null;
+                if (!$serviceTypeId) {
+                    continue;
+                }
+
+                $serviceType = ServiceType::find($serviceTypeId);
+                if (!$serviceType) {
+                    continue;
+                }
+
+                $services[] = [
+                    'service_type_id' => $serviceTypeId,
+                    'code' => $serviceType->code ?? 'UNKNOWN',
+                    // Map keys: service_requirements uses frequency_per_week/duration_minutes
+                    'frequency' => $requirement['frequency_per_week'] ?? 1,
+                    'duration' => $requirement['duration_minutes'] ?? 60,
+                ];
+            }
+
+            if (!empty($services)) {
+                return $services;
+            }
+        }
+
+        // PRIORITY 2: Try CareBundleTemplate system
         if ($carePlan->careBundleTemplate && $carePlan->careBundleTemplate->services->isNotEmpty()) {
             foreach ($carePlan->careBundleTemplate->services as $templateService) {
                 $services[] = [
@@ -911,7 +943,7 @@ class WorkforceSeeder extends Seeder
                 ];
             }
         }
-        // Fall back to legacy CareBundle
+        // PRIORITY 3: Fall back to legacy CareBundle
         elseif ($carePlan->careBundle && $carePlan->careBundle->serviceTypes->isNotEmpty()) {
             foreach ($carePlan->careBundle->serviceTypes as $serviceType) {
                 $services[] = [
