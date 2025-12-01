@@ -402,6 +402,19 @@ class WorkforceSeeder extends Seeder
             return;
         }
 
+        // Diagnostic: Check care plan service requirements
+        $plansWithRequirements = 0;
+        $plansWithoutRequirements = 0;
+        foreach ($patients as $patient) {
+            $carePlan = $patient->carePlans->first();
+            if ($carePlan && $carePlan->hasServiceRequirements()) {
+                $plansWithRequirements++;
+            } else {
+                $plansWithoutRequirements++;
+            }
+        }
+        $this->command->info("Care plans with service_requirements: {$plansWithRequirements}, without: {$plansWithoutRequirements}");
+
         // Build a queue of required visits across all weeks
         // Past 3 weeks + current week + next 2 weeks = 6 weeks total
         $visitQueue = $this->buildVisitQueue($patients, 6);

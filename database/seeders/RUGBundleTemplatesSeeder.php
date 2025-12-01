@@ -68,12 +68,27 @@ class RUGBundleTemplatesSeeder extends Seeder
         $this->seedPA2();
         $this->seedPA1();
 
-        $this->command->info('Seeded 23 RUG-III/HC bundle templates.');
+        // Diagnostic: Count template services created
+        $templateCount = CareBundleTemplate::count();
+        $serviceCount = CareBundleTemplateService::count();
+        $this->command->info("Seeded {$templateCount} RUG-III/HC bundle templates with {$serviceCount} template services.");
+
+        if ($serviceCount === 0) {
+            $this->command->error('⚠️  No template services created! Service types may be missing.');
+        }
     }
 
     protected function loadServiceCache(): void
     {
         $this->serviceCache = ServiceType::pluck('id', 'code')->toArray();
+
+        // Diagnostic: verify service types exist
+        $count = count($this->serviceCache);
+        if ($count === 0) {
+            $this->command->error('⚠️  No ServiceTypes found! CoreDataSeeder may not have run.');
+        } else {
+            $this->command->info("Loaded {$count} ServiceTypes for template service creation");
+        }
     }
 
     protected function getServiceId(string $code): ?int

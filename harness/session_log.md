@@ -238,3 +238,76 @@ Updated `WorkforceSeeder.getCarePlanServices()`:
 
 ### Commits
 - fix: WorkforceSeeder reads service_requirements for capacity dashboard data
+
+---
+
+## 2025-12-01 - Session: Pipeline Diagnostics
+
+### Objectives
+1. Continue investigation of capacity dashboard zeros and empty unscheduled care
+2. Add diagnostic output to trace data flow through seeding pipeline
+
+### Investigation Summary
+
+Traced the complete data pipeline:
+
+1. **CoreDataSeeder** creates 21 ServiceTypes with codes: NUR, PT, OT, RT, SW, RD, SLP, NP, PSW, HMK, DEL-ACTS, RES, PERS, RPM, SEC, TRANS, LAB, PHAR, INTERP, MEAL, REC, BEH
+
+2. **RUGBundleTemplatesSeeder** creates 23 templates with services in `care_bundle_template_services` table
+
+3. **DemoBundlesSeeder** extracts service requirements from templates via:
+   - `$template->getServicesForFlags($flags)` → queries `care_bundle_template_services`
+   - Saves to `CarePlan.service_requirements` JSON field
+
+4. **WorkforceSeeder** reads from `CarePlan.service_requirements` (Priority 1) to create ServiceAssignments
+
+5. **CareBundleAssignmentPlanner** also reads `CarePlan.service_requirements` (Priority 1) to compute unscheduled care
+
+### Diagnostics Added
+
+Added diagnostic output to verify each step of the pipeline:
+
+1. **RUGBundleTemplatesSeeder** - Now logs:
+   - Count of ServiceTypes loaded from database
+   - Count of templates and template services created
+   - Warning if no service types found
+
+2. **DemoBundlesSeeder** - Now logs:
+   - Per-patient: count of service requirements extracted
+   - Warning if a patient gets zero requirements (with template service count)
+   - Summary: how many care plans have populated service_requirements
+
+3. **WorkforceSeeder** - Now logs:
+   - Count of care plans with/without service_requirements before building visit queue
+
+### Expected Diagnostic Output
+
+When running `php artisan migrate:fresh --seed`, the output should show:
+
+```
+Loaded 21 ServiceTypes for template service creation
+Seeded 23 RUG-III/HC bundle templates with 150+ template services.
+...
+[DemoBundlesSeeder]
+  Albert Singh: Extracted 8 service requirements
+  Catherine Dubois: Extracted 7 service requirements
+  ...
+CarePlans created: 10/10 have service_requirements populated
+...
+[WorkforceSeeder]
+Care plans with service_requirements: 10, without: 0
+```
+
+If any of these counts are zero, it indicates where the pipeline is breaking.
+
+### Files Modified
+- `database/seeders/RUGBundleTemplatesSeeder.php` - Added diagnostics
+- `database/seeders/DemoBundlesSeeder.php` - Added diagnostics
+- `database/seeders/WorkforceSeeder.php` - Added diagnostics
+- `harness/session_log.md` - This log
+
+### Next Steps
+1. Run `php artisan migrate:fresh --seed` and observe diagnostic output
+2. If template services count is 0: Check CoreDataSeeder ran before RUGBundleTemplatesSeeder
+3. If care plan service_requirements is empty: Check templates have services attached
+4. If assignments are created but dashboard still empty: Check API/frontend

@@ -399,3 +399,35 @@ Updated `WorkforceSeeder.getCarePlanServices()` to:
 2. Created harness directory and files
 3. Identified gap: `SchedulingController.validateAssignment()` missing patient non-concurrency and spacing rule checks
 4. Will update `validateAssignment()` to include these constraints
+
+---
+
+### 2025-12-01 - Pipeline Diagnostics (Session 7)
+
+**Issue:** User reported capacity dashboard still showing zeros after previous fix.
+
+**Approach:** Added diagnostic output throughout the seeding pipeline to identify where data breaks:
+
+1. **RUGBundleTemplatesSeeder** diagnostics:
+   - Logs ServiceType count from CoreDataSeeder
+   - Logs template and template-service counts
+   - Warns if no service types found
+
+2. **DemoBundlesSeeder** diagnostics:
+   - Logs per-patient service requirements count
+   - Warns if any patient gets zero requirements
+   - Summary of care plans with populated service_requirements
+
+3. **WorkforceSeeder** diagnostics:
+   - Logs care plans with/without service_requirements
+
+**Expected Behavior:** After `migrate:fresh --seed`, output should show:
+- 21 ServiceTypes loaded
+- 23 templates with ~150+ services
+- 10/10 care plans with populated service_requirements
+- All care plans read correctly by WorkforceSeeder
+
+**Files Modified:**
+- `database/seeders/RUGBundleTemplatesSeeder.php`
+- `database/seeders/DemoBundlesSeeder.php`
+- `database/seeders/WorkforceSeeder.php`

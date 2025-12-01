@@ -70,6 +70,16 @@ class DemoBundlesSeeder extends Seeder
             // Extract service requirements from template
             $serviceRequirements = $this->extractServiceRequirements($template, $rug);
 
+            // Diagnostic: Log service requirements count
+            $servicesCount = count($serviceRequirements);
+            if ($servicesCount === 0) {
+                $this->command->warn("  ⚠️  {$patient->user->name}: No service requirements extracted from template {$template->code}");
+                $templateServicesCount = $template->services()->count();
+                $this->command->warn("      Template has {$templateServicesCount} services in care_bundle_template_services");
+            } else {
+                $this->command->info("  {$patient->user->name}: Extracted {$servicesCount} service requirements");
+            }
+
             // Create active care plan with service requirements
             // NOTE: ServiceAssignments are NOT created here - they are created by WorkforceSeeder
             // with proper scheduled dates. This maintains plan vs schedule separation.
@@ -90,7 +100,18 @@ class DemoBundlesSeeder extends Seeder
             $this->command->info("  {$patient->user->name}: CarePlan from {$template->code} (RUG: {$rug->rug_group})");
         }
 
-        $this->command->info('CarePlans created for all 10 active patients.');
+        // Diagnostic summary
+        $plansWithRequirements = CarePlan::whereNotNull('service_requirements')
+            ->where('status', 'active')
+            ->get()
+            ->filter(fn($p) => !empty($p->service_requirements))
+            ->count();
+        $this->command->info("CarePlans created: {$plansWithRequirements}/10 have service_requirements populated");
+
+        if ($plansWithRequirements < 10) {
+            $this->command->error('⚠️  Some care plans are missing service_requirements!');
+            $this->command->error('    Check that RUGBundleTemplatesSeeder created template services correctly.');
+        }
     }
 
     protected function getOrCreateCareBundle(CareBundleTemplate $template): CareBundle
