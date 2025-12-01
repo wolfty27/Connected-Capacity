@@ -101,14 +101,16 @@ const SchedulingPage = ({ isSspoMode = false }) => {
     }, [weekRange.start, weekRange.end, staffIdParam, patientIdParam, roleFilter, empTypeFilter]);
 
     // Fetch requirements
+    // SPO dashboard shows ALL unscheduled care (they coordinate everything)
+    // SSPO dashboard filters to only SSPO-preferred services
     const fetchRequirements = useCallback(async () => {
         try {
             const params = new URLSearchParams({
                 start_date: weekRange.start,
                 end_date: weekRange.end,
                 ...(patientIdParam && { patient_id: patientIdParam }),
+                // Only SSPO mode filters by provider_type; SPO sees everything
                 ...(isSspoMode && { provider_type: 'sspo' }),
-                ...(!isSspoMode && { provider_type: 'spo' }),
             });
             const response = await api.get(`/v2/scheduling/requirements?${params}`);
             setRequirements(response.data);

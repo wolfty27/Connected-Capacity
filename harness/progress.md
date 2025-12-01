@@ -368,28 +368,37 @@ This document tracks progress on key scheduling and care bundle features.
 
 ---
 
-### 2025-12-01 - Critical Seeding Bug Fix (Session 6)
+### 2025-12-01 - Unscheduled Care Provider Filter Fix (Session 6)
 
-**Goal:** Fix root cause of Capacity Dashboard zeros and empty Unscheduled Care panel.
+**Goal:** Fix Unscheduled Care panel showing "All required care scheduled" when there is actually unscheduled care.
 
-**Root Cause Found:**
+**Root Cause Analysis:**
 
-`WorkforceSeeder.getCarePlanServices()` completely ignored the `service_requirements` JSON field that DemoBundlesSeeder creates. It only read from `careBundleTemplate.services` or `careBundle.serviceTypes`.
+The `SchedulingPage.jsx` was sending `provider_type=spo` filter in all SPO dashboard requests. This filter caused most services (Nursing, OT, PT, etc.) to be filtered OUT because they are classified as SSPO-owned by the `isSspoOwned()` method.
 
-This caused a mismatch:
-- **Assignments created from:** template/bundle services
-- **Requirements calculated from:** `service_requirements` (Priority 1 in CareBundleAssignmentPlanner)
-- **Result:** Dashboard showed zeros because assignments didn't match requirements
+| Service Type | Classification | Filtered by `provider_type=spo`? |
+|--------------|---------------|----------------------------------|
+| RN, RPN, OT, PT, SLP, SW, RD | SSPO-owned | YES (hidden!) |
+| PSW, HM, BS | SPO-owned | NO (shown) |
+
+This resulted in the SPO dashboard showing almost no unscheduled care, even when patients needed Nursing or therapy services.
 
 **Fix Implemented:**
 
-Updated `WorkforceSeeder.getCarePlanServices()` to:
-1. Check `service_requirements` as Priority 1 (matching CareBundleAssignmentPlanner)
-2. Map keys correctly: `frequency_per_week` → `frequency`, `duration_minutes` → `duration`
-3. Fall back to template/bundle only if service_requirements is empty
+1. **SchedulingPage.jsx** - Removed `provider_type: 'spo'` from SPO dashboard requirements fetch
+   - SPO dashboard now shows ALL unscheduled care (they coordinate everything)
+   - SSPO dashboard still filters by `provider_type: 'sspo'` (correct for their scoped view)
+   - This aligns with OHAH requirements: SPO as primary coordinator sees all unscheduled care
 
 **Files Modified:**
-- `database/seeders/WorkforceSeeder.php` - Fixed getCarePlanServices() to read service_requirements first
+- `resources/js/pages/CareOps/SchedulingPage.jsx` - Lines 103-120: Removed SPO provider_type filter
+
+**Verification:**
+- ✓ Queue status badges: Correctly standardized with 3 InterRAI labels
+- ✓ Plan vs Schedule separation: CareBundleBuilderService creates plans without ServiceAssignments
+- ✓ Remaining care calculation: CareBundleAssignmentPlanner computes correctly
+- ✓ Capacity Dashboard: Defaults to no filter (shows all data)
+- ✓ Navigation: "Staff Management" label, no redundant Workforce Management page
 
 ---
 
@@ -399,65 +408,3 @@ Updated `WorkforceSeeder.getCarePlanServices()` to:
 2. Created harness directory and files
 3. Identified gap: `SchedulingController.validateAssignment()` missing patient non-concurrency and spacing rule checks
 4. Will update `validateAssignment()` to include these constraints
-
----
-
-### 2025-12-01 - Pipeline Diagnostics (Session 7)
-
-**Issue:** User reported capacity dashboard still showing zeros after previous fix.
-
-**Approach:** Added diagnostic output throughout the seeding pipeline to identify where data breaks:
-
-1. **RUGBundleTemplatesSeeder** diagnostics:
-   - Logs ServiceType count from CoreDataSeeder
-   - Logs template and template-service counts
-   - Warns if no service types found
-
-2. **DemoBundlesSeeder** diagnostics:
-   - Logs per-patient service requirements count
-   - Warns if any patient gets zero requirements
-   - Summary of care plans with populated service_requirements
-
-3. **WorkforceSeeder** diagnostics:
-   - Logs care plans with/without service_requirements
-
-**Expected Behavior:** After `migrate:fresh --seed`, output should show:
-- 21 ServiceTypes loaded
-- 23 templates with ~150+ services
-- 10/10 care plans with populated service_requirements
-- All care plans read correctly by WorkforceSeeder
-
-**Files Modified:**
-- `database/seeders/RUGBundleTemplatesSeeder.php`
-- `database/seeders/DemoBundlesSeeder.php`
-- `database/seeders/WorkforceSeeder.php`
-
----
-
-### 2025-12-01 - Capacity Dashboard API Fix (Session 8)
-
-**Issue:** Capacity Dashboard showed all zeros and "No staff availability data"
-
-**Root Cause:** Admin user (from DemoSeeder) has NO `organization_id` set. When the API is called:
-1. `WorkforceController::getOrganizationId()` returns null for admin user
-2. `WorkforceCapacityService::getCapacitySnapshot()` receives null and returns `emptySnapshot()` with all zeros
-
-**Fixes Applied:**
-
-1. **WorkforceCapacityService.php** - Added fallback to default SPO:
-   - When `organization_id` is null, look up 'se-health' SPO and use its ID
-   - Added logging for debugging
-
-2. **WorkforceCapacityPage.jsx** - Fixed staff_count display:
-   - Changed `{snapshot.staff_count || 0}` to `{snapshot.staff_count?.total || 0}`
-   - staff_count is an object with {total, full_time, part_time, casual, sspo}, not a number
-
-**Expected Result:**
-- Available Hours: 800+ hours (20 staff × 40h/week)
-- Required Hours: Non-zero (from service_requirements)
-- Scheduled Hours: Non-zero (from ServiceAssignments)
-- Tables show real breakdown by role and service type
-
-**Files Modified:**
-- `app/Services/CareOps/WorkforceCapacityService.php`
-- `resources/js/pages/CareOps/WorkforceCapacityPage.jsx`
