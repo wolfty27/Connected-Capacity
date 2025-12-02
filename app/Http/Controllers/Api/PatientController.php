@@ -85,6 +85,8 @@ class PatientController extends Controller
                     'is_in_queue' => $patient->is_in_queue ?? false,
                     'queue_status' => $queueEntry ? $queueEntry->queue_status : null,
                     'queue_status_label' => $queueEntry ? PatientQueue::STATUS_LABELS[$queueEntry->queue_status] ?? $queueEntry->queue_status : null,
+                    'interrai_status' => $queueEntry ? $queueEntry->interrai_status : null,
+                    'interrai_badge_color' => $queueEntry ? $queueEntry->interrai_badge_color : 'gray',
                     'activated_at' => $patient->activated_at,
                     // RUG classification info (from InterRAI assessment)
                     'rug_group' => $patient->latestRugClassification?->rug_group,
@@ -145,6 +147,8 @@ class PatientController extends Controller
                     'is_in_queue' => $patient->is_in_queue ?? false,
                     'queue_status' => $queueEntry ? $queueEntry->queue_status : null,
                     'queue_status_label' => $queueEntry ? PatientQueue::STATUS_LABELS[$queueEntry->queue_status] ?? $queueEntry->queue_status : null,
+                    'interrai_status' => $queueEntry ? $queueEntry->interrai_status : null,
+                    'interrai_badge_color' => $queueEntry ? $queueEntry->interrai_badge_color : 'gray',
                     'queue_entry' => $queueEntry ? [
                         'id' => $queueEntry->id,
                         'status' => $queueEntry->queue_status,
@@ -222,54 +226,63 @@ class PatientController extends Controller
                 ], 422);
             }
 
-            // Create user account for patient
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => bcrypt('password'), // Default password
-                'role' => 'patient',
-            ]);
-
-            // Create patient record with address fields
-            $patient = Patient::create([
-                'user_id' => $user->id,
-                'gender' => $request->gender,
-                'date_of_birth' => $request->date_of_birth,
-                'ohip' => $request->ohip,
-                'hospital_id' => $hospitalId,
-                'status' => $request->add_to_queue ? 'Pending' : 'Active',
-                'is_in_queue' => $request->add_to_queue ?? false,
-                // Address fields for travel time and region assignment
-                'address' => $request->address,
-                'city' => $request->city,
-                'postal_code' => $request->postal_code,
-                'lat' => $request->lat,
-                'lng' => $request->lng,
-            ]);
-
-            // Auto-assign region based on address (postal code FSA or coordinates)
-            $regionService = app(RegionService::class);
-            $regionAssigned = $regionService->assignRegion($patient);
-
-            // Add to queue if requested
-            if ($request->add_to_queue) {
-                PatientQueue::create([
-                    'patient_id' => $patient->id,
-                    'queue_status' => 'pending_intake',
-                    'priority' => 5,
-                    'entered_queue_at' => now(),
+            // Wrap all database operations in a transaction to prevent orphaned records
+            $result = DB::transaction(function () use ($request, $hospitalId) {
+                // Create user account for patient
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => bcrypt('password'), // Default password
+                    'role' => 'patient',
                 ]);
-            }
+
+                // Create patient record with address fields
+                $patient = Patient::create([
+                    'user_id' => $user->id,
+                    'gender' => $request->gender,
+                    'date_of_birth' => $request->date_of_birth,
+                    'ohip' => $request->ohip,
+                    'hospital_id' => $hospitalId,
+                    'status' => $request->add_to_queue ? 'Pending' : 'Active',
+                    'is_in_queue' => $request->add_to_queue ?? false,
+                    // Address fields for travel time and region assignment
+                    'address' => $request->address,
+                    'city' => $request->city,
+                    'postal_code' => $request->postal_code,
+                    'lat' => $request->lat,
+                    'lng' => $request->lng,
+                ]);
+
+                // Auto-assign region based on address (postal code FSA or coordinates)
+                $regionService = app(RegionService::class);
+                $regionAssigned = $regionService->assignRegion($patient);
+
+                // Add to queue if requested
+                if ($request->add_to_queue) {
+                    PatientQueue::create([
+                        'patient_id' => $patient->id,
+                        'queue_status' => 'pending_intake',
+                        'priority' => 5,
+                        'entered_queue_at' => now(),
+                    ]);
+                }
+
+                return [
+                    'patient' => $patient,
+                    'user' => $user,
+                    'region_assigned' => $regionAssigned,
+                ];
+            });
 
             return response()->json([
                 'message' => 'Patient created successfully',
                 'data' => [
-                    'id' => $patient->id,
-                    'name' => $user->name,
-                    'status' => $patient->status,
-                    'is_in_queue' => $patient->is_in_queue,
-                    'region_id' => $patient->region_id,
-                    'region_assigned' => $regionAssigned,
+                    'id' => $result['patient']->id,
+                    'name' => $result['user']->name,
+                    'status' => $result['patient']->status,
+                    'is_in_queue' => $result['patient']->is_in_queue,
+                    'region_id' => $result['patient']->region_id,
+                    'region_assigned' => $result['region_assigned'],
                 ],
             ], 201);
         } catch (\Exception $e) {
@@ -485,6 +498,8 @@ class PatientController extends Controller
                     'queue_status_label' => $queueEntry
                         ? PatientQueue::STATUS_LABELS[$queueEntry->queue_status] ?? $queueEntry->queue_status
                         : null,
+                    'interrai_status' => $queueEntry ? $queueEntry->interrai_status : null,
+                    'interrai_badge_color' => $queueEntry ? $queueEntry->interrai_badge_color : 'gray',
 
                     // RUG Classification
                     'rug_classification' => $rugClassification ? [

@@ -62,7 +62,7 @@ const CareDashboardPage = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
 
             {/* HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -88,103 +88,122 @@ const CareDashboardPage = () => {
 
             {/* APPENDIX 1 COMPLIANCE SCORECARD */}
             <div>
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Appendix 1 Compliance Scorecard</h3>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Appendix 1 Compliance Scorecard</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                     {/* Referral Acceptance */}
                     <div 
-                        className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors"
-                        onClick={() => navigate('/tnp')}
+                        className={`bg-white p-3 rounded-lg shadow-sm ${(data?.kpi?.referral_acceptance?.band ?? 'B') === 'C' ? 'border-l-4 border-l-rose-500 border-y border-r border-slate-200' : (data?.kpi?.referral_acceptance?.band ?? 'B') === 'B' ? 'border-l-4 border-l-amber-500 border-y border-r border-slate-200' : 'border border-slate-200'} relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors`}
+                        onClick={() => navigate('/patients')}
                     >
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 rounded-bl-full -mr-8 -mt-8"></div>
-                        <div className="relative z-10">
-                            <div className="text-slate-500 text-xs font-bold uppercase mb-1">Referral Acceptance</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-bold text-amber-500">98.5%</span>
-                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">Band B</span>
+                        <div className={`absolute top-0 right-0 w-8 h-8 ${(data?.kpi?.referral_acceptance?.band ?? 'B') === 'A' ? 'bg-emerald-50' : (data?.kpi?.referral_acceptance?.band ?? 'B') === 'B' ? 'bg-amber-50' : 'bg-rose-50'} rounded-bl-full -mr-4 -mt-4`}></div>
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="text-slate-500 text-xs font-medium uppercase h-7 flex items-center">Referral Acceptance</div>
+                            <div className="text-2xl font-bold ${(data?.kpi?.referral_acceptance?.band ?? 'B') === 'A' ? 'text-emerald-600' : (data?.kpi?.referral_acceptance?.band ?? 'B') === 'B' ? 'text-amber-500' : 'text-rose-600'} h-7 flex items-center">{`${data?.kpi?.referral_acceptance?.rate_percent?.toFixed(1) ?? 0}%`}</div>
+                            <div className="h-7 flex items-center justify-center">
+                                <span className={`shrink-0 whitespace-nowrap px-2 py-0.5 rounded text-xs font-medium ${(data?.kpi?.referral_acceptance?.band ?? 'B') === 'A' ? 'bg-emerald-100 text-emerald-700' : (data?.kpi?.referral_acceptance?.band ?? 'B') === 'B' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{(data?.kpi?.referral_acceptance?.band ?? 'B') === 'A' ? 'Meets Target' : (data?.kpi?.referral_acceptance?.band ?? 'B') === 'B' ? 'Below Standard' : 'Action Required'}</span>
                             </div>
-                            <div className="text-xs text-slate-400 mt-2">Target: 100% (Needs Improvement)</div>
+                            <div className="text-xs text-slate-400 h-7 flex items-center justify-center">{(data?.kpi?.referral_acceptance?.band ?? 'B') === 'A' ? 'Target: 100% (Meets Target)' : (data?.kpi?.referral_acceptance?.band ?? 'B') === 'B' ? `${data?.kpi?.referral_acceptance?.accepted ?? 0}/${data?.kpi?.referral_acceptance?.total ?? 0} accepted (Target: 100%)` : `${data?.kpi?.referral_acceptance?.accepted ?? 0}/${data?.kpi?.referral_acceptance?.total ?? 0} accepted (Action Required)`}</div>
                         </div>
                     </div>
 
                     {/* Time-to-First-Service */}
                     <div 
-                        className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors"
-                        onClick={() => navigate('/tnp')}
+                        className={`bg-white p-3 rounded-lg shadow-sm ${data?.kpi?.time_to_first_service?.band === 'C' ? 'border-l-4 border-l-rose-500 border-y border-r border-slate-200' : data?.kpi?.time_to_first_service?.band === 'B' ? 'border-l-4 border-l-amber-500 border-y border-r border-slate-200' : 'border border-slate-200'} relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors`}
+                        onClick={() => navigate('/metrics/tfs')}
                     >
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -mr-8 -mt-8"></div>
-                        <div className="relative z-10">
-                            <div className="text-slate-500 text-xs font-bold uppercase mb-1">Time-to-First-Service</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-bold text-emerald-600">18.2h</span>
-                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700">Band A</span>
+                        <div className={`absolute top-0 right-0 w-8 h-8 ${data?.kpi?.time_to_first_service?.band === 'A' ? 'bg-emerald-50' : data?.kpi?.time_to_first_service?.band === 'B' ? 'bg-amber-50' : 'bg-rose-50'} rounded-bl-full -mr-4 -mt-4`}></div>
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="text-slate-500 text-xs font-medium uppercase h-7 flex items-center">Time-to-First-Service</div>
+                            <div className={`text-2xl font-bold h-7 flex items-center ${data?.kpi?.time_to_first_service?.band === 'A' ? 'text-emerald-600' : data?.kpi?.time_to_first_service?.band === 'B' ? 'text-amber-500' : 'text-rose-600'}`}>{data?.kpi?.time_to_first_service?.formatted_average ?? '0h'}</div>
+                            <div className="h-7 flex items-center justify-center">
+                                <span className={`shrink-0 whitespace-nowrap px-2 py-0.5 rounded text-xs font-medium ${data?.kpi?.time_to_first_service?.band === 'A' ? 'bg-emerald-100 text-emerald-700' : data?.kpi?.time_to_first_service?.band === 'B' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{data?.kpi?.time_to_first_service?.band === 'A' ? 'Meets Target' : data?.kpi?.time_to_first_service?.band === 'B' ? 'Below Standard' : 'Action Required'}</span>
                             </div>
-                            <div className="text-xs text-slate-400 mt-2">Target: &lt; 24 Hours</div>
+                            <div className="text-xs text-slate-400 h-7 flex items-center justify-center">Target: &lt; 24 Hours</div>
                         </div>
                     </div>
 
                     {/* Missed Care */}
                     <div
-                        className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors"
+                        className={`bg-white p-3 rounded-lg shadow-sm ${data?.kpi?.missed_care?.band === 'A' ? 'border border-slate-200' : data?.kpi?.missed_care?.band === 'B' ? 'border-l-4 border-l-amber-500 border-y border-r border-slate-200' : 'border-l-4 border-l-rose-500 border-y border-r border-slate-200'} relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors`}
                         onClick={() => setIsMissedCareModalOpen(true)}
                     >
-                        <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full -mr-8 -mt-8 ${
+                        <div className={`absolute top-0 right-0 w-8 h-8 rounded-bl-full -mr-4 -mt-4 ${
                             data?.kpi?.missed_care?.band === 'A' ? 'bg-emerald-50' :
                             data?.kpi?.missed_care?.band === 'B' ? 'bg-amber-50' : 'bg-rose-50'
                         }`}></div>
-                        <div className="relative z-10">
-                            <div className="text-slate-500 text-xs font-bold uppercase mb-1">Missed Care Rate</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className={`text-3xl font-bold ${
-                                    data?.kpi?.missed_care?.band === 'A' ? 'text-emerald-600' :
-                                    data?.kpi?.missed_care?.band === 'B' ? 'text-amber-500' : 'text-rose-600'
-                                }`}>{data?.kpi?.missed_care?.rate_percent?.toFixed(2) ?? '0.00'}%</span>
-                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="text-slate-500 text-xs font-medium uppercase h-7 flex items-center">Missed Care Rate</div>
+                            <div className={`text-2xl font-bold h-7 flex items-center ${
+                                data?.kpi?.missed_care?.band === 'A' ? 'text-emerald-600' :
+                                data?.kpi?.missed_care?.band === 'B' ? 'text-amber-500' : 'text-rose-600'
+                            }`}>{data?.kpi?.missed_care?.rate_percent?.toFixed(2) ?? '0.00'}%</div>
+                            <div className="h-7 flex items-center justify-center">
+                                <span className={`shrink-0 whitespace-nowrap px-2 py-0.5 rounded text-xs font-medium ${
                                     data?.kpi?.missed_care?.band === 'A' ? 'bg-emerald-100 text-emerald-700' :
                                     data?.kpi?.missed_care?.band === 'B' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
-                                }`}>Band {data?.kpi?.missed_care?.band ?? 'A'}</span>
+                                }`}>Action Required</span>
                             </div>
-                            <div className="text-xs text-slate-400 mt-2">
+                            <div className="text-xs text-slate-400 h-7 flex items-center justify-center">
                                 Target: 0% {data?.kpi?.missed_care?.missed_events > 0 && `• ${data?.kpi?.missed_care?.missed_events} missed`}
                             </div>
                         </div>
                     </div>
 
-                    {/* FTE Compliance (New) */}
+                    {/* FTE Compliance */}
                     <div 
-                        className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors"
+                        className={`bg-white p-3 rounded-lg shadow-sm ${fteData?.band === 'RED' ? 'border-l-4 border-l-rose-500 border-y border-r border-slate-200' : fteData?.band === 'YELLOW' ? 'border-l-4 border-l-amber-500 border-y border-r border-slate-200' : 'border border-slate-200'} relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors`}
                         onClick={() => navigate('/staff')}
                     >
-                        <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full -mr-8 -mt-8 ${
+                        <div className={`absolute top-0 right-0 w-8 h-8 rounded-bl-full -mr-4 -mt-4 ${
                             fteData?.band === 'GREEN' ? 'bg-emerald-50' : fteData?.band === 'YELLOW' ? 'bg-amber-50' : 'bg-rose-50'
                         }`}></div>
-                        <div className="relative z-10">
-                            <div className="text-slate-500 text-xs font-bold uppercase mb-1">Direct Care FTE</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className={`text-3xl font-bold ${
-                                    fteData?.band === 'GREEN' ? 'text-emerald-600' : fteData?.band === 'YELLOW' ? 'text-amber-500' : 'text-rose-600'
-                                }`}>{fteData?.fte_ratio || 0}%</span>
-                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="text-slate-500 text-xs font-medium uppercase h-7 flex items-center">Direct Care FTE</div>
+                            <div className={`text-2xl font-bold h-7 flex items-center ${
+                                fteData?.band === 'GREEN' ? 'text-emerald-600' : fteData?.band === 'YELLOW' ? 'text-amber-500' : 'text-rose-600'
+                            }`}>{fteData?.fte_ratio || 0}%</div>
+                            <div className="h-7 flex items-center justify-center">
+                                <span className={`shrink-0 whitespace-nowrap px-2 py-0.5 rounded text-xs font-medium ${
                                     fteData?.band === 'GREEN' ? 'bg-emerald-100 text-emerald-700' : fteData?.band === 'YELLOW' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
-                                }`}>{fteData?.band || 'N/A'}</span>
+                                }`}>{fteData?.band === 'GREEN' ? 'Meets Target' : fteData?.band === 'YELLOW' ? 'Below Standard' : 'Action Required'}</span>
                             </div>
-                            <div className="text-xs text-slate-400 mt-2">Target: &ge; 80% Full-Time</div>
+                            <div className="text-xs text-slate-400 h-7 flex items-center justify-center">Target: ≥ 80% Full-Time</div>
                         </div>
                     </div>
 
                     {/* Active QINs */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-l-rose-500 border-y border-r border-slate-200 cursor-pointer hover:bg-rose-50 transition-colors" onClick={() => navigate('/qin')}>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <div className="text-slate-500 text-xs font-bold uppercase mb-1">Active QINs</div>
-                                <div className="text-3xl font-bold text-rose-600">1</div>
+                    <div 
+                        className={`bg-white p-3 rounded-lg shadow-sm ${(data?.kpi?.active_qins?.count ?? 0) === 0 ? 'border border-slate-200' : 'border-l-4 border-l-rose-500 border-y border-r border-slate-200'} relative overflow-hidden cursor-pointer hover:bg-slate-50 transition-colors`}
+                        onClick={() => navigate('/qin')}
+                    >
+                        <div className={`absolute top-0 right-0 w-8 h-8 rounded-bl-full -mr-4 -mt-4 ${
+                            (data?.kpi?.active_qins?.count ?? 0) === 0 
+                                ? 'bg-emerald-50' 
+                                : 'bg-rose-50'
+                        }`}></div>
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="text-slate-500 text-xs font-medium uppercase h-7 flex items-center">Active QINs</div>
+                            <div className={`text-2xl font-bold h-7 flex items-center ${
+                                (data?.kpi?.active_qins?.count ?? 0) === 0 
+                                    ? 'text-emerald-600' 
+                                    : 'text-rose-600'
+                            }`}>{data?.kpi?.active_qins?.count ?? 0}</div>
+                            <div className="h-7 flex items-center justify-center">
+                                <span className={`shrink-0 whitespace-nowrap px-2 py-0.5 rounded text-xs font-medium ${
+                                    (data?.kpi?.active_qins?.count ?? 0) === 0 
+                                        ? 'bg-emerald-100 text-emerald-700' 
+                                        : 'bg-rose-100 text-rose-700'
+                                }`}>{(data?.kpi?.active_qins?.count ?? 0) === 0 ? 'Meets Target' : 'Action Required'}</span>
                             </div>
-                            <svg className="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <div className={`text-xs h-7 flex items-center justify-center ${
+                                (data?.kpi?.active_qins?.count ?? 0) === 0 
+                                    ? 'text-slate-400' 
+                                    : 'text-rose-600 font-medium'
+                            }`}>{(data?.kpi?.active_qins?.count ?? 0) === 0 ? 'Target: 0 Active' : 'Submit QIP'}</div>
                         </div>
-                        <div className="text-xs text-rose-700 font-medium mt-2">Action Required: Submit QIP</div>
                     </div>
                 </div>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* LEFT COLUMN: OPERATIONAL QUEUES */}
                 <div className="lg:col-span-2 space-y-8">
@@ -193,7 +212,7 @@ const CareDashboardPage = () => {
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                             <h3 className="font-bold text-slate-800">Intake Queue (HPG Gateway)</h3>
-                            <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">
+                            <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2 py-1 rounded-full">
                                 {data?.intake_queue?.length || 0} Pending
                             </span>
                         </div>
@@ -212,7 +231,7 @@ const CareDashboardPage = () => {
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <ReferralTimer receivedAt={p.received_at} />
-                                            <button onClick={() => navigate('/tnp')} className="text-teal-600 hover:text-teal-800 text-sm font-medium">Review</button>
+                                            <button onClick={() => navigate('/patients')} className="text-teal-600 hover:text-teal-800 text-sm font-medium">Review</button>
                                         </div>
                                     </div>
                                 ))
@@ -228,17 +247,17 @@ const CareDashboardPage = () => {
                             <h3 className="font-bold text-slate-800">Jeopardy Board (Missed Care Risk)</h3>
                             <div className="flex items-center gap-2">
                                 {data?.jeopardy_summary?.critical_count > 0 && (
-                                    <span className="bg-rose-100 text-rose-800 text-xs font-bold px-2 py-1 rounded-full">
+                                    <span className="bg-rose-100 text-rose-800 text-xs font-medium px-2 py-1 rounded-full">
                                         {data.jeopardy_summary.critical_count} Critical
                                     </span>
                                 )}
                                 {data?.jeopardy_summary?.warning_count > 0 && (
-                                    <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">
+                                    <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2 py-1 rounded-full">
                                         {data.jeopardy_summary.warning_count} Warning
                                     </span>
                                 )}
                                 {(data?.jeopardy_summary?.total_active || 0) === 0 && (
-                                    <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-full">
+                                    <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2 py-1 rounded-full">
                                         0 Active
                                     </span>
                                 )}
@@ -304,7 +323,7 @@ const CareDashboardPage = () => {
                             <PartnerPerformanceTable partners={data?.partners || []} compact={true} />
                         </div>
                         <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-center">
-                            <button onClick={() => navigate('/sspo-marketplace')} className="text-xs font-bold text-teal-600 hover:text-teal-800 uppercase tracking-wide">View Marketplace</button>
+                            <button onClick={() => navigate('/sspo-marketplace')} className="text-xs font-medium text-teal-600 hover:text-teal-800 uppercase tracking-wide">View Marketplace</button>
                         </div>
                     </div>
                 </div>

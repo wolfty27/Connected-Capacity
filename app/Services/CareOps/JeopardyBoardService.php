@@ -183,8 +183,8 @@ class JeopardyBoardService
         $now = Carbon::now();
         $scheduledStart = $assignment->scheduled_start;
 
-        $days = $scheduledStart->diffInDays($now);
-        $hours = $scheduledStart->diffInHours($now) % 24;
+        $days = (int) $scheduledStart->diffInDays($now);
+        $hours = (int) $scheduledStart->diffInHours($now) % 24;
 
         if ($days > 0) {
             $display = "{$days}d ago";

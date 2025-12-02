@@ -11,6 +11,7 @@ use App\Models\ServiceProviderOrganization;
 use App\Models\ServiceRoleMapping;
 use App\Models\ServiceType;
 use App\Models\StaffAvailability;
+use App\Models\StaffUnavailability;
 use App\Models\StaffRole;
 use App\Models\User;
 use App\Services\Scheduling\SchedulingEngine;
@@ -219,8 +220,8 @@ class WorkforceSeeder extends Seeder
             ['name' => 'Daniel Park', 'email' => 'daniel.park@sehc.com', 'role_code' => 'PSW', 'emp_type_id' => $ftId, 'hours' => 40],
             ['name' => 'Michelle Thompson', 'email' => 'michelle.thompson@sehc.com', 'role_code' => 'PSW', 'emp_type_id' => $ftId, 'hours' => 40],
             ['name' => 'Andrew Garcia', 'email' => 'andrew.garcia@sehc.com', 'role_code' => 'PSW', 'emp_type_id' => $ftId, 'hours' => 40],
-            ['name' => 'Sarah Johnson', 'email' => 'sarah.johnson@sehc.com', 'role_code' => 'PSW', 'emp_type_id' => $ftId, 'hours' => 40],
-            ['name' => 'Christopher Lee', 'email' => 'christopher.lee@sehc.com', 'role_code' => 'PSW', 'emp_type_id' => $ftId, 'hours' => 40],
+            ['name' => 'Sarah Johnson', 'email' => 'sarah.johnson@sehc.com', 'role_code' => 'PSW', 'emp_type_id' => $ftId, 'hours' => 40, 'status' => 'on_leave'],
+            ['name' => 'Christopher Lee', 'email' => 'christopher.lee@sehc.com', 'role_code' => 'PSW', 'emp_type_id' => $ftId, 'hours' => 40, 'scheduling_locked' => true],
 
             // Full-Time Allied Health
             ['name' => 'Dr. Elizabeth Chen', 'email' => 'elizabeth.chen@sehc.com', 'role_code' => 'PT', 'emp_type_id' => $ftId, 'hours' => 40],
@@ -230,8 +231,17 @@ class WorkforceSeeder extends Seeder
 
         foreach ($additionalStaff as $data) {
             $roleId = $roleIds[$data['role_code']] ?? null;
+            
+            // Determine staff status (default to active)
+            $staffStatus = User::STAFF_STATUS_ACTIVE;
+            if (isset($data['status']) && $data['status'] === 'on_leave') {
+                $staffStatus = User::STAFF_STATUS_ON_LEAVE;
+            }
+            
+            // Check for scheduling lock
+            $schedulingLocked = isset($data['scheduling_locked']) && $data['scheduling_locked'];
 
-            User::updateOrCreate(
+            $staff = User::updateOrCreate(
                 ['email' => $data['email']],
                 [
                     'name' => $data['name'],
@@ -243,13 +253,36 @@ class WorkforceSeeder extends Seeder
                     'employment_type' => $data['emp_type_id'] === $ftId ? 'full_time' : ($data['emp_type_id'] === $ptId ? 'part_time' : 'casual'),
                     'employment_type_id' => $data['emp_type_id'],
                     'max_weekly_hours' => $data['hours'],
-                    'staff_status' => User::STAFF_STATUS_ACTIVE,
+                    'staff_status' => $staffStatus,
                     'hire_date' => Carbon::now()->subMonths(rand(1, 24)),
-                    'job_satisfaction' => ['excellent', 'good', 'excellent'][rand(0, 2)], // Higher satisfaction for new hires
+                    'job_satisfaction' => ['excellent', 'good', 'excellent'][rand(0, 2)],
                     'job_satisfaction_recorded_at' => Carbon::now()->subDays(rand(1, 14)),
+                    // Scheduling lock fields
+                    'is_scheduling_locked' => $schedulingLocked,
+                    'scheduling_locked_at' => $schedulingLocked ? Carbon::now()->subDays(rand(1, 7)) : null,
+                    'scheduling_locked_reason' => $schedulingLocked ? 'Pending performance review' : null,
                 ]
             );
+            
+            // If on leave, create an unavailability record
+            if ($staffStatus === User::STAFF_STATUS_ON_LEAVE) {
+                StaffUnavailability::updateOrCreate(
+                    [
+                        'user_id' => $staff->id,
+                        'unavailability_type' => StaffUnavailability::TYPE_PERSONAL,
+                        'start_datetime' => Carbon::now()->subDays(3)->startOfDay(),
+                    ],
+                    [
+                        'end_datetime' => Carbon::now()->addDays(11)->endOfDay(),
+                        'is_all_day' => true,
+                        'reason' => 'Personal leave',
+                        'approval_status' => StaffUnavailability::STATUS_APPROVED,
+                        'approved_at' => Carbon::now()->subDays(5),
+                    ]
+                );
+            }
         }
+
 
         $this->command->info('Created ' . count($additionalStaff) . ' additional staff for FTE compliance demo.');
     }
@@ -291,7 +324,7 @@ class WorkforceSeeder extends Seeder
                     'organization_id' => $sspo->id,
                     'organization_role' => $data['role_code'],
                     'staff_role_id' => $roleId,
-                    'employment_type' => 'sspo',
+                    'employment_type' => null, // SSPO staff use employment_type_id instead
                     'employment_type_id' => $sspoId,
                     'staff_status' => User::STAFF_STATUS_ACTIVE,
                     'hire_date' => Carbon::now()->subMonths(rand(3, 12)),

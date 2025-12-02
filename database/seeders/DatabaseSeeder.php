@@ -97,7 +97,15 @@ class DatabaseSeeder extends Seeder
             // 14. Workforce metadata and demo staff for FTE compliance
             // Seeds: staff_roles, employment_types, additional staff, SSPO org,
             // past 3 weeks + current week of assignments
+            SkillCatalogSeeder::class,
+
+            // 14.5 Workforce metadata and demo staff for FTE compliance
+            // Seeds: staff_roles, employment_types, additional staff, SSPO org,
+            // past 3 weeks + current week of assignments
             WorkforceSeeder::class,
+
+            // 14.6 Staff skills assignment based on role
+            StaffSkillsSeeder::class,
 
             // ============================================
             // VISIT VERIFICATION: Jeopardy & Missed Care
@@ -106,6 +114,18 @@ class DatabaseSeeder extends Seeder
             // 15. Visit verification data for Jeopardy Board and Missed Care Rate
             // Creates realistic verification statuses for past 4 weeks of visits
             VisitVerificationSeeder::class,
+
+            // 15.5 Patient satisfaction reports for staff
+            // Creates feedback records for completed visits
+            SatisfactionReportSeeder::class,
+
+            // ============================================
+            // QIN: Quality Improvement Notices
+            // ============================================
+
+            // 16. Demo QIN record (1 active QIN for dashboard demonstration)
+            // Creates a single officially issued QIN matching the demo metrics
+            QinSeeder::class,
         ]);
     }
 }

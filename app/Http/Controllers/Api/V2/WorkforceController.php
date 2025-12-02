@@ -77,72 +77,85 @@ class WorkforceController extends Controller
      */
     public function capacity(Request $request): JsonResponse
     {
-        $organizationId = $this->getOrganizationId($request);
+        try {
+            $organizationId = $this->getOrganizationId($request);
 
-        if (!$this->authorizeOrganization($organizationId)) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+            if (!$this->authorizeOrganization($organizationId)) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
 
-        $periodType = $request->input('period_type', 'week');
-        $providerType = $request->input('provider_type');
-        $forecastWeeks = min((int) $request->input('forecast_weeks', 0), 12);
+            $periodType = $request->input('period_type', 'week');
+            $providerType = $request->input('provider_type');
+            $forecastWeeks = min((int) $request->input('forecast_weeks', 0), 12);
 
-        // Calculate date range based on period type
-        if ($request->filled('start_date')) {
-            $startDate = Carbon::parse($request->input('start_date'));
-        } else {
-            $startDate = $periodType === 'month'
-                ? Carbon::now()->startOfMonth()
-                : Carbon::now()->startOfWeek();
-        }
+            // Calculate date range based on period type
+            if ($request->filled('start_date')) {
+                $startDate = Carbon::parse($request->input('start_date'));
+            } else {
+                $startDate = $periodType === 'month'
+                    ? Carbon::now()->startOfMonth()
+                    : Carbon::now()->startOfWeek();
+            }
 
-        $endDate = $periodType === 'month'
-            ? $startDate->copy()->endOfMonth()
-            : $startDate->copy()->endOfWeek();
+            $endDate = $periodType === 'month'
+                ? $startDate->copy()->endOfMonth()
+                : $startDate->copy()->endOfWeek();
 
-        // Get capacity snapshot
-        $snapshot = $this->capacityService->getCapacitySnapshot(
-            $organizationId,
-            $startDate,
-            $endDate,
-            $providerType
-        );
-
-        // Get forecast if requested
-        $forecast = [];
-        if ($forecastWeeks > 0) {
-            $forecast = $this->capacityService->getCapacityForecast(
-                $organizationId,
-                $forecastWeeks,
-                $providerType
-            );
-        }
-
-        // Get provider type comparison if no filter applied
-        $providerComparison = null;
-        if (!$providerType) {
-            $providerComparison = $this->capacityService->getCapacityByProviderType(
+            // Get capacity snapshot
+            $snapshot = $this->capacityService->getCapacitySnapshot(
                 $organizationId,
                 $startDate,
-                $endDate
+                $endDate,
+                $providerType
             );
-        }
 
-        return response()->json([
-            'data' => [
-                'snapshot' => $snapshot,
-                'forecast' => $forecast,
-                'provider_comparison' => $providerComparison,
-            ],
-            'meta' => [
-                'period_type' => $periodType,
-                'start_date' => $startDate->toDateString(),
-                'end_date' => $endDate->toDateString(),
-                'provider_type' => $providerType,
-                'forecast_weeks' => $forecastWeeks,
-                'default_travel_minutes' => WorkforceCapacityService::DEFAULT_TRAVEL_MINUTES_PER_VISIT,
-            ],
-        ]);
+            // Get forecast if requested
+            $forecast = [];
+            if ($forecastWeeks > 0) {
+                $forecast = $this->capacityService->getCapacityForecast(
+                    $organizationId,
+                    $forecastWeeks,
+                    $providerType
+                );
+            }
+
+            // Get provider type comparison if no filter applied
+            $providerComparison = null;
+            if (!$providerType) {
+                $providerComparison = $this->capacityService->getCapacityByProviderType(
+                    $organizationId,
+                    $startDate,
+                    $endDate
+                );
+            }
+
+            return response()->json([
+                'data' => [
+                    'snapshot' => $snapshot,
+                    'forecast' => $forecast,
+                    'provider_comparison' => $providerComparison,
+                ],
+                'meta' => [
+                    'period_type' => $periodType,
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => $endDate->toDateString(),
+                    'provider_type' => $providerType,
+                    'forecast_weeks' => $forecastWeeks,
+                    'default_travel_minutes' => WorkforceCapacityService::DEFAULT_TRAVEL_MINUTES_PER_VISIT,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('WorkforceController::capacity error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return response()->json([
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], 500);
+        }
     }
 
     /**

@@ -1,7 +1,7 @@
 import React from 'react';
 
 const Button = ({ children, onClick, type = 'button', variant = 'primary', className = '', action, actions, ...props }) => {
-    const baseStyles = "font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none transition-colors duration-200";
+    const baseStyles = "inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none transition-colors duration-200";
 
     const variants = {
         primary: "text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300",

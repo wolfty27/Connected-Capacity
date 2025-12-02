@@ -11,6 +11,7 @@ import ServerErrorPage from './ServerErrorPage';
 import TnpReviewListPage from '../pages/Tnp/TnpReviewListPage';
 import TnpReviewDetailPage from '../pages/Tnp/TnpReviewDetailPage';
 import CareDashboardPage from '../pages/CareOps/CareDashboardPage';
+import TfsDetailPage from '../pages/Metrics/TfsDetailPage';
 import FieldStaffWorklistPage from '../pages/CareOps/FieldStaffWorklistPage';
 import RoleRoute from './RouteGuards/RoleRoute';
 import PatientsList from '../pages/Patients/PatientsList';
@@ -28,6 +29,7 @@ import QinManagerPage from '../pages/Compliance/QinManagerPage';
 import QipFormPage from '../pages/Compliance/QipFormPage';
 import WeeklyHuddlePage from '../pages/CareOps/WeeklyHuddlePage';
 import SpoStaffPage from '../pages/CareOps/SpoStaffPage';
+import StaffProfilePage from '../pages/Staff/StaffProfilePage';
 import WorkforceManagementPage from '../pages/CareOps/WorkforceManagementPage';
 import WorkforceCapacityPage from '../pages/CareOps/WorkforceCapacityPage';
 import SspoMarketplacePage from '../pages/CarePlanning/SspoMarketplacePage';
@@ -73,8 +75,8 @@ const AppRoutes = () => {
                 <Route element={<AppLayout />}>
                     <Route path="/dashboard" element={<DashboardRedirect />} />
 
-                    <Route path="/tnp" element={<TnpReviewListPage />} />
-                    <Route path="/tnp/:patientId" element={<TnpReviewDetailPage />} />
+                    { /* TNP page disabled */ }
+                    { /* TNP detail disabled */ }
 
                     {/* Role-Based Routes */}
                     <Route element={<RoleRoute roles={[
@@ -87,6 +89,7 @@ const AppRoutes = () => {
                         'SSPO_COORDINATOR'
                     ]} />}>
                         <Route path="/care-dashboard" element={<CareDashboardPage />} />
+                        <Route path="/metrics/tfs" element={<TfsDetailPage />} />
                         <Route path="/patients" element={<PatientsList />} />
                         <Route path="/patients/add" element={<AddPatientPage />} />
                         <Route path="/patients/:id" element={<PatientDetailPage />} />
@@ -99,15 +102,15 @@ const AppRoutes = () => {
                         {/* Care Bundle Routes - redirect list to patients, keep wizard */}
                         <Route path="/care-bundles" element={<Navigate to="/patients" replace />} />
                         <Route path="/care-bundles/create/:patientId" element={<CareBundleWizard />} />
-                        <Route path="/staff" element={<SpoStaffPage />} />
                         <Route path="/workforce" element={<WorkforceManagementPage />} />
                         <Route path="/workforce/capacity" element={<WorkforceCapacityPage />} />
+                        <Route path="/staff/:id" element={<StaffProfilePage />} />
                         <Route path="/sspo-marketplace" element={<SspoMarketplacePage />} />
                         <Route path="/sspo-marketplace/:id" element={<SspoProfilePage />} />
                         <Route path="/sspo-capabilities" element={<SspoCapabilityPage />} />
                         <Route path="/weekly-huddle" element={<WeeklyHuddlePage />} />
                         <Route path="/spo/scheduling" element={<SchedulingPage isSspoMode={false} />} />
-                        <Route path="/sspo/scheduling" element={<SchedulingPage isSspoMode={true} />} />
+                        {/* SSPO scheduling removed - unified in Scheduler */}
                         <Route path="/scheduling" element={<SchedulingPage isSspoMode={false} />} />
 
                         {/* Compliance & Reporting */}

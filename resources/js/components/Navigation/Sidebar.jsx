@@ -32,21 +32,22 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
     return (
         <aside className={`
-            fixed top-0 left-0 z-30 w-64 h-full transition-transform duration-300 bg-white border-r border-slate-200 flex flex-col
+            fixed top-0 left-0 z-50 w-64 h-full transition-transform duration-300 bg-white border-r border-slate-200 flex flex-col
             ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
-            md:translate-x-0
+            
         `}>
             {/* Logo Area */}
             <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 bg-teal-900 rounded-lg flex items-center justify-center text-white shadow-sm">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    <div className="flex flex-col items-center leading-none">
+                        <span className="text-[#1a5a5a] font-semibold text-sm tracking-[0.2em]">CONNECTED</span>
+                        <div className="w-full h-[1px] bg-[#1a5a5a] my-0.5"></div>
+                        <span className="text-[#1a5a5a] font-semibold text-sm tracking-[0.15em]">CAPACITY</span>
                     </div>
-                    <span className="font-bold text-lg tracking-tight text-teal-900">Connected Capacity</span>
                 </div>
                 <button
                     onClick={() => setIsOpen(false)}
-                    className="md:hidden text-slate-400 hover:text-slate-600"
+                    className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-lg transition-colors"
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -74,14 +75,22 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                 {({ isActive }) => (
                                     <>
                                         <svg className={iconClasses({ isActive })} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                                        <span>Active Patients</span>
+                                        <span>Patient Hub</span>
+                                    </>
+                                )}
+                            </NavLink>
+                            <NavLink to="/spo/scheduling" className={linkClasses}>
+                                {({ isActive }) => (
+                                    <>
+                                        <svg className={iconClasses({ isActive })} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                        <span>Scheduler</span>
                                     </>
                                 )}
                             </NavLink>
 
                              {/* Network & Staff */}
                             <div className="pt-2 pb-1 px-2 text-[10px] font-bold text-slate-400 uppercase">Workforce</div>
-                            <NavLink to="/staff" className={linkClasses}>
+                            <NavLink to="/workforce" className={linkClasses}>
                                 {({ isActive }) => (
                                     <>
                                         <svg className={iconClasses({ isActive })} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -114,24 +123,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                 )}
                             </NavLink>
 
-                            {/* Scheduling */}
-                            <div className="pt-2 pb-1 px-2 text-[10px] font-bold text-slate-400 uppercase">Scheduling</div>
-                            <NavLink to="/spo/scheduling" className={linkClasses}>
-                                {({ isActive }) => (
-                                    <>
-                                        <svg className={iconClasses({ isActive })} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                        <span>SPO Scheduling</span>
-                                    </>
-                                )}
-                            </NavLink>
-                            <NavLink to="/sspo/scheduling" className={linkClasses}>
-                                {({ isActive }) => (
-                                    <>
-                                        <svg className={iconClasses({ isActive })} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                        <span>SSPO Scheduling</span>
-                                    </>
-                                )}
-                            </NavLink>
                         </div>
                     </div>
                 )}

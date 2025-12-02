@@ -85,24 +85,19 @@ const PatientsList = () => {
 
     const getStatusBadge = (patient) => {
         if (patient.is_in_queue) {
-            const queueStatus = patient.queue_status || 'pending_intake';
-            const colors = {
-                pending_intake: 'bg-gray-100 text-gray-700',
-                triage_in_progress: 'bg-yellow-100 text-yellow-700',
-                triage_complete: 'bg-blue-100 text-blue-700',
-                assessment_in_progress: 'bg-yellow-100 text-yellow-700',
-                assessment_complete: 'bg-green-100 text-green-700',
-                bundle_building: 'bg-purple-100 text-purple-700',
-                bundle_review: 'bg-orange-100 text-orange-700',
-                bundle_approved: 'bg-emerald-100 text-emerald-700',
+            // Use standardized InterRAI status from API
+            const interraiStatus = patient.interrai_status || 'InterRAI HC Required';
+            const badgeColor = patient.interrai_badge_color || 'yellow';
+            
+            const colorClasses = {
+                yellow: 'bg-amber-100 text-amber-700',
+                green: 'bg-emerald-100 text-emerald-700',
+                gray: 'bg-gray-100 text-gray-700',
             };
-            // Shorten label for assessment_complete to fit on one line
-            const label = queueStatus === 'assessment_complete'
-                ? 'InterRAI HC Complete – Ready for Bundle'
-                : (patient.queue_status_label || 'In Queue');
+            
             return (
-                <span className={`inline-flex items-center whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${colors[queueStatus] || 'bg-gray-100 text-gray-700'}`}>
-                    {label}
+                <span className={`inline-flex items-center whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${colorClasses[badgeColor] || 'bg-gray-100 text-gray-700'}`}>
+                    {interraiStatus}
                 </span>
             );
         }
@@ -125,6 +120,7 @@ const PatientsList = () => {
     if (error) return <div className="text-red-600 p-6">{error}</div>;
 
     return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Section
             title="Patients"
             description="Manage your organization's patients"
@@ -272,7 +268,7 @@ const PatientsList = () => {
                             ) : patient.is_in_queue ? (
                                 <span className="text-xs text-gray-400 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" />
-                                    InterRAI HC Assessment Pending
+                                    InterRAI HC Required
                                 </span>
                             ) : (
                                 <span></span>
@@ -306,6 +302,7 @@ const PatientsList = () => {
                 </div>
             )}
         </Section>
+        </div>
     );
 };
 

@@ -240,6 +240,7 @@ const InterraiDashboardPage = () => {
     ];
 
     return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Section
             title="InterRAI Compliance Dashboard"
             description="Monitor assessment status and IAR integration"
@@ -419,6 +420,7 @@ const InterraiDashboardPage = () => {
                 )}
             </Card>
         </Section>
+        </div>
     );
 };
 

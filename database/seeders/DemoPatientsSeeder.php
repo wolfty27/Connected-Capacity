@@ -177,6 +177,8 @@ class DemoPatientsSeeder extends Seeder
                 // READY patient: has InterRAI HC Assessment + RUGClassification
                 // Queue status: assessment_complete
                 PatientQueue::create([
+                    'accepted_at' => now()->subDays(rand(12, 26)), // Accepted shortly after entering
+                    'is_accepted' => true,
                     'patient_id' => $patient->id,
                     'queue_status' => 'assessment_complete',
                     'priority' => $index + 1,
@@ -190,6 +192,9 @@ class DemoPatientsSeeder extends Seeder
                 // Alternate between 'triage_complete' and 'assessment_in_progress' for variety
                 $status = ($index % 2 === 0) ? 'assessment_in_progress' : 'triage_complete';
                 PatientQueue::create([
+                    // NOT ACCEPTED YET - creates Referral Acceptance breach for demo QIN
+                    'accepted_at' => null,
+                    'is_accepted' => false,
                     'patient_id' => $patient->id,
                     'queue_status' => $status,
                     'priority' => $index + 1,
@@ -315,15 +320,18 @@ class DemoPatientsSeeder extends Seeder
 
             // Create transitioned queue entry
             PatientQueue::create([
+                // Active patients were accepted when they entered the system
+                'accepted_at' => now()->subDays(rand(6, 24)), // Accepted shortly after entering
+                'is_accepted' => true,
                 'patient_id' => $patient->id,
                 'queue_status' => 'transitioned',
                 'priority' => 5,
-                'entered_queue_at' => now()->subDays(rand(30, 60)),
-                'triage_completed_at' => now()->subDays(rand(25, 55)),
-                'assessment_completed_at' => now()->subDays(rand(20, 50)),
-                'bundle_started_at' => now()->subDays(rand(15, 45)),
-                'bundle_completed_at' => now()->subDays(rand(10, 40)),
-                'transitioned_at' => now()->subDays(rand(7, 30)),
+                'entered_queue_at' => now()->subDays(rand(7, 25)),
+                'triage_completed_at' => now()->subDays(rand(5, 22)),
+                'assessment_completed_at' => now()->subDays(rand(4, 18)),
+                'bundle_started_at' => now()->subDays(rand(3, 14)),
+                'bundle_completed_at' => now()->subDays(rand(2, 10)),
+                'transitioned_at' => now()->subDays(rand(1, 5)),
             ]);
 
             $this->command->info("    [A{$index}] {$data['name']} -> target RUG: {$data['target_rug']}");

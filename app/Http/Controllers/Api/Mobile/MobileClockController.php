@@ -34,7 +34,7 @@ class MobileClockController extends Controller
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'accuracy_meters' => ['nullable', 'numeric', 'min:0'],
             'device_id' => ['nullable', 'string', 'max:100'],
-            'offline_timestamp' => ['nullable', 'date'],
+            'offline_timestamp' => ['nullable', 'date_format:Y-m-d\TH:i:sP', 'before_or_equal:now'],
         ]);
 
         // Check if already clocked in
@@ -54,7 +54,7 @@ class MobileClockController extends Controller
 
         DB::transaction(function () use ($assignment, $validated) {
             $clockInTime = isset($validated['offline_timestamp'])
-                ? \Carbon\Carbon::parse($validated['offline_timestamp'])
+                ? \Carbon\Carbon::createFromFormat('Y-m-d\TH:i:sP', $validated['offline_timestamp'])
                 : now();
 
             $assignment->update([
@@ -77,7 +77,7 @@ class MobileClockController extends Controller
             'message' => 'Successfully clocked in',
             'data' => [
                 'assignment_id' => $assignment->id,
-                'clocked_in_at' => $assignment->fresh()->actual_start->toIso8601String(),
+                'clocked_in_at' => $assignment->fresh()->actual_start?->toIso8601String() ?? now()->toIso8601String(),
                 'status' => 'in_progress',
             ],
         ]);
@@ -97,7 +97,7 @@ class MobileClockController extends Controller
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'accuracy_meters' => ['nullable', 'numeric', 'min:0'],
             'device_id' => ['nullable', 'string', 'max:100'],
-            'offline_timestamp' => ['nullable', 'date'],
+            'offline_timestamp' => ['nullable', 'date_format:Y-m-d\TH:i:sP', 'before_or_equal:now'],
             'visit_notes' => ['nullable', 'string', 'max:2000'],
             'tasks_completed' => ['nullable', 'array'],
             'tasks_completed.*' => ['string'],
@@ -123,7 +123,7 @@ class MobileClockController extends Controller
 
         DB::transaction(function () use ($assignment, $validated, &$visitDuration) {
             $clockOutTime = isset($validated['offline_timestamp'])
-                ? \Carbon\Carbon::parse($validated['offline_timestamp'])
+                ? \Carbon\Carbon::createFromFormat('Y-m-d\TH:i:sP', $validated['offline_timestamp'])
                 : now();
 
             $visitDuration = $assignment->actual_start->diffInMinutes($clockOutTime);
@@ -160,7 +160,7 @@ class MobileClockController extends Controller
             'message' => 'Successfully clocked out',
             'data' => [
                 'assignment_id' => $assignment->id,
-                'clocked_out_at' => $assignment->fresh()->actual_end->toIso8601String(),
+                'clocked_out_at' => $assignment->fresh()->actual_end?->toIso8601String() ?? now()->toIso8601String(),
                 'status' => 'completed',
                 'visit_duration_minutes' => $visitDuration,
             ],

@@ -8,6 +8,19 @@
   body {
     @apply bg-slate-50 text-slate-600 antialiased;
   }
+  
+  /* Remove native select arrows globally */
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: none;
+  }
+  
+  /* Remove IE arrow */
+  select::-ms-expand {
+    display: none;
+  }
 }
 
 @layer utilities {

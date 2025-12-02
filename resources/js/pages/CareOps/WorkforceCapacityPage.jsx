@@ -42,6 +42,7 @@ const WorkforceCapacityPage = () => {
             }
 
             const response = await api.get(`/v2/workforce/capacity?${params}`);
+            console.log('Workforce Capacity API Response:', response.data);
             setCapacityData(response.data.data);
             setMeta(response.data.meta);
         } catch (error) {
@@ -119,7 +120,7 @@ const WorkforceCapacityPage = () => {
     const providerComparison = capacityData?.provider_comparison || null;
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -129,9 +130,6 @@ const WorkforceCapacityPage = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <Button variant="secondary" onClick={() => navigate('/workforce')}>
-                        Workforce Management
-                    </Button>
                     <Button variant="primary" onClick={() => navigate('/spo/scheduling')}>
                         Open Scheduler
                     </Button>
@@ -177,7 +175,7 @@ const WorkforceCapacityPage = () => {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {/* Available Hours */}
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <div className="text-xs font-bold text-slate-400 uppercase">Available Hours</div>

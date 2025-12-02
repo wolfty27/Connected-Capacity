@@ -12,17 +12,18 @@ class NoteController extends Controller
     {
         $validated = $request->validate([
             'patient_id' => 'required|exists:patients,id',
-            'note_text' => 'required|string',
-            'note_type' => 'nullable|string', // e.g., 'voice', 'text'
+            'content' => 'required|string',
+            'note_type' => 'nullable|string|in:clinical,psw,mh,rpm,escalation',
+            'service_assignment_id' => 'nullable|exists:service_assignments,id',
         ]);
 
         $note = InterdisciplinaryNote::create([
             'patient_id' => $validated['patient_id'],
+            'service_assignment_id' => $validated['service_assignment_id'] ?? null,
             'author_id' => $request->user()->id,
-            'author_role' => $request->user()->role, // Assuming role is string on user
-            'note_text' => $validated['note_text'],
-            'note_type' => $validated['note_type'] ?? 'text',
-            'created_at' => now(),
+            'author_role' => $request->user()->organization_role ?? $request->user()->role ?? 'Staff',
+            'content' => $validated['content'],
+            'note_type' => $validated['note_type'] ?? 'clinical',
         ]);
 
         return response()->json($note, 201);

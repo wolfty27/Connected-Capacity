@@ -12,10 +12,15 @@ class TaskController extends Controller
     {
         // Ensure user is assigned to the task or the parent assignment
         $userId = $request->user()->id;
-        $isAssigned = $task->assigned_to_user_id === $userId || 
-                      $task->careAssignment->assigned_user_id === $userId;
+        
+        // Check direct task assignment
+        $isDirectlyAssigned = $task->assigned_to_user_id === $userId;
+        
+        // Check care assignment (with null safety)
+        $isAssignedViaCareAssignment = $task->careAssignment 
+            && $task->careAssignment->assigned_user_id === $userId;
 
-        if (!$isAssigned) {
+        if (!$isDirectlyAssigned && !$isAssignedViaCareAssignment) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

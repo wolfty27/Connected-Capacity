@@ -26,6 +26,7 @@ const DataTable = ({
     searchable = false,
     searchPlaceholder = 'Search...',
     className = '',
+    compact = false,
 }) => {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
@@ -167,7 +168,7 @@ const DataTable = ({
                                 <th
                                     key={index}
                                     scope="col"
-                                    className={`py-4 px-6 font-semibold tracking-wider ${col.sortable ? 'cursor-pointer select-none hover:bg-slate-100' : ''}`}
+                                    className={`${compact ? 'py-2 px-3' : 'py-4 px-6'} font-semibold tracking-wider ${col.sortable ? 'cursor-pointer select-none hover:bg-slate-100' : ''}`}
                                     onClick={() => col.sortable && handleSort(col.accessor)}
                                 >
                                     <div className="flex items-center gap-2">
@@ -186,7 +187,7 @@ const DataTable = ({
                                 onClick={() => onRowClick && onRowClick(row)}
                             >
                                 {columns.map((col, colIndex) => (
-                                    <td key={colIndex} className="py-4 px-6 whitespace-nowrap">
+                                    <td key={colIndex} className={`${compact ? "py-2 px-3" : "py-4 px-6"} whitespace-nowrap`}>
                                         {col.render ? col.render(row) : row[col.accessor]}
                                     </td>
                                 ))}

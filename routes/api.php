@@ -327,4 +327,105 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Get SSPO profile details
         Route::get('/{id}', [\App\Http\Controllers\Api\V2\SspoMarketplaceController::class, 'show'])->where('id', '[0-9]+');
     });
+
+    // QIN (Quality Improvement Notice) API - Compliance management
+
+    // TFS (Time-to-First-Service) API - Compliance metrics
+    Route::prefix('v2/metrics/tfs')->group(function () {
+        // Get TFS summary metrics
+        Route::get('/summary', [\App\Http\Controllers\Api\V2\TfsController::class, 'summary']);
+        
+        // Get detailed patient data for TFS calculation
+        Route::get('/details', [\App\Http\Controllers\Api\V2\TfsController::class, 'details']);
+    });
+
+    Route::prefix('v2/qin')->group(function () {
+        // Get active (officially issued) QINs
+        Route::get('/active', [\App\Http\Controllers\Api\V2\QinController::class, 'active']);
+        
+        // Get potential QINs based on metric breaches
+        Route::get('/potential', [\App\Http\Controllers\Api\V2\QinController::class, 'potential']);
+        
+        // Get comprehensive QIN metrics for dashboard
+        Route::get('/metrics', [\App\Http\Controllers\Api\V2\QinController::class, 'metrics']);
+        
+        // Get all QIN records for manager page
+        Route::get('/all', [\App\Http\Controllers\Api\V2\QinController::class, 'all']);
+        
+        // Submit QIP for a QIN
+        Route::post('/{id}/submit-qip', [\App\Http\Controllers\Api\V2\QinController::class, 'submitQip'])->where('id', '[0-9]+');
+    });
+    
+    // OHaH Webhook endpoints (stubs for future integration)
+    Route::prefix('v2/ohah')->group(function () {
+        // QIN webhook - receive QINs from Ontario Health
+        Route::post('/qin-webhook', [\App\Http\Controllers\Api\V2\QinController::class, 'webhook']);
+    });
 });
+    // ====================================================
+    // STAFF PROFILE ROUTES (STAFF-PROFILE)
+    // ====================================================
+    Route::prefix('v2/staff/{id}')->where(['id' => '[0-9]+'])->group(function () {
+        // Profile
+        Route::get('/profile', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'show']);
+        
+        // Status management
+        Route::patch('/status', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'updateStatus']);
+        
+        // Scheduling lock
+        Route::post('/scheduling-lock', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'lockScheduling']);
+        Route::delete('/scheduling-lock', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'unlockScheduling']);
+        
+        // Schedule
+        Route::get('/schedule', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'schedule']);
+        
+        // Availability
+        Route::get('/availability', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'availability']);
+        Route::post('/availability', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'storeAvailability']);
+        Route::delete('/availability/{availabilityId}', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'destroyAvailability'])->where(['availabilityId' => '[0-9]+']);
+        
+        // Unavailabilities (Time Off)
+        Route::get('/unavailabilities', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'unavailabilities']);
+        Route::post('/unavailabilities', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'storeUnavailability']);
+        Route::patch('/unavailabilities/{unavailabilityId}', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'updateUnavailability'])->where(['unavailabilityId' => '[0-9]+']);
+        Route::delete('/unavailabilities/{unavailabilityId}', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'destroyUnavailability'])->where(['unavailabilityId' => '[0-9]+']);
+        
+        // Skills
+        Route::get('/skills', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'skills']);
+        Route::post('/skills', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'storeSkill']);
+        Route::delete('/skills/{skillId}', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'destroySkill'])->where(['skillId' => '[0-9]+']);
+        
+        // Satisfaction
+        Route::get('/satisfaction', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'satisfaction']);
+        
+        // Travel
+        Route::get('/travel', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'travel']);
+        
+        // Account actions
+        Route::post('/send-password-reset', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'sendPasswordReset']);
+        Route::delete('/', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'destroy']);
+    });
+    
+    // Skills metadata (for skill assignment dropdown)
+    Route::get('v2/skills', [\App\Http\Controllers\Api\V2\StaffProfileController::class, 'availableSkills']);
+
+    // ====================================================
+    // AUTO ASSIGN / AI SCHEDULING ROUTES
+    // ====================================================
+    Route::prefix('v2/scheduling')->middleware(['auth:sanctum'])->group(function () {
+        // Generate suggestions for unscheduled care
+        Route::get('/suggestions', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'suggestions']);
+        
+        // Get summary statistics
+        Route::get('/suggestions/summary', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'summary']);
+        
+        // Get explanation for a specific suggestion
+        Route::get('/suggestions/{patient_id}/{service_type_id}/explain', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'explain'])
+            ->where(['patient_id' => '[0-9]+', 'service_type_id' => '[0-9]+']);
+        
+        // Accept a single suggestion
+        Route::post('/suggestions/accept', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'accept']);
+        
+        // Accept multiple suggestions in batch
+        Route::post('/suggestions/accept-batch', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'acceptBatch']);
+    });

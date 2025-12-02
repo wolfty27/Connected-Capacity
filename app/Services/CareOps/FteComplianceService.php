@@ -214,16 +214,13 @@ class FteComplianceService
                 return $this->calculateAssignmentHours($assignment);
             });
 
-        // SSPO hours (assigned to SSPO or external org)
+        // SSPO hours (assigned to external org staff or has SSPO source)
         $sspoHours = ServiceAssignment::where('service_provider_organization_id', $organizationId)
             ->where(function ($q) use ($organizationId) {
-                // Assigned to different org or unassigned to user but has SSPO
+                // Assigned to staff from different org OR marked as SSPO source
                 $q->whereHas('assignedUser', function ($subQ) use ($organizationId) {
                     $subQ->where('organization_id', '!=', $organizationId);
-                })->orWhere(function ($subQ) {
-                    $subQ->whereNull('assigned_user_id')
-                         ->whereNotNull('sspo_organization_id');
-                });
+                })->orWhere('source', 'SSPO');
             })
             ->whereBetween('scheduled_start', [$weekStart, $weekEnd])
             ->whereIn('status', ['planned', 'in_progress', 'completed'])

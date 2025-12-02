@@ -152,49 +152,49 @@ class MobileNoteController extends Controller
         $duplicates = 0;
         $errors = 0;
 
-        DB::transaction(function () use ($validated, $user, &$results, &$created, &$duplicates, &$errors) {
-            foreach ($validated['notes'] as $noteData) {
-                // Check for duplicate
-                $existing = InterdisciplinaryNote::where('client_note_id', $noteData['client_note_id'])->first();
+        // Process notes without transaction wrapping individual creates
+        // This allows partial success - some notes may be created even if others fail
+        foreach ($validated['notes'] as $noteData) {
+            // Check for duplicate
+            $existing = InterdisciplinaryNote::where('client_note_id', $noteData['client_note_id'])->first();
 
-                if ($existing) {
-                    $results[] = [
-                        'client_note_id' => $noteData['client_note_id'],
-                        'status' => 'duplicate',
-                        'note_id' => $existing->id,
-                    ];
-                    $duplicates++;
-                    continue;
-                }
-
-                try {
-                    $note = InterdisciplinaryNote::create([
-                        'patient_id' => $noteData['patient_id'],
-                        'service_assignment_id' => $noteData['service_assignment_id'] ?? null,
-                        'author_id' => $user->id,
-                        'author_role' => $user->organization_role ?? 'Staff',
-                        'note_type' => $noteData['note_type'],
-                        'content' => $noteData['content'],
-                        'client_note_id' => $noteData['client_note_id'],
-                        'created_at' => $noteData['offline_created_at'] ?? now(),
-                    ]);
-
-                    $results[] = [
-                        'client_note_id' => $noteData['client_note_id'],
-                        'status' => 'created',
-                        'note_id' => $note->id,
-                    ];
-                    $created++;
-                } catch (\Exception $e) {
-                    $results[] = [
-                        'client_note_id' => $noteData['client_note_id'],
-                        'status' => 'error',
-                        'error' => 'Failed to create note',
-                    ];
-                    $errors++;
-                }
+            if ($existing) {
+                $results[] = [
+                    'client_note_id' => $noteData['client_note_id'],
+                    'status' => 'duplicate',
+                    'note_id' => $existing->id,
+                ];
+                $duplicates++;
+                continue;
             }
-        });
+
+            try {
+                $note = InterdisciplinaryNote::create([
+                    'patient_id' => $noteData['patient_id'],
+                    'service_assignment_id' => $noteData['service_assignment_id'] ?? null,
+                    'author_id' => $user->id,
+                    'author_role' => $user->organization_role ?? 'Staff',
+                    'note_type' => $noteData['note_type'],
+                    'content' => $noteData['content'],
+                    'client_note_id' => $noteData['client_note_id'],
+                    'created_at' => $noteData['offline_created_at'] ?? now(),
+                ]);
+
+                $results[] = [
+                    'client_note_id' => $noteData['client_note_id'],
+                    'status' => 'created',
+                    'note_id' => $note->id,
+                ];
+                $created++;
+            } catch (\Exception $e) {
+                $results[] = [
+                    'client_note_id' => $noteData['client_note_id'],
+                    'status' => 'error',
+                    'error' => 'Failed to create note: ' . $e->getMessage(),
+                ];
+                $errors++;
+            }
+        }
 
         Log::info('Mobile batch note sync', [
             'user_id' => $user->id,

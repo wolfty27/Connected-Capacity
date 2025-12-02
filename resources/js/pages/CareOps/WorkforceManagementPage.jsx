@@ -129,7 +129,7 @@ const WorkforceManagementPage = () => {
     const capacity = summary?.capacity || {};
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -150,7 +150,7 @@ const WorkforceManagementPage = () => {
 
             {/* Tab Navigation */}
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
-                {['overview', 'hhr', 'satisfaction', 'staff'].map((tab) => (
+                {['overview', 'staff', 'hhr', 'satisfaction'].map((tab) => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -497,8 +497,20 @@ const WorkforceManagementPage = () => {
                     {/* Staff Table */}
                     <Section title="Staff Directory">
                         <DataTable
+                            compact
                             columns={[
-                                { header: 'Name', accessor: 'name' },
+                                {
+                                header: 'Name',
+                                accessor: 'name',
+                                render: (row) => (
+                                    <button
+                                        onClick={() => navigate(`/staff/${row.id}`)}
+                                        className="text-teal-600 hover:text-teal-800 font-medium hover:underline text-left"
+                                    >
+                                        {row.name}
+                                    </button>
+                                ),
+                            },
                                 {
                                     header: 'Role',
                                     accessor: 'staff_role_code',
@@ -547,18 +559,17 @@ const WorkforceManagementPage = () => {
                                     ),
                                 },
                                 {
-                                    header: 'Satisfaction',
-                                    accessor: 'job_satisfaction',
-                                    render: (row) => (
-                                        row.job_satisfaction !== null ? (
-                                            <span className={`font-medium ${row.job_satisfaction >= 80 ? 'text-emerald-600' : row.job_satisfaction >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
-                                                {row.job_satisfaction}%
-                                            </span>
-                                        ) : (
-                                            <span className="text-slate-400">-</span>
-                                        )
-                                    ),
-                                },
+                                header: 'Schedule',
+                                accessor: 'id',
+                                render: (row) => (
+                                    <button
+                                        onClick={() => navigate(`/staff/${row.id}`)}
+                                        className="px-3 py-1 text-xs font-medium bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+                                    >
+                                        Schedule
+                                    </button>
+                                ),
+                            },
                             ]}
                             data={staff}
                             keyField="id"

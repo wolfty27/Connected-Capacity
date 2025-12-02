@@ -33,6 +33,9 @@ class PatientQueue extends Model
         'assigned_coordinator_id',
         'priority',
         'entered_queue_at',
+        'accepted_at',
+        'is_accepted',
+        'rejection_reason',
         'triage_completed_at',
         'assessment_completed_at',
         'bundle_started_at',
@@ -45,6 +48,8 @@ class PatientQueue extends Model
     protected $casts = [
         'priority' => 'integer',
         'entered_queue_at' => 'datetime',
+        'accepted_at' => 'datetime',
+        'is_accepted' => 'boolean',
         'triage_completed_at' => 'datetime',
         'assessment_completed_at' => 'datetime',
         'bundle_started_at' => 'datetime',
@@ -80,9 +85,8 @@ class PatientQueue extends Model
      * Standardized InterRAI HC Assessment status labels per CC2.1 requirements.
      * These are the ONLY three labels to show in the queue badge.
      */
-    public const INTERRAI_STATUS_REQUIRED = 'InterRAI HC Assessment Required';
-    public const INTERRAI_STATUS_INCOMPLETE = 'InterRAI HC Assessment Incomplete';
-    public const INTERRAI_STATUS_COMPLETE = 'InterRAI HC Assessment Complete - Ready for Bundle';
+    public const INTERRAI_STATUS_REQUIRED = 'InterRAI HC Required';
+    public const INTERRAI_STATUS_COMPLETE = 'InterRAI HC Complete';
 
     /**
      * Status display names (internal use).
@@ -109,8 +113,8 @@ class PatientQueue extends Model
         'triage_in_progress' => self::INTERRAI_STATUS_REQUIRED,
 
         // Started but not complete
-        'triage_complete' => self::INTERRAI_STATUS_INCOMPLETE,
-        'assessment_in_progress' => self::INTERRAI_STATUS_INCOMPLETE,
+        'triage_complete' => self::INTERRAI_STATUS_REQUIRED,
+        'assessment_in_progress' => self::INTERRAI_STATUS_REQUIRED,
 
         // Complete and ready for bundle
         'assessment_complete' => self::INTERRAI_STATUS_COMPLETE,
@@ -246,8 +250,7 @@ class PatientQueue extends Model
     public function getInterraiBadgeColorAttribute(): string
     {
         return match ($this->interrai_status) {
-            self::INTERRAI_STATUS_REQUIRED => 'gray',
-            self::INTERRAI_STATUS_INCOMPLETE => 'yellow',
+            self::INTERRAI_STATUS_REQUIRED => 'yellow',
             self::INTERRAI_STATUS_COMPLETE => 'green',
             default => 'gray',
         };
@@ -345,7 +348,10 @@ class PatientQueue extends Model
      */
     public function scopeByPriority($query)
     {
-        return $query->orderBy('priority', 'asc')->orderBy('entered_queue_at', 'asc');
+        return $query->orderBy('priority', 'asc')->orderBy('entered_queue_at',
+        'accepted_at',
+        'is_accepted',
+        'rejection_reason', 'asc');
     }
 
     /**
@@ -366,4 +372,71 @@ class PatientQueue extends Model
         $this->queue_metadata = $metadata;
         return $this;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Referral Acceptance Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Mark the referral as accepted by the SPO.
+     * This should be called when the SPO commits to providing care.
+     */
+    public function markAccepted(): self
+    {
+        $this->update([
+            'accepted_at' => now(),
+            'is_accepted' => true,
+            'rejection_reason' => null,
+        ]);
+        return $this;
+    }
+
+    /**
+     * Mark the referral as rejected/declined.
+     * This is rare but may occur if patient is outside service area.
+     */
+    public function markRejected(string $reason): self
+    {
+        $this->update([
+            'is_accepted' => false,
+            'rejection_reason' => $reason,
+        ]);
+        return $this;
+    }
+
+    /**
+     * Check if the referral has been accepted.
+     */
+    public function isAccepted(): bool
+    {
+        return (bool) $this->is_accepted;
+    }
+
+    /**
+     * Check if the referral is pending acceptance.
+     */
+    public function isPendingAcceptance(): bool
+    {
+        return !$this->is_accepted && !$this->rejection_reason;
+    }
+
+    /**
+     * Scope for accepted referrals.
+     */
+    public function scopeAccepted($query)
+    {
+        return $query->where('is_accepted', true);
+    }
+
+    /**
+     * Scope for pending acceptance.
+     */
+    public function scopePendingAcceptance($query)
+    {
+        return $query->where('is_accepted', false)
+                     ->whereNull('rejection_reason');
+    }
+
 }

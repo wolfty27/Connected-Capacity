@@ -28,7 +28,11 @@ class VisitController extends Controller
 
     public function clockIn(Request $request, Visit $visit)
     {
-        // Ensure the user is assigned to this visit's assignment
+        // Ensure careAssignment exists and user is assigned
+        if (!$visit->careAssignment) {
+            return response()->json(['message' => 'Visit has no associated care assignment'], 404);
+        }
+        
         if ($visit->careAssignment->assigned_user_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -43,6 +47,11 @@ class VisitController extends Controller
 
     public function clockOut(Request $request, Visit $visit)
     {
+        // Ensure careAssignment exists and user is assigned
+        if (!$visit->careAssignment) {
+            return response()->json(['message' => 'Visit has no associated care assignment'], 404);
+        }
+        
         if ($visit->careAssignment->assigned_user_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }

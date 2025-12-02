@@ -79,6 +79,10 @@ class User extends Authenticatable
         'job_satisfaction',
         'job_satisfaction_recorded_at',
         'external_staff_id',
+        // Scheduling lock fields (STAFF-PROFILE)
+        'is_scheduling_locked',
+        'scheduling_locked_at',
+        'scheduling_locked_reason',
     ];
 
     /**
@@ -103,6 +107,8 @@ class User extends Authenticatable
         'max_weekly_hours' => 'decimal:2',
         'fte_value' => 'decimal:2',
         'job_satisfaction_recorded_at' => 'date',
+        'is_scheduling_locked' => 'boolean',
+        'scheduling_locked_at' => 'datetime',
     ];
 
     public function hospitals()
@@ -428,5 +434,77 @@ class User extends Authenticatable
             ->currentlyEffective()
             ->get()
             ->sum('duration_hours');
+    }
+
+    // ==========================================
+    // Scheduling Lock Methods
+    // ==========================================
+
+    /**
+     * Check if staff is locked for scheduling.
+     * Locked staff cannot be assigned to new ServiceAssignments.
+     */
+    public function isSchedulingLocked(): bool
+    {
+        return (bool) $this->is_scheduling_locked;
+    }
+
+    /**
+     * Lock staff from being scheduled.
+     */
+    public function lockScheduling(?string $reason = null): void
+    {
+        $this->update([
+            'is_scheduling_locked' => true,
+            'scheduling_locked_at' => Carbon::now(),
+            'scheduling_locked_reason' => $reason,
+        ]);
+    }
+
+    /**
+     * Unlock staff for scheduling.
+     */
+    public function unlockScheduling(): void
+    {
+        $this->update([
+            'is_scheduling_locked' => false,
+            'scheduling_locked_at' => null,
+            'scheduling_locked_reason' => null,
+        ]);
+    }
+
+    /**
+     * Check if staff can be assigned to new visits.
+     * Must be active, not on leave, and not scheduling locked.
+     */
+    public function canBeScheduled(): bool
+    {
+        return $this->isActiveStaff()
+            && !$this->isOnLeave()
+            && !$this->isSchedulingLocked();
+    }
+
+    /**
+     * Scope: Staff available for scheduling (active, not on leave, not locked).
+     */
+    public function scopeSchedulable($query)
+    {
+        return $query->where('staff_status', self::STAFF_STATUS_ACTIVE)
+            ->where(function ($q) {
+                $q->where('is_scheduling_locked', false)
+                  ->orWhereNull('is_scheduling_locked');
+            });
+    }
+
+    // ==========================================
+    // Satisfaction Reports
+    // ==========================================
+
+    /**
+     * Patient satisfaction reports for services delivered by this staff.
+     */
+    public function satisfactionReports()
+    {
+        return $this->hasMany(SatisfactionReport::class, 'staff_user_id');
     }
 }

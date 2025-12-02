@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import api from '../../services/api';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import DataTable from '../../components/UI/DataTable';
 import Section from '../../components/UI/Section';
 import Spinner from '../../components/UI/Spinner';
@@ -10,6 +11,7 @@ const TnpReviewListPage = () => {
     const [patients, setPatients] = useState([]);
     const [allPatients, setAllPatients] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchPatients = async () => {
@@ -51,13 +53,12 @@ const TnpReviewListPage = () => {
         };
     }, [allPatients]);
 
-    // Queue status colors for badges
-    const statusColors = {
-        pending_intake: 'bg-gray-100 text-gray-700',
-        triage_in_progress: 'bg-yellow-100 text-yellow-700',
-        triage_complete: 'bg-blue-100 text-blue-700',
-        assessment_in_progress: 'bg-yellow-100 text-yellow-700',
-        assessment_complete: 'bg-green-100 text-green-700',
+
+    // InterRAI status badge colors (standardized per CC2.1)
+    const interraiBadgeColors = {
+        gray: 'bg-gray-100 text-gray-700',      // Required
+        yellow: 'bg-amber-100 text-amber-700',  // Incomplete  
+        green: 'bg-emerald-100 text-emerald-700', // Complete
     };
 
     const columns = [
@@ -78,10 +79,10 @@ const TnpReviewListPage = () => {
             ),
         },
         {
-            header: 'Queue Status',
+            header: 'InterRAI Status',
             render: (row) => (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[row.queue_status] || 'bg-gray-100 text-gray-700'}`}>
-                    {row.queue_status_label || row.queue_status || 'Pending'}
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${interraiBadgeColors[row.interrai_badge_color] || 'bg-gray-100 text-gray-700'}`}>
+                    {row.interrai_status || 'InterRAI HC Assessment Required'}
                 </span>
             ),
         },
@@ -115,6 +116,14 @@ const TnpReviewListPage = () => {
 
     return (
         <div className="space-y-6">
+            {/* Back Button */}
+            <button 
+                onClick={() => navigate('/care-dashboard')}
+                className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="text-sm font-medium">Back to Dashboard</span>
+            </button>
             {/* Intake Performance Scorecard - Dynamic Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">

@@ -5,6 +5,9 @@ import Button from '../../components/UI/Button';
 import Select from '../../components/UI/Select';
 import Spinner from '../../components/UI/Spinner';
 import PatientTimeline from '../../components/scheduling/PatientTimeline';
+import ExplanationModal from '../../components/scheduling/ExplanationModal';
+import SuggestionRow from '../../components/scheduling/SuggestionRow';
+import { useAutoAssign } from '../../hooks/useAutoAssign';
 
 /**
  * Staff Scheduling Dashboard
@@ -53,6 +56,13 @@ const SchedulingPage = ({ isSspoMode = false }) => {
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [selectedDate, setSelectedDate] = useState(null);
 
+    // Collapsible sections
+    const [isNavCollapsed, setIsNavCollapsed] = useState(false);
+    const [isUnscheduledCollapsed, setIsUnscheduledCollapsed] = useState(false);
+    // Auto-Assign AI state
+    const [explanationModalOpen, setExplanationModalOpen] = useState(false);
+    const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+    const [acceptingId, setAcceptingId] = useState(null);
     // Calculate week range (Monday start - ISO week standard)
     const weekRange = useMemo(() => {
         const today = new Date();
@@ -81,6 +91,18 @@ const SchedulingPage = ({ isSspoMode = false }) => {
             return date;
         });
     }, [weekRange.startDate]);
+
+    // Auto-Assign AI hook
+    const {
+        suggestions,
+        isLoading: autoAssignLoading,
+        hasSuggestions,
+        generateSuggestions,
+        getExplanation,
+        acceptSuggestion,
+        getSuggestionFor,
+        clearSuggestions,
+    } = useAutoAssign(weekRange.start, null);
 
     // Fetch grid data
     const fetchGridData = useCallback(async () => {
@@ -131,7 +153,7 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                 api.get('/v2/workforce/metadata/employment-types'),
                 api.get(`/v2/scheduling/navigation-examples?${params}`),
                 api.get('/v2/workforce/staff?status=active&limit=100'),
-                api.get('/v2/patients?status=Active&limit=100'),
+                api.get('/patients?status=Active&limit=100'),
             ]);
             setRoles(rolesRes.data.data || []);
             setEmploymentTypes(empTypesRes.data.data || []);
@@ -214,6 +236,37 @@ const SchedulingPage = ({ isSspoMode = false }) => {
         navigate(window.location.pathname);
     };
 
+
+    // Auto-Assign handlers
+    const handleAutoAssign = async () => {
+        try {
+            await generateSuggestions();
+        } catch (error) {
+            console.error('Failed to generate suggestions:', error);
+        }
+    };
+
+    const handleAcceptSuggestion = async (suggestion) => {
+        const suggestionKey = `${suggestion.patient_id}-${suggestion.service_type_id}`;
+        setAcceptingId(suggestionKey);
+        try {
+            const startTime = weekRange.start + 'T09:00:00';
+            const endTime = new Date(new Date(startTime).getTime() + (suggestion.duration_minutes || 60) * 60000).toISOString();
+            await acceptSuggestion(suggestion, startTime, endTime);
+            fetchGridData();
+            fetchRequirements();
+        } catch (error) {
+            console.error('Failed to accept suggestion:', error);
+            alert(error.message || 'Failed to accept suggestion');
+        } finally {
+            setAcceptingId(null);
+        }
+    };
+
+    const handleOpenExplanation = (suggestion) => {
+        setSelectedSuggestion(suggestion);
+        setExplanationModalOpen(true);
+    };
     // Get assignments for a staff member on a specific date
     const getAssignmentsForCell = (staffId, dateString) => {
         return gridData.assignments.filter(
@@ -259,18 +312,18 @@ const SchedulingPage = ({ isSspoMode = false }) => {
     const hasFilters = staffIdParam || patientIdParam || roleFilter || empTypeFilter;
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-slate-50 pt-12">
             {/* Header */}
             <div className={`border-b px-6 py-4 ${isSspoMode ? 'bg-purple-50 border-purple-200' : 'bg-white border-slate-200'}`}>
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div>
                         <h1 className={`text-xl font-bold ${isSspoMode ? 'text-purple-900' : 'text-slate-900'}`}>
-                            {isSspoMode ? 'SSPO Scheduling' : 'SPO Scheduling'} Dashboard
+                            {isSspoMode ? 'SSPO Scheduler' : 'Scheduler'}
                         </h1>
                         <p className={`text-sm ${isSspoMode ? 'text-purple-600' : 'text-slate-500'}`}>
                             {isSspoMode
                                 ? 'Nursing, Allied Health & Specialized Services'
-                                : 'PSW, Homemaking & Support Services'}
+                                : 'Manage, view, and assign care appointments'}
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -311,6 +364,7 @@ const SchedulingPage = ({ isSspoMode = false }) => {
             <div className="bg-white border-b border-slate-200 px-6 py-3">
                 <div className="max-w-7xl mx-auto flex items-center gap-4">
                     <Select
+                        placeholder="Filter: By Role"
                         value={roleFilter}
                         onChange={(e) => setRoleFilter(e.target.value)}
                         options={[
@@ -320,13 +374,14 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                         className="w-48"
                     />
                     <Select
+                        placeholder="Filter: By Employment Type"
                         value={empTypeFilter}
                         onChange={(e) => setEmpTypeFilter(e.target.value)}
                         options={[
                             { value: '', label: 'All Employment Types' },
                             ...employmentTypes.map(t => ({ value: t.code, label: t.name })),
                         ]}
-                        className="w-48"
+                        className="w-64"
                     />
                     {hasFilters && (
                         <Button variant="ghost" size="sm" onClick={clearFilters}>
@@ -352,8 +407,23 @@ const SchedulingPage = ({ isSspoMode = false }) => {
 
             {/* Quick Navigation Card */}
             <div className="max-w-7xl mx-auto px-6 py-4">
-                <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4">
-                    <h3 className="text-sm font-bold text-slate-700 mb-3">Quick Navigation</h3>
+                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden mb-4">
+                    <button
+                        onClick={() => setIsNavCollapsed(!isNavCollapsed)}
+                        className="w-full px-4 py-3 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors"
+                    >
+                        <h3 className="text-sm font-bold text-slate-700">Quick Navigation</h3>
+                        <svg 
+                            className={`w-4 h-4 text-slate-500 transition-transform ${isNavCollapsed ? '' : 'rotate-180'}`}
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    {!isNavCollapsed && (
+                    <div className="p-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Staff-centric view */}
                         <div className={`p-3 rounded-lg border ${staffIdParam ? 'bg-blue-100 border-blue-400' : 'bg-blue-50 border-blue-200'}`}>
@@ -361,24 +431,31 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                 Staff-Centric View
                                 {staffIdParam && <span className="ml-1 text-blue-600">(Active)</span>}
                             </div>
-                            <select
-                                value={staffIdParam || ''}
-                                onChange={(e) => {
-                                    if (e.target.value) {
-                                        setSearchParams({ staff_id: e.target.value });
-                                    } else {
-                                        clearFilters();
-                                    }
-                                }}
-                                className="w-full text-sm border border-blue-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                                <option value="">Select a staff member...</option>
-                                {allStaff.map((staff) => (
-                                    <option key={staff.id} value={staff.id}>
-                                        {staff.name} ({staff.role?.code || staff.organization_role || 'Staff'})
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={staffIdParam || ''}
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            setSearchParams({ staff_id: e.target.value });
+                                        } else {
+                                            clearFilters();
+                                        }
+                                    }}
+                                    className="appearance-none w-full text-sm border border-blue-300 rounded px-2 py-1.5 pr-10 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                >
+                                    <option value="">Select a staff member...</option>
+                                    {allStaff.map((staff) => (
+                                        <option key={staff.id} value={staff.id}>
+                                            {staff.name} ({staff.role?.code || staff.organization_role || 'Staff'})
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Patient-centric view */}
@@ -387,24 +464,31 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                 Patient-Centric View
                                 {patientIdParam && <span className="ml-1 text-green-600">(Active)</span>}
                             </div>
-                            <select
-                                value={patientIdParam || ''}
-                                onChange={(e) => {
-                                    if (e.target.value) {
-                                        setSearchParams({ patient_id: e.target.value });
-                                    } else {
-                                        clearFilters();
-                                    }
-                                }}
-                                className="w-full text-sm border border-green-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
-                            >
-                                <option value="">Select a patient...</option>
-                                {allPatients.map((patient) => (
-                                    <option key={patient.id} value={patient.id}>
-                                        {patient.name || patient.user?.name || `Patient ${patient.id}`}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={patientIdParam || ''}
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            setSearchParams({ patient_id: e.target.value });
+                                        } else {
+                                            clearFilters();
+                                        }
+                                    }}
+                                    className="appearance-none w-full text-sm border border-green-300 rounded px-2 py-1.5 pr-10 bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
+                                >
+                                    <option value="">Select a patient...</option>
+                                    {allPatients.map((patient) => (
+                                        <option key={patient.id} value={patient.id}>
+                                            {patient.name || patient.user?.name || `Patient ${patient.id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Full dashboard view */}
@@ -426,6 +510,8 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                             </button>
                         </div>
                     </div>
+                    </div>
+                    )}
                 </div>
             </div>
 
@@ -434,7 +520,10 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                 {/* Top Panel - Unscheduled Care (horizontal scrollable) */}
                 <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                     <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between">
-                        <div>
+                        <button
+                            onClick={() => setIsUnscheduledCollapsed(!isUnscheduledCollapsed)}
+                            className="text-left flex-1 hover:opacity-80 transition-opacity"
+                        >
                             <h2 className="text-sm font-bold text-amber-800">Unscheduled Care</h2>
                             <p className="text-xs text-amber-600">
                                 {requirements.summary?.patients_with_needs || 0} patients need scheduling
@@ -444,9 +533,64 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                     </span>
                                 )}
                             </p>
+                        </button>
+                        <div className="flex items-center gap-2">
+                            {/* Auto Assign Button */}
+                            {!isUnscheduledCollapsed && requirements.data?.length > 0 && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAutoAssign();
+                                    }}
+                                    disabled={autoAssignLoading}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                        hasSuggestions
+                                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                    } disabled:opacity-50`}
+                                >
+                                    {autoAssignLoading ? (
+                                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                    ) : (
+                                        <span>⚡</span>
+                                    )}
+                                    <span>{hasSuggestions ? `${suggestions.length} Suggestions` : 'Auto Assign'}</span>
+                                </button>
+                            )}
+                            {hasSuggestions && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        clearSuggestions();
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100"
+                                    title="Clear suggestions"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                            {/* Collapse Toggle */}
+                            <button
+                                onClick={() => setIsUnscheduledCollapsed(!isUnscheduledCollapsed)}
+                                className="p-1 hover:bg-amber-100 rounded transition-colors"
+                            >
+                                <svg 
+                                    className={`w-4 h-4 text-amber-600 transition-transform ${isUnscheduledCollapsed ? '' : 'rotate-180'}`}
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
-                    {requirements.data?.length > 0 ? (
+                    {!isUnscheduledCollapsed && requirements.data?.length > 0 ? (
                         <div className="overflow-x-auto p-4">
                             <div className="flex gap-4 min-w-max">
                                 {requirements.data?.map((item) => (
@@ -469,24 +613,40 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            {item.services?.slice(0, 3).map((service) => (
-                                                <div key={service.service_type_id} className="flex items-center justify-between">
-                                                    <div className="flex-1">
-                                                        <div className="text-xs font-medium">{service.service_type_name}</div>
-                                                        <div className="text-xs text-slate-500">
-                                                            {service.scheduled}/{service.required} {service.unit_type}
+                                            {item.services?.slice(0, 3).map((service) => {
+                                                const suggestion = getSuggestionFor(item.patient_id, service.service_type_id);
+                                                const suggestionKey = `${item.patient_id}-${service.service_type_id}`;
+                                                return (
+                                                    <div key={service.service_type_id} className="space-y-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex-1">
+                                                                <div className="text-xs font-medium">{service.service_type_name}</div>
+                                                                <div className="text-xs text-slate-500">
+                                                                    {service.scheduled}/{service.required} {service.unit_type}
+                                                                </div>
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => openAssignModal(item, service.service_type_id)}
+                                                                className="text-xs text-blue-600"
+                                                            >
+                                                                Assign
+                                                            </Button>
                                                         </div>
+                                                        {/* AI Suggestion Row */}
+                                                        {suggestion && suggestion.match_status !== 'none' && (
+                                                            <SuggestionRow
+                                                                suggestion={suggestion}
+                                                                onAccept={handleAcceptSuggestion}
+                                                                onManual={() => openAssignModal(item, service.service_type_id)}
+                                                                onExplain={handleOpenExplanation}
+                                                                isAccepting={acceptingId === suggestionKey}
+                                                            />
+                                                        )}
                                                     </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => openAssignModal(item, service.service_type_id)}
-                                                        className="text-xs text-blue-600"
-                                                    >
-                                                        Assign
-                                                    </Button>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                             {item.services?.length > 3 && (
                                                 <div className="text-xs text-slate-400 text-center">
                                                     +{item.services.length - 3} more services
@@ -497,12 +657,12 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                                 ))}
                             </div>
                         </div>
-                    ) : (
+                    ) : !isUnscheduledCollapsed ? (
                         <div className="text-center py-6 text-emerald-600">
                             <div className="text-2xl mb-1">&#10003;</div>
                             <div className="text-sm font-medium">All required care scheduled for this week</div>
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* Bottom Panel - Schedule Grid or Patient Timeline */}
@@ -652,6 +812,17 @@ const SchedulingPage = ({ isSspoMode = false }) => {
                     onCancel={handleCancelAssignment}
                 />
             )}
+
+            {/* AI Explanation Modal */}
+            <ExplanationModal
+                isOpen={explanationModalOpen}
+                onClose={() => {
+                    setExplanationModalOpen(false);
+                    setSelectedSuggestion(null);
+                }}
+                suggestion={selectedSuggestion}
+                getExplanation={getExplanation}
+            />
         </div>
     );
 };

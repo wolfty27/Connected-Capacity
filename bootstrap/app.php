@@ -31,6 +31,13 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping();
     })
     ->withExceptions(function (Illuminate\Foundation\Configuration\Exceptions $exceptions) {
-        //
+        $exceptions->report(function (Throwable $e) {
+            \Log::error('Exception caught', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        });
     })
     ->create();

@@ -7,6 +7,7 @@
     "require": {
         "php": "^8.2",
         "akaunting/laravel-apexcharts": "^1.0",
+        "google/auth": "^1.30",
         "guzzlehttp/guzzle": "^7.5",
         "laravel/framework": "^11.0",
         "laravel/sanctum": "^4.0",

@@ -180,8 +180,8 @@
       "status": "not_started",
       "acceptance_criteria": [
         "ServiceType has preferred_provider metadata (SPO/SSPO/either)",
-        "Lifeline/PERS, RPM, Security Checks, Behavioural Supports, In-Home Lab, Pharmacy, Meal Delivery → SSPO preferred",
-        "Core nursing/PSW/OT/PT → SPO preferred or 'either'",
+        "Lifeline/PERS, RPM, Security Checks, Behavioural Supports, In-Home Lab, Pharmacy, Meal Delivery \u2192 SSPO preferred",
+        "Core nursing/PSW/OT/PT \u2192 SPO preferred or 'either'",
         "Assign-Care workflow shows provider type choice informed by ServiceType.preferred_provider",
         "SSPOs shown by default for SSPO-preferred services",
         "SPO staff prioritized for SPO-preferred services",
@@ -199,16 +199,16 @@
       "description": "Patient queue badges use standardized InterRAI HC assessment status labels.",
       "status": "done",
       "acceptance_criteria": [
-        "Status: InterRAI HC Assessment Required (never started)",
-        "Status: InterRAI HC Assessment Incomplete (started but not complete)",
-        "Status: InterRAI HC Assessment Complete - Ready for Bundle",
-        "Remove ad-hoc labels like 'Triage Complete' or 'InterRAI HC Assessment In Progress'",
-        "Badge colors consistent with status meaning",
-        "Driven by metadata, not hardcoded strings"
+        "Status: InterRAI HC Required (for all pending/in-progress assessments)",
+        "Status: InterRAI HC Complete (for completed assessments ready for bundle)",
+        "Only 2 standardized labels used across all views",
+        "Badge colors: amber/yellow for Required, green for Complete",
+        "Driven by PatientQueue.php constants and INTERRAI_STATUS_MAP",
+        "Frontend uses interrai_status and interrai_badge_color from API"
       ],
       "files": [
         "app/Models/PatientQueue.php",
-        "resources/js/pages/Intake/PatientQueueList.jsx"
+        "resources/js/pages/Patients/PatientsList.jsx"
       ]
     },
     {
@@ -294,7 +294,7 @@
         "Time-to-First-Service tile with real data",
         "Missed Care Rate tile (0% target)",
         "Direct Care FTE tile with green/amber/red banding",
-        "Tile clicks navigate: Missed Care → Jeopardy, TFS → patients needing first visit, FTE → Workforce page",
+        "Tile clicks navigate: Missed Care \u2192 Jeopardy, TFS \u2192 patients needing first visit, FTE \u2192 Workforce page",
         "Metrics backed by real queries, not stubbed"
       ],
       "files": [
@@ -513,11 +513,193 @@
         "app/Http/Controllers/Api/V2/SspoMarketplaceController.php",
         "resources/js/pages/CarePlanning/SspoProfilePage.jsx"
       ]
+    },
+    {
+      "id": "metrics.referral_acceptance",
+      "name": "Referral Acceptance Rate Metric",
+      "description": "Data-driven Referral Acceptance Rate metric for SPO Command Center dashboard.",
+      "status": "done",
+      "acceptance_criteria": [
+        "PatientQueue model extended with accepted_at, is_accepted, rejection_reason fields",
+        "Migration adds acceptance tracking to patient_queue table",
+        "ReferralMetricsDTO and ReferralMetricsService created",
+        "Rate = (accepted referrals / total referrals) * 100 over 28-day window",
+        "Band calculation: A (100%), B (95-99.9%), C (<95%)",
+        "SpoDashboardController includes referral_acceptance in kpi response",
+        "React CareDashboardPage reads from API, not hard-coded value",
+        "Band determines badge color (green/amber/rose) and left border styling",
+        "Subtext shows accepted/total counts dynamically",
+        "DemoPatientsSeeder sets acceptance data: 13/15 accepted = 86.67% = Band C",
+        "QinSeeder uses Referral Acceptance breach for demo QIN"
+      ],
+      "files": [
+        "database/migrations/2025_12_02_000002_add_acceptance_tracking_to_patient_queue.php",
+        "app/Models/PatientQueue.php",
+        "app/DTOs/ReferralMetricsDTO.php",
+        "app/Services/ReferralMetricsService.php",
+        "app/Http/Controllers/Api/V2/SpoDashboardController.php",
+        "resources/js/pages/CareOps/CareDashboardPage.jsx",
+        "database/seeders/DemoPatientsSeeder.php",
+        "database/seeders/QinSeeder.php"
+      ]
+    },
+    {
+      "id": "metrics.time_to_first_service",
+      "name": "Time-to-First-Service Metric",
+      "description": "Data-driven Time-to-First-Service metric for SPO Command Center dashboard.",
+      "status": "done",
+      "acceptance_criteria": [
+        "TfsMetricsService created with calculate() method",
+        "TfsMetricsDTO created with band calculation (A<24h, B 24-48h, C >48h)",
+        "Calculates time from PatientQueue.accepted_at to first completed ServiceAssignment",
+        "Returns average hours, median hours, and patient counts",
+        "SpoDashboardController includes time_to_first_service in kpi response",
+        "React CareDashboardPage reads from API (data?.kpi?.time_to_first_service)",
+        "Dynamic text color, badge, and formatted value based on band",
+        "Seeded data shows ~16h average (Band A - Meets Target)"
+      ],
+      "files": [
+        "app/DTOs/TfsMetricsDTO.php",
+        "app/Services/TfsMetricsService.php",
+        "app/Http/Controllers/Api/V2/SpoDashboardController.php",
+        "resources/js/pages/CareOps/CareDashboardPage.jsx"
+      ]
+    },
+    {
+      "id": "metrics.active_qins",
+      "name": "Active QINs Metric",
+      "description": "Data-driven Active QINs count for SPO Command Center dashboard.",
+      "status": "done",
+      "acceptance_criteria": [
+        "QinRecord model created with status, indicator, band_breach fields",
+        "QinService provides getActiveCount, getActiveQinRecords, calculatePotentialBreaches",
+        "Active QINs from persistent storage (officially issued)",
+        "Potential QINs from auto-calculated metric breaches",
+        "Target is 0 active QINs (green = 0, red = 1+)",
+        "SpoDashboardController includes active_qins and potential_qins in response",
+        "React dashboard reads count from API, no hardcoded defaults",
+        "QIN Manager page uses API data instead of mock data",
+        "QinSeeder creates 1 demo QIN for realistic demo",
+        "OHaH webhook stub endpoint ready for future integration"
+      ],
+      "files": [
+        "app/Models/QinRecord.php",
+        "app/Services/QinService.php",
+        "app/Http/Controllers/Api/V2/QinController.php",
+        "app/Http/Controllers/Api/V2/SpoDashboardController.php",
+        "database/migrations/2025_12_02_000001_create_qin_records_table.php",
+        "database/seeders/QinSeeder.php",
+        "resources/js/pages/CareOps/CareDashboardPage.jsx",
+        "resources/js/pages/Compliance/QinManagerPage.jsx"
+      ]
+    },
+    {
+      "id": "ui.collapsible_sidebar",
+      "name": "Collapsible Sidebar Navigation",
+      "description": "Sidebar uses drawer/overlay pattern that can be toggled open/closed.",
+      "status": "done",
+      "acceptance_criteria": [
+        "Hamburger menu button in navbar toggles sidebar open/closed",
+        "Close button (X) in sidebar header closes sidebar",
+        "Backdrop overlay with blur effect when sidebar is open",
+        "Sidebar slides in/out with smooth transition",
+        "Works consistently on all screen sizes"
+      ],
+      "files": [
+        "resources/js/components/Layout/AppLayout.jsx",
+        "resources/js/components/Navigation/Sidebar.jsx"
+      ]
+    },
+    {
+      "id": "ui.consistent_page_spacing",
+      "name": "Consistent Page Spacing",
+      "description": "All pages have standardized vertical spacing from top navigation bar.",
+      "status": "done",
+      "acceptance_criteria": [
+        "All pages use py-12 (48px) standard padding",
+        "Page titles align consistently below top navigation bar",
+        "No one-off margin fixes in individual pages",
+        "Works with fixed top navigation bar"
+      ],
+      "files": [
+        "resources/js/pages/CareOps/CareDashboardPage.jsx",
+        "resources/js/pages/CareOps/WorkforceManagementPage.jsx",
+        "resources/js/pages/CareOps/WorkforceCapacityPage.jsx",
+        "resources/js/pages/CarePlanning/SspoMarketplacePage.jsx",
+        "resources/js/pages/Compliance/QinManagerPage.jsx",
+        "resources/js/pages/Patients/PatientsList.jsx",
+        "resources/js/pages/InterRAI/InterraiDashboardPage.jsx"
+      ]
+    },
+    {
+      "id": "ui.navbar_redesign",
+      "name": "Navigation Bar Redesign",
+      "description": "Top navigation bar with text-based logo, Dashboard button, and reorganized layout.",
+      "status": "done",
+      "acceptance_criteria": [
+        "Text-based 'CONNECTED CAPACITY' logo replaces building icon",
+        "Dashboard button for quick navigation to SPO Command Center",
+        "Search bar positioned on left side",
+        "Logo positioned on right side (before user info)",
+        "Consistent with overall design language"
+      ],
+      "files": [
+        "resources/js/components/Layout/AppLayout.jsx",
+        "resources/js/components/Navigation/Sidebar.jsx"
+      ]
+    },
+    {
+      "id": "scheduling.ai_auto_assign",
+      "name": "AI-Assisted Scheduling Engine",
+      "description": "Rules-driven + LLM-powered engine that analyzes unscheduled care and proposes optimal staff-to-service assignments with human-readable explanations.",
+      "status": "done",
+      "acceptance_criteria": [
+        "\u2705 Phase 1 Infrastructure: Vertex AI client with ADC authentication",
+        "\u2705 Phase 1 Infrastructure: Configuration via environment variables",
+        "\u2705 Phase 1 Infrastructure: Rate limiting and retry logic",
+        "\u2705 Phase 1 Infrastructure: Audit log table (no PHI stored)",
+        "\u2705 Phase 2: PromptBuilder with PII masking rules",
+        "\u2705 Phase 2: RulesBasedExplanationProvider fallback",
+        "\u2705 Phase 2: LlmExplanationService orchestrator",
+        "\u2705 Phase 3: StaffScoringService with weighted scoring algorithm",
+        "\u2705 Phase 3: ContinuityService for historical assignment lookup",
+        "\u2705 Phase 3: AutoAssignEngine generates AssignmentSuggestionDTOs",
+        "\u2705 Phase 3: acceptSuggestion() and acceptBatch() methods",
+        "\u2705 Phase 4: API endpoints for suggestions, explain, accept",
+        "\u2705 Phase 5: UI - Auto Assign button in Unscheduled Care panel",
+        "\u2705 Phase 5: UI - Suggestion rows with Accept/Manual/Explain actions",
+        "\u2705 Phase 5: UI - Explanation modal with detailed reasoning",
+        "\u2b1c Future: Batch accept UI"
+      ],
+      "files": [
+        "config/vertex_ai.php",
+        "app/Services/Llm/VertexAi/VertexAiConfig.php",
+        "app/Services/Llm/VertexAi/VertexAiClient.php",
+        "app/Services/Llm/Exceptions/VertexAiException.php",
+        "app/Services/Llm/Exceptions/VertexAiTimeoutException.php",
+        "app/Services/Llm/Exceptions/VertexAiRateLimitException.php",
+        "app/Services/Llm/Exceptions/VertexAiAuthException.php",
+        "app/Services/Llm/PromptBuilder.php",
+        "app/Services/Llm/Fallback/RulesBasedExplanationProvider.php",
+        "app/Services/Llm/LlmExplanationService.php",
+        "app/Services/Llm/DTOs/ExplanationResponseDTO.php",
+        "app/Services/Llm/Contracts/ExplanationProviderInterface.php",
+        "app/Services/Scheduling/ContinuityService.php",
+        "app/Services/Scheduling/StaffScoringService.php",
+        "app/Services/Scheduling/AutoAssignEngine.php",
+        "app/Services/Scheduling/DTOs/AssignmentSuggestionDTO.php",
+        "app/Http/Controllers/Api/V2/AutoAssignController.php",
+        "database/migrations/2025_12_02_111344_create_llm_explanation_logs_table.php",
+        "resources/js/hooks/useAutoAssign.js",
+        "resources/js/components/scheduling/ExplanationModal.jsx",
+        "resources/js/components/scheduling/SuggestionRow.jsx",
+        "resources/js/pages/CareOps/SchedulingPage.jsx"
+      ]
     }
   ],
   "metadata": {
     "project": "Connected Capacity 2.1",
-    "last_updated": "2025-11-30",
-    "version": "1.6.0"
+    "last_updated": "2025-12-02",
+    "version": "1.8.0"
   }
 }

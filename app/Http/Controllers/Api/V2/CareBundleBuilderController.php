@@ -209,6 +209,13 @@ class CareBundleBuilderController extends Controller
             $publishedPlan = $this->bundleBuilder->publishCarePlan($carePlan, Auth::id());
             $patient = Patient::find($patientId);
 
+            // Guard against deleted patient
+            if (!$patient) {
+                return response()->json([
+                    'error' => 'Patient not found. The patient may have been deleted.',
+                ], 404);
+            }
+
             return response()->json([
                 'message' => 'Care plan published successfully. Patient transitioned to active profile.',
                 'data' => [
