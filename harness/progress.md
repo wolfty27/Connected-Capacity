@@ -1630,3 +1630,101 @@ Audit actual InterRAI assessment data in the database to validate implementation
 ### Next Step
 
 **Phase 1: Engine Infrastructure** - Create `DecisionTreeEngine`, `CAPTriggerEngine`, and algorithm JSON schema.
+
+---
+
+## AI-Assisted Bundle Engine - Phase 1: Engine Infrastructure (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Build the core interpreter engines for data-driven algorithm and CAP trigger evaluation.
+
+### Files Created
+
+**Engine Classes:**
+| File | Description |
+|------|-------------|
+| `app/Services/BundleEngine/Engines/DecisionTreeEngine.php` | JSON algorithm interpreter with expression parser |
+| `app/Services/BundleEngine/Engines/CAPTriggerEngine.php` | YAML CAP trigger interpreter |
+| `app/Services/BundleEngine/Engines/ServiceIntensityResolver.php` | Maps algorithm scores to service intensities |
+
+**Configuration Files:**
+| File | Description |
+|------|-------------|
+| `config/bundle_engine/algorithms/rehabilitation.json` | Rehabilitation Algorithm (v1.0.0-hc_mapped) |
+| `config/bundle_engine/algorithms/personal_support.json` | Personal Support Algorithm (v1.0.0-hc_mapped) |
+| `config/bundle_engine/cap_triggers/clinical/falls.yaml` | Falls CAP with IMPROVE/PREVENT levels |
+| `config/bundle_engine/cap_triggers/clinical/pain.yaml` | Pain CAP with service recommendations |
+| `config/bundle_engine/service_intensity_matrix.json` | PSA→PSW, Rehab→PT/OT, CHESS→Nursing mappings |
+
+**Documentation:**
+| File | Description |
+|------|-------------|
+| `docs/ALGORITHM_DSL.md` | Formal DSL specification for algorithms and CAPs |
+
+### Key Implementation Details
+
+**DecisionTreeEngine Features:**
+- Loads JSON algorithm definitions from `config/bundle_engine/algorithms/`
+- Evaluates computed inputs (derived values)
+- Traverses binary decision trees
+- Expression parser supports:
+  - Comparisons: `==`, `!=`, `>=`, `<=`, `>`, `<`
+  - Logical: `&&`, `||`
+  - Ternary: `condition ? true : false`
+  - Arithmetic: `+` with parentheses
+- Validates algorithm schema on load
+
+**CAPTriggerEngine Features:**
+- Loads YAML CAP definitions from `config/bundle_engine/cap_triggers/`
+- Evaluates trigger conditions: `all`, `any`, `min_count`
+- Returns trigger level, service recommendations, care guidelines
+- Searches subdirectories: functional, clinical, cognition, social
+
+**ServiceIntensityResolver Features:**
+- Loads service intensity matrix from JSON
+- Maps algorithm scores to hours/visits
+- Applies CAP-based adjustments (multipliers)
+- Applies scenario axis modifiers
+- Includes confidence levels and rationale for all mappings
+
+### Test Results
+
+```
+=== Rehabilitation Algorithm ===
+Test 1 - Self-reliant: 1 (expected: 1) ✓
+Test 2 - Multiple ADL deficits: 3 (expected: 3) ✓
+Test 3 - Palliative referral: 1 (expected: 1) ✓
+Test 4 - ADL decline + 3 IADL deficits: 5 (expected: 5) ✓
+
+=== Personal Support Algorithm ===
+PSA - ADL sum 14: 4 (expected: 4) ✓
+
+=== Falls CAP ===
+Level: IMPROVE ✓
+Description: Recent fall with modifiable risk factors ✓
+
+=== Service Intensity Resolver ===
+PSA=4 → PSW: 14h
+Rehab=3 → PT: 0.8h, OT: 0.8h
+CHESS=2 → NUR: 1 visit
+```
+
+### Provider Registration
+
+Updated `BundleEngineServiceProvider.php` to register:
+- `DecisionTreeEngine` (singleton)
+- `CAPTriggerEngine` (singleton)
+- `ServiceIntensityResolver` (singleton)
+
+### Algorithm Verification Status
+
+Both algorithms marked as `hc_mapped`:
+- Using HC iCODE item mappings from DATA_AVAILABILITY_AUDIT.md
+- Requires verification against authoritative InterRAI source before production
+- Test cases included in JSON files for validation
+
+### Next Step
+
+**Phase 2: Algorithm Definitions** - Define remaining 6 CA algorithms (SRI, AUA, SUA, DMS, Pain, CHESS-CA).

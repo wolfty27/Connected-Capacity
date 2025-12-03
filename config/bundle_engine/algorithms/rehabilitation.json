@@ -1,0 +1,121 @@
+{
+  "name": "Rehabilitation Algorithm",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual Section 4.4 - Rehabilitation Algorithm",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [1, 5],
+  "output_type": "integer",
+  "description": "Identifies persons who may be candidates for PT/OT rehabilitation services. Higher scores indicate greater rehabilitation potential and service need.",
+
+  "items_used": [
+    {"ca_code": "C1", "hc_code": "iB3a", "description": "Daily decision making (0-6)"},
+    {"ca_code": "C2a", "hc_code": "iG1ga", "description": "Bathing (0-6)"},
+    {"ca_code": "C2b", "hc_code": "iG1ia", "description": "Bath transfer - mapped from Transfer (0-6)", "mapping_notes": "HC uses general transfer; CA specifies bath transfer"},
+    {"ca_code": "C2c", "hc_code": "iG1fa", "description": "Personal hygiene (0-6)"},
+    {"ca_code": "C2d", "hc_code": "iG1ca", "description": "Dressing lower body (0-6)"},
+    {"ca_code": "C2e", "hc_code": "iG1ha", "description": "Locomotion - mapped from Bed mobility", "mapping_notes": "HC bed mobility approximates CA locomotion"},
+    {"ca_code": "D3a", "hc_code": "iG1aa", "description": "Meal preparation (0-6)"},
+    {"ca_code": "D3b", "hc_code": "iG1da", "description": "Ordinary housework (0-6)"},
+    {"ca_code": "D3c", "hc_code": "iadl_medications", "description": "Medication management", "mapping_notes": "UI key only, not iCODE"},
+    {"ca_code": "D3d", "hc_code": null, "description": "Stair use", "mapping_notes": "NOT AVAILABLE in HC - default to 0"},
+    {"ca_code": "D4", "hc_code": null, "description": "ADL decline in last 90 days", "mapping_notes": "NOT AVAILABLE - requires assessment comparison; default to 0"},
+    {"ca_code": "B2c", "hc_code": null, "description": "Referral for palliative services", "mapping_notes": "Check referral_type field; default to false"}
+  ],
+
+  "computed_inputs": {
+    "SRI": {
+      "formula": "C1 == 0 && C2a == 0 && C2b == 0 && C2c == 0 && C2d == 0 && C2e == 0",
+      "description": "Self-Reliance Index: true if no impairment in decision-making or 5 ADL areas"
+    },
+    "IADL_decline": {
+      "formula": "D3a > 0 || D3b > 0 || D3c > 0 || D3d > 0",
+      "description": "Any IADL shows need for help (score > 0)"
+    },
+    "IADL_deficit_count": {
+      "formula": "(D3a >= 3 ? 1 : 0) + (D3b >= 3 ? 1 : 0) + (D3c >= 3 ? 1 : 0) + (D3d >= 3 ? 1 : 0)",
+      "description": "Count of IADL items with extensive assistance needed (score >= 3)"
+    },
+    "ADL_deficit_count": {
+      "formula": "(C2a > 0 ? 1 : 0) + (C2b > 0 ? 1 : 0) + (C2c > 0 ? 1 : 0) + (C2d > 0 ? 1 : 0) + (C2e > 0 ? 1 : 0)",
+      "description": "Count of ADL items with any impairment (score > 0)"
+    }
+  },
+
+  "tree": {
+    "condition": "B2c == true",
+    "true_branch": { "return": 1 },
+    "false_branch": {
+      "condition": "SRI == true",
+      "true_branch": {
+        "condition": "IADL_decline == true",
+        "true_branch": { "return": 2 },
+        "false_branch": { "return": 1 }
+      },
+      "false_branch": {
+        "condition": "D4 >= 1",
+        "true_branch": {
+          "condition": "IADL_deficit_count >= 3",
+          "true_branch": { "return": 5 },
+          "false_branch": {
+            "condition": "IADL_deficit_count >= 1",
+            "true_branch": { "return": 4 },
+            "false_branch": { "return": 3 }
+          }
+        },
+        "false_branch": {
+          "condition": "ADL_deficit_count >= 3",
+          "true_branch": { "return": 3 },
+          "false_branch": { "return": 2 }
+        }
+      }
+    }
+  },
+
+  "test_cases": [
+    {
+      "name": "Self-reliant, no IADL issues",
+      "input": {"C1": 0, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0, "D3a": 0, "D3b": 0, "D3c": 0, "D3d": 0, "D4": 0, "B2c": false},
+      "expected_output": 1,
+      "description": "No impairments → minimal rehab need"
+    },
+    {
+      "name": "Palliative referral",
+      "input": {"C1": 2, "C2a": 3, "C2b": 2, "C2c": 2, "C2d": 3, "C2e": 2, "D3a": 4, "D3b": 4, "D3c": 3, "D3d": 0, "D4": 0, "B2c": true},
+      "expected_output": 1,
+      "description": "Palliative referral → minimal rehab (comfort focus)"
+    },
+    {
+      "name": "Self-reliant with IADL decline",
+      "input": {"C1": 0, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0, "D3a": 2, "D3b": 0, "D3c": 0, "D3d": 0, "D4": 0, "B2c": false},
+      "expected_output": 2,
+      "description": "Self-reliant but IADL starting to decline → light rehab"
+    },
+    {
+      "name": "ADL impaired, no ADL decline, few ADL deficits",
+      "input": {"C1": 2, "C2a": 1, "C2b": 0, "C2c": 0, "C2d": 1, "C2e": 0, "D3a": 0, "D3b": 0, "D3c": 0, "D3d": 0, "D4": 0, "B2c": false},
+      "expected_output": 2,
+      "description": "Some ADL impairment but < 3 deficits → moderate rehab"
+    },
+    {
+      "name": "Multiple ADL deficits, no recent decline",
+      "input": {"C1": 2, "C2a": 2, "C2b": 2, "C2c": 2, "C2d": 2, "C2e": 2, "D3a": 0, "D3b": 0, "D3c": 0, "D3d": 0, "D4": 0, "B2c": false},
+      "expected_output": 3,
+      "description": "Multiple ADL deficits (>=3) → intensive rehab"
+    },
+    {
+      "name": "ADL decline with 1-2 IADL deficits",
+      "input": {"C1": 2, "C2a": 2, "C2b": 2, "C2c": 2, "C2d": 2, "C2e": 2, "D3a": 4, "D3b": 3, "D3c": 0, "D3d": 0, "D4": 1, "B2c": false},
+      "expected_output": 4,
+      "description": "ADL decline + some IADL deficits → high rehab"
+    },
+    {
+      "name": "ADL decline with 3+ IADL deficits",
+      "input": {"C1": 2, "C2a": 3, "C2b": 3, "C2c": 2, "C2d": 3, "C2e": 3, "D3a": 4, "D3b": 4, "D3c": 3, "D3d": 0, "D4": 1, "B2c": false},
+      "expected_output": 5,
+      "description": "ADL decline + extensive IADL deficits → maximum rehab"
+    }
+  ]
+}
+

@@ -15,6 +15,10 @@ use App\Services\BundleEngine\Mappers\HcAssessmentMapper;
 use App\Services\BundleEngine\Mappers\CaAssessmentMapper;
 use App\Services\BundleEngine\Derivers\EpisodeTypeDeriver;
 use App\Services\BundleEngine\Derivers\RehabPotentialDeriver;
+// v2.2 Engines for data-driven algorithms and CAP triggers
+use App\Services\BundleEngine\Engines\DecisionTreeEngine;
+use App\Services\BundleEngine\Engines\CAPTriggerEngine;
+use App\Services\BundleEngine\Engines\ServiceIntensityResolver;
 
 /**
  * BundleEngineServiceProvider
@@ -27,8 +31,10 @@ use App\Services\BundleEngine\Derivers\RehabPotentialDeriver;
  * - ScenarioAxisSelector
  * - Assessment Mappers (HC, CA)
  * - Derivers (EpisodeType, RehabPotential)
+ * - v2.2 Engines (DecisionTreeEngine, CAPTriggerEngine, ServiceIntensityResolver)
  *
  * @see docs/CC21_AI_Bundle_Engine_Design.md
+ * @see docs/ALGORITHM_DSL.md
  */
 class BundleEngineServiceProvider extends ServiceProvider
 {
@@ -37,6 +43,9 @@ class BundleEngineServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // v2.2 Engines - Data-driven algorithm and CAP evaluation
+        $this->registerEngines();
+
         // Singleton for ScenarioAxisSelector (stateless, can be shared)
         $this->app->singleton(ScenarioAxisSelector::class, function ($app) {
             return new ScenarioAxisSelector();
@@ -94,6 +103,33 @@ class BundleEngineServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register v2.2 engines for data-driven algorithm and CAP evaluation.
+     */
+    protected function registerEngines(): void
+    {
+        // DecisionTreeEngine - Interprets JSON algorithm definitions
+        $this->app->singleton(DecisionTreeEngine::class, function ($app) {
+            return new DecisionTreeEngine(
+                config_path('bundle_engine/algorithms')
+            );
+        });
+
+        // CAPTriggerEngine - Interprets YAML CAP trigger definitions
+        $this->app->singleton(CAPTriggerEngine::class, function ($app) {
+            return new CAPTriggerEngine(
+                config_path('bundle_engine/cap_triggers')
+            );
+        });
+
+        // ServiceIntensityResolver - Maps scores to service intensities
+        $this->app->singleton(ServiceIntensityResolver::class, function ($app) {
+            return new ServiceIntensityResolver(
+                config_path('bundle_engine/service_intensity_matrix.json')
+            );
+        });
+    }
+
+    /**
      * Bootstrap services.
      */
     public function boot(): void
@@ -120,6 +156,10 @@ class BundleEngineServiceProvider extends ServiceProvider
             CaAssessmentMapper::class,
             EpisodeTypeDeriver::class,
             RehabPotentialDeriver::class,
+            // v2.2 Engines
+            DecisionTreeEngine::class,
+            CAPTriggerEngine::class,
+            ServiceIntensityResolver::class,
         ];
     }
 }

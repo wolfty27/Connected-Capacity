@@ -1,0 +1,75 @@
+name: Pain CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 17 - Pain"
+applicable_instruments: [HC, LTCF]
+category: clinical
+
+description: |
+  The Pain CAP identifies persons experiencing pain that may benefit from
+  intervention. Focuses on frequency and intensity of pain symptoms.
+
+triggers:
+  - level: IMPROVE
+    description: "Significant pain requiring active intervention"
+    conditions:
+      any:
+        - field: pain_score
+          operator: ">="
+          value: 3
+      min_count:
+        count: 2
+        from:
+          - field: pain_score
+            operator: ">="
+            value: 2
+          - field: health_instability
+            operator: ">="
+            value: 2
+          - field: mobility_complexity
+            operator: ">="
+            value: 3
+          - field: adl_support_level
+            operator: ">="
+            value: 3
+    service_recommendations:
+      NUR:
+        priority: core
+        frequency_multiplier: 1.3
+        focus: pain_assessment_management
+      PT:
+        priority: recommended
+        focus: pain_modalities
+    care_guidelines:
+      - "Complete comprehensive pain assessment (location, character, triggers)"
+      - "Assess current pain management regimen effectiveness"
+      - "Review analgesic medications with physician"
+      - "Consider non-pharmacological interventions (positioning, heat/cold, TENS)"
+      - "Assess impact of pain on function and sleep"
+      - "Educate on pain management techniques"
+      - "Monitor for breakthrough pain episodes"
+
+  - level: PREVENT
+    description: "Mild pain - monitoring and prevention focus"
+    conditions:
+      all:
+        - field: pain_score
+          operator: ">="
+          value: 1
+        - field: pain_score
+          operator: "<"
+          value: 3
+    service_recommendations:
+      NUR:
+        priority: recommended
+        focus: monitoring
+    care_guidelines:
+      - "Monitor pain levels during visits"
+      - "Assess for changes in pain pattern"
+      - "Reinforce current pain management strategies"
+      - "Educate on early reporting of pain changes"
+
+  - level: NOT_TRIGGERED
+    description: "No significant pain identified"
+    conditions:
+      default: true
+

@@ -1,0 +1,263 @@
+{
+  "$schema": "bundle_engine/schemas/service_intensity_matrix.schema.json",
+  "version": "1.0.0",
+  "last_updated": "2025-12-03",
+  "updated_by": "Bundle Engine Initial Configuration",
+  "review_status": "draft",
+  "next_review_date": "2026-03-03",
+
+  "psa_to_psw_hours": {
+    "description": "Personal Support Algorithm score → PSW hours/week",
+    "source": {
+      "primary": "Ontario Home Care PSA Implementation Guidelines",
+      "secondary": "Clinical judgment based on typical utilization patterns",
+      "notes": "Ranges are starting points; actual allocation depends on individual assessment"
+    },
+    "mappings": {
+      "1": {
+        "hours": 0,
+        "label": "No PSW needed",
+        "confidence": "high",
+        "rationale": "SRI indicates self-reliance in all ADL and cognition areas"
+      },
+      "2": {
+        "hours": 3,
+        "label": "Minimal support",
+        "confidence": "high",
+        "rationale": "Light assistance needed; typically supervision or setup help only"
+      },
+      "3": {
+        "hours": 7,
+        "label": "Moderate support",
+        "confidence": "high",
+        "rationale": "ADL assistance required but not daily; approximately 1 hour/day average"
+      },
+      "4": {
+        "hours": 14,
+        "label": "Moderate-high support",
+        "confidence": "medium",
+        "rationale": "Daily ADL support needed; approximately 2 hours/day"
+      },
+      "5": {
+        "hours": 21,
+        "label": "High support",
+        "confidence": "medium",
+        "rationale": "Extensive daily support; approximately 3 hours/day, may require split visits"
+      },
+      "6": {
+        "hours": 35,
+        "label": "Very high support",
+        "confidence": "exploratory",
+        "rationale": "Approaching 24-hour care threshold; 5 hours/day baseline. Consider facility referral assessment."
+      }
+    },
+    "modifiers": {
+      "ADL_IMPROVEMENT_CAP": {
+        "multiplier": 1.25,
+        "reason": "ADL CAP triggered for improvement - increased PSW for restorative focus",
+        "confidence": "medium",
+        "source": "Clinical judgment; restorative care protocols"
+      },
+      "CAREGIVER_RELIEF_AXIS": {
+        "multiplier": 1.15,
+        "reason": "Caregiver relief scenario selected - additional PSW for respite",
+        "confidence": "medium",
+        "source": "Patient preference weighting"
+      },
+      "COGNITIVE_SUPERVISION": {
+        "multiplier": 1.3,
+        "reason": "Cognitive impairment requires additional supervision time",
+        "confidence": "high",
+        "source": "CPS correlation studies"
+      }
+    }
+  },
+
+  "rehab_to_therapy_visits": {
+    "description": "Rehabilitation Algorithm score → PT/OT combined visits/week",
+    "source": {
+      "primary": "InterRAI CA Rehabilitation Algorithm (Hirdes et al., 2008)",
+      "secondary": "Ontario PT/OT Service Allocation Guidelines",
+      "notes": "Score 3+ strongly predicts benefit from community-based therapy"
+    },
+    "mappings": {
+      "1": {
+        "visits": 0,
+        "label": "No therapy indicated",
+        "confidence": "high",
+        "rationale": "Self-reliant or palliative focus; no rehabilitation potential indicators"
+      },
+      "2": {
+        "visits": 1,
+        "label": "Maintenance therapy",
+        "confidence": "high",
+        "rationale": "Preserve current function; prevent decline. Weekly monitoring visit."
+      },
+      "3": {
+        "visits": 2,
+        "label": "Moderate rehabilitation",
+        "confidence": "high",
+        "rationale": "Active improvement potential identified; standard community rehab protocol"
+      },
+      "4": {
+        "visits": 3,
+        "label": "Intensive rehabilitation",
+        "confidence": "medium",
+        "rationale": "High improvement potential; may require coordinated PT+OT intervention"
+      },
+      "5": {
+        "visits": 5,
+        "label": "Very intensive rehabilitation",
+        "confidence": "exploratory",
+        "rationale": "Maximum community-based intensity; consider inpatient rehab referral if available"
+      }
+    },
+    "pt_ot_split_rules": [
+      {
+        "condition": "mobility_complexity >= 3",
+        "pt_ratio": 0.7,
+        "rationale": "Mobility issues prioritize PT for gait/balance training"
+      },
+      {
+        "condition": "has_home_environment_risk",
+        "pt_ratio": 0.3,
+        "rationale": "Environment issues prioritize OT for home safety assessment"
+      },
+      {
+        "condition": "adl_support_level >= 4",
+        "pt_ratio": 0.5,
+        "rationale": "ADL deficits benefit equally from PT (transfers) and OT (self-care)"
+      },
+      {
+        "default": true,
+        "pt_ratio": 0.5,
+        "rationale": "Default even split between PT and OT"
+      }
+    ],
+    "modifiers": {
+      "RECOVERY_REHAB_AXIS": {
+        "multiplier": 1.3,
+        "reason": "Recovery/rehab scenario selected - front-loaded therapy intensity",
+        "confidence": "medium",
+        "source": "Patient goal alignment"
+      },
+      "POST_ACUTE_EPISODE": {
+        "multiplier": 1.2,
+        "reason": "Post-acute episode type - enhanced early rehabilitation",
+        "confidence": "high",
+        "source": "Transitional care best practices"
+      }
+    }
+  },
+
+  "chess_to_nursing_visits": {
+    "description": "CHESS-CA score → Nursing visits/week",
+    "source": {
+      "primary": "CHESS Scale Validation Studies (Hirdes et al., 2003)",
+      "secondary": "Ontario Nursing Service Allocation Guidelines",
+      "notes": "CHESS 4+ strongly predicts hospitalization within 90 days"
+    },
+    "mappings": {
+      "0": {
+        "visits": 0,
+        "label": "Stable - PRN only",
+        "confidence": "high",
+        "rationale": "No health instability indicators; nursing as needed basis"
+      },
+      "1": {
+        "visits": 0.5,
+        "label": "Low instability",
+        "confidence": "high",
+        "rationale": "Minor health fluctuation; monitoring visit every 2 weeks"
+      },
+      "2": {
+        "visits": 1,
+        "label": "Moderate instability",
+        "confidence": "high",
+        "rationale": "Weekly monitoring recommended; watch for deterioration signs"
+      },
+      "3": {
+        "visits": 2,
+        "label": "High instability",
+        "confidence": "medium",
+        "rationale": "Twice weekly visits; active symptom management needed"
+      },
+      "4": {
+        "visits": 3,
+        "label": "Very high instability",
+        "confidence": "medium",
+        "rationale": "Every other day visits; high hospitalization risk - close monitoring"
+      },
+      "5": {
+        "visits": 5,
+        "label": "Critical - daily nursing",
+        "confidence": "exploratory",
+        "rationale": "Daily visits required; consider palliative care or facility referral"
+      }
+    },
+    "modifiers": {
+      "SAFETY_STABILITY_AXIS": {
+        "multiplier": 1.2,
+        "reason": "Safety/stability scenario selected - enhanced nursing monitoring",
+        "confidence": "medium",
+        "source": "Risk mitigation preference"
+      },
+      "PAIN_CAP_TRIGGERED": {
+        "multiplier": 1.15,
+        "reason": "Pain CAP triggered - additional nursing for pain management",
+        "confidence": "medium",
+        "source": "CAP-driven service adjustment"
+      }
+    }
+  },
+
+  "dms_to_mental_health": {
+    "description": "Distressed Mood Scale score → Mental Health service recommendations",
+    "source": {
+      "primary": "InterRAI DMS Interpretation Guidelines",
+      "notes": "DMS 3+ indicates clinically significant distress warranting intervention"
+    },
+    "mappings": {
+      "0": {
+        "visits": 0,
+        "label": "No distress",
+        "confidence": "high",
+        "rationale": "No mood symptoms identified"
+      },
+      "1": {
+        "visits": 0,
+        "label": "Minimal distress",
+        "confidence": "high",
+        "rationale": "Occasional mild symptoms; monitor but no intervention needed"
+      },
+      "2": {
+        "visits": 0,
+        "label": "Mild distress",
+        "confidence": "high",
+        "rationale": "Some mood symptoms; supportive care during existing visits"
+      },
+      "3": {
+        "visits": 0.5,
+        "label": "Moderate distress",
+        "confidence": "medium",
+        "rationale": "Consider SW or MH referral; biweekly check-in"
+      },
+      "4": {
+        "visits": 1,
+        "label": "Significant distress",
+        "confidence": "medium",
+        "rationale": "SW involvement recommended; weekly monitoring"
+      },
+      "5": {
+        "visits": 1,
+        "label": "High distress",
+        "confidence": "medium",
+        "rationale": "Mental health consultation needed; potential MH specialist referral"
+      }
+    },
+    "service_type": "SW",
+    "escalation_threshold": 4,
+    "escalation_note": "DMS >= 4 should trigger mental health service consultation"
+  }
+}
+

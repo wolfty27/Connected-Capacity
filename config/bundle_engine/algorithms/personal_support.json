@@ -1,0 +1,101 @@
+{
+  "name": "Personal Support Algorithm",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual Section 4.5 - Personal Support Algorithm",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [1, 6],
+  "output_type": "integer",
+  "description": "Prioritizes access to personal support services (PSW) and informs service intensity. Higher scores indicate greater personal support needs.",
+
+  "items_used": [
+    {"ca_code": "C1", "hc_code": "iB3a", "description": "Daily decision making (0-6)"},
+    {"ca_code": "C2a", "hc_code": "iG1ga", "description": "Bathing (0-6)"},
+    {"ca_code": "C2b", "hc_code": "iG1ia", "description": "Bath transfer (0-6)"},
+    {"ca_code": "C2c", "hc_code": "iG1fa", "description": "Personal hygiene (0-6)"},
+    {"ca_code": "C2d", "hc_code": "iG1ca", "description": "Dressing lower body (0-6)"},
+    {"ca_code": "C2e", "hc_code": "iG1ha", "description": "Locomotion (0-6)"}
+  ],
+
+  "computed_inputs": {
+    "SRI": {
+      "formula": "C1 == 0 && C2a == 0 && C2b == 0 && C2c == 0 && C2d == 0 && C2e == 0",
+      "description": "Self-Reliance Index: true if no impairment"
+    },
+    "ADL_sum": {
+      "formula": "C2a + C2b + C2c + C2d + C2e",
+      "description": "Sum of 5 ADL self-performance scores"
+    },
+    "high_ADL_count": {
+      "formula": "(C2a >= 4 ? 1 : 0) + (C2b >= 4 ? 1 : 0) + (C2c >= 4 ? 1 : 0) + (C2d >= 4 ? 1 : 0) + (C2e >= 4 ? 1 : 0)",
+      "description": "Count of ADL items with extensive/total dependence (score >= 4)"
+    }
+  },
+
+  "tree": {
+    "condition": "SRI == true",
+    "true_branch": { "return": 1 },
+    "false_branch": {
+      "condition": "C1 >= 4",
+      "true_branch": {
+        "condition": "ADL_sum >= 15",
+        "true_branch": { "return": 6 },
+        "false_branch": { "return": 5 }
+      },
+      "false_branch": {
+        "condition": "ADL_sum >= 15",
+        "true_branch": { "return": 5 },
+        "false_branch": {
+          "condition": "ADL_sum >= 10",
+          "true_branch": { "return": 4 },
+          "false_branch": {
+            "condition": "ADL_sum >= 5",
+            "true_branch": { "return": 3 },
+            "false_branch": { "return": 2 }
+          }
+        }
+      }
+    }
+  },
+
+  "test_cases": [
+    {
+      "name": "Self-reliant",
+      "input": {"C1": 0, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0},
+      "expected_output": 1,
+      "description": "No impairments → no PSW needed"
+    },
+    {
+      "name": "Mild ADL needs",
+      "input": {"C1": 0, "C2a": 1, "C2b": 0, "C2c": 1, "C2d": 1, "C2e": 0},
+      "expected_output": 2,
+      "description": "Some supervision/setup help → minimal PSW"
+    },
+    {
+      "name": "Moderate ADL needs",
+      "input": {"C1": 1, "C2a": 2, "C2b": 1, "C2c": 1, "C2d": 2, "C2e": 1},
+      "expected_output": 3,
+      "description": "ADL sum 5-9 → moderate PSW"
+    },
+    {
+      "name": "High ADL needs",
+      "input": {"C1": 2, "C2a": 3, "C2b": 2, "C2c": 2, "C2d": 3, "C2e": 2},
+      "expected_output": 4,
+      "description": "ADL sum 10-14 → moderate-high PSW"
+    },
+    {
+      "name": "Very high ADL needs",
+      "input": {"C1": 2, "C2a": 4, "C2b": 3, "C2c": 3, "C2d": 4, "C2e": 3},
+      "expected_output": 5,
+      "description": "ADL sum >= 15 → high PSW"
+    },
+    {
+      "name": "Severe cognitive + high ADL",
+      "input": {"C1": 5, "C2a": 4, "C2b": 4, "C2c": 3, "C2d": 4, "C2e": 4},
+      "expected_output": 6,
+      "description": "Severe cognitive impairment + high ADL → very high PSW"
+    }
+  ]
+}
+

@@ -1,0 +1,102 @@
+name: Falls CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 16 - Falls"
+applicable_instruments: [HC, LTCF]
+category: clinical
+
+description: |
+  The Falls CAP identifies persons who have fallen or are at risk of falling.
+  Two trigger levels:
+  - IMPROVE: Recent fall with modifiable risk factors (intervention focus)
+  - PREVENT: Risk factors present but no recent fall (prevention focus)
+
+triggers:
+  - level: IMPROVE
+    description: "Recent fall with modifiable risk factors - intervention required"
+    conditions:
+      all:
+        - field: has_recent_fall
+          operator: "=="
+          value: true
+      min_count:
+        count: 2
+        from:
+          - field: mobility_complexity
+            operator: ">="
+            value: 2
+          - field: has_polypharmacy_risk
+            operator: "=="
+            value: true
+          - field: has_home_environment_risk
+            operator: "=="
+            value: true
+          - field: has_delirium
+            operator: "=="
+            value: true
+          - field: pain_score
+            operator: ">="
+            value: 2
+          - field: cognitive_complexity
+            operator: ">="
+            value: 2
+    service_recommendations:
+      PT:
+        priority: core
+        frequency_multiplier: 1.5
+        focus: balance_strength
+      OT:
+        priority: recommended
+        focus: home_safety
+      NUR:
+        priority: core
+        focus: medication_review
+    care_guidelines:
+      - "Conduct comprehensive fall risk assessment"
+      - "Assess and modify environmental hazards in home"
+      - "Review medications for fall-risk drugs (sedatives, antihypertensives, psychotropics)"
+      - "Implement balance and strength training program"
+      - "Consider assistive devices (walker, grab bars, raised toilet)"
+      - "Assess footwear and recommend non-slip options"
+      - "Ensure adequate lighting in home"
+
+  - level: PREVENT
+    description: "Risk factors present but no recent fall - prevention focus"
+    conditions:
+      any:
+        - field: falls_risk_level
+          operator: ">="
+          value: 2
+      min_count:
+        count: 1
+        from:
+          - field: mobility_complexity
+            operator: ">="
+            value: 2
+          - field: has_polypharmacy_risk
+            operator: "=="
+            value: true
+          - field: has_home_environment_risk
+            operator: "=="
+            value: true
+          - field: cognitive_complexity
+            operator: ">="
+            value: 3
+    service_recommendations:
+      PT:
+        priority: recommended
+        focus: prevention
+      OT:
+        priority: optional
+        focus: environmental_assessment
+    care_guidelines:
+      - "Monitor for fall risk factors during visits"
+      - "Educate patient and family on fall prevention strategies"
+      - "Assess need for home modifications"
+      - "Consider referral for vision/hearing assessment"
+      - "Review medications with physician if polypharmacy present"
+
+  - level: NOT_TRIGGERED
+    description: "No significant fall risk identified"
+    conditions:
+      default: true
+
