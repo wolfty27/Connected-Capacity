@@ -3,7 +3,6 @@
 namespace App\Services\BundleEngine\Mappers;
 
 use App\Models\InterraiAssessment;
-use App\Services\BundleEngine\Contracts\AssessmentMapperInterface;
 
 /**
  * BmhsAssessmentMapper
@@ -16,13 +15,17 @@ use App\Services\BundleEngine\Contracts\AssessmentMapperInterface;
  * BMHS is a supplement to HC/CA assessments, providing mental health
  * and behavioural complexity data when indicated.
  *
+ * NOTE: This mapper does NOT implement AssessmentMapperInterface because
+ * BMHS is a specialized supplement, not a full assessment. It only provides
+ * mental health and behavioral data, not ADL/IADL/mobility etc.
+ *
  * Key BMHS Sections:
  * - Section B: Mental state indicators, insight, cognition
  * - Section C: Risk of harm (violence, self-harm, environment)
  *
  * @see docs/interRAI Brief Mental Health Screener (BMHS) Assessment Form.txt
  */
-class BmhsAssessmentMapper implements AssessmentMapperInterface
+class BmhsAssessmentMapper
 {
     /**
      * BMHS item codes for Section B (Disordered Thought).
