@@ -31,7 +31,7 @@ const DashboardLayout = () => {
             />
 
             {/* Main Content - Full width now */}
-            <main className="flex-1 p-4 md:p-8 pt-6 md:pt-10 overflow-y-auto">
+            <main className="flex-1 p-4 md:p-8 mt-16 overflow-y-auto">
                 <div className="max-w-7xl mx-auto">
                     <Outlet />
                 </div>

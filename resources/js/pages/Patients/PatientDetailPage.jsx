@@ -7,7 +7,7 @@ import Spinner from '../../components/UI/Spinner';
 import Button from '../../components/UI/Button';
 import BundleSummary from '../../components/care/BundleSummary';
 import FullInterraiAssessment from '../../components/InterRAI/FullInterraiAssessment';
-import { X, Send, FileText, Calendar, Clock, CheckCircle } from 'lucide-react';
+import { X, Send, FileText, Calendar, Clock, CheckCircle, ArrowLeft } from 'lucide-react';
 
 /**
  * PatientDetailPage - Central hub for patient care management
@@ -174,10 +174,11 @@ const PatientDetailPage = () => {
                     <p className="text-slate-500 text-sm">Patient ID: {patient.id}</p>
                 </div>
                 <Button
-                    className="bg-teal-600 hover:bg-teal-700 text-white self-start sm:self-auto"
-                    onClick={() => navigate(`/care-bundles/create/${id}`)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 self-start sm:self-auto flex items-center gap-2"
+                    onClick={() => navigate('/patients')}
                 >
-                    {hasActivePlan ? 'Modify Care Plan' : 'Create Care Bundle'}
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Patient Hub
                 </Button>
             </div>
 

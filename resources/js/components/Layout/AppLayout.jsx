@@ -34,7 +34,7 @@ const AppLayout = () => {
     return (
         <div className="antialiased bg-slate-50 min-h-screen">
             {/* Top Navigation Bar - Always Visible */}
-            <nav className="bg-white shadow-sm border-b border-slate-200 px-4 py-3 fixed left-0 right-0 top-0 z-30">
+            <nav className="bg-white shadow-sm border-b border-slate-200 px-4 py-3 sticky top-0 z-30">
                 <div className="flex justify-between items-center max-w-7xl mx-auto">
                     <div className="flex items-center gap-4">
                         {/* Menu Toggle Button */}
@@ -135,7 +135,7 @@ const AppLayout = () => {
             />
 
             {/* Main Content - Full Width */}
-            <main className="p-4 md:p-8 h-auto pt-32">
+            <main className="p-4 md:p-8 h-auto pt-6">
                 <div className="max-w-7xl mx-auto">
                     <Outlet />
                 </div>
