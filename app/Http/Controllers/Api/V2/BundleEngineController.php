@@ -166,6 +166,19 @@ class BundleEngineController extends Controller
                         'confidence' => $profile->confidenceLevel,
                         'episode_type' => $profile->episodeType,
                         'rehab_potential' => $profile->hasRehabPotential,
+                        // v2.2: Algorithm scores
+                        'personal_support_score' => $profile->personalSupportScore ?? null,
+                        'rehabilitation_score' => $profile->rehabilitationScore ?? null,
+                        'chess_ca_score' => $profile->chessCAScore ?? null,
+                        'pain_score' => $profile->painScore ?? null,
+                        'distressed_mood_score' => $profile->distressedMoodScore ?? null,
+                        'service_urgency_score' => $profile->serviceUrgencyScore ?? null,
+                        // v2.2: Triggered CAPs
+                        'triggered_caps' => $profile->triggeredCAPs ?? [],
+                        // v2.2: BMHS indicators
+                        'has_bmhs' => $profile->hasBmhsAssessment,
+                        'self_harm_risk_level' => $profile->selfHarmRiskLevel ?? 0,
+                        'violence_risk_level' => $profile->violenceRiskLevel ?? 0,
                     ],
                     'scenario_count' => count($scenarios),
                     'scenarios' => array_map(fn($s) => $s->toArray(), $scenarios),

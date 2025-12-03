@@ -11,6 +11,8 @@ import axios from 'axios';
  * - Get applicable scenario axes
  * - Generate scenario bundles
  * - Compare scenarios
+ * - Get AI explanations for scenarios (v2.2)
+ * - Display algorithm scores and triggered CAPs (v2.2)
  */
 export function useBundleEngine() {
     const [profile, setProfile] = useState(null);
@@ -20,6 +22,10 @@ export function useBundleEngine() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [profileSummary, setProfileSummary] = useState(null);
+    const [algorithmScores, setAlgorithmScores] = useState(null);
+    const [triggeredCAPs, setTriggeredCAPs] = useState([]);
+    const [explanation, setExplanation] = useState(null);
+    const [explanationLoading, setExplanationLoading] = useState(false);
 
     /**
      * Build patient needs profile
@@ -110,6 +116,20 @@ export function useBundleEngine() {
                 setScenarios(response.data.data.scenarios);
                 setProfileSummary(response.data.data.profile_summary);
 
+                // v2.2: Extract algorithm scores and triggered CAPs from profile summary
+                if (response.data.data.profile_summary) {
+                    const summary = response.data.data.profile_summary;
+                    setAlgorithmScores({
+                        personalSupport: summary.personal_support_score,
+                        rehabilitation: summary.rehabilitation_score,
+                        chessCA: summary.chess_ca_score,
+                        pain: summary.pain_score,
+                        distressedMood: summary.distressed_mood_score,
+                        serviceUrgency: summary.service_urgency_score,
+                    });
+                    setTriggeredCAPs(summary.triggered_caps || []);
+                }
+
                 // Auto-select recommended scenario
                 const recommended = response.data.data.scenarios.find(s => s.meta?.is_recommended);
                 if (recommended) {
@@ -126,6 +146,35 @@ export function useBundleEngine() {
             throw err;
         } finally {
             setLoading(false);
+        }
+    }, []);
+
+    /**
+     * Get AI explanation for a selected scenario (v2.2)
+     */
+    const getExplanation = useCallback(async (patientId, scenarioIndex, withAlternatives = true) => {
+        setExplanationLoading(true);
+        setExplanation(null);
+
+        try {
+            const response = await axios.post('/api/v2/bundle-engine/explain', {
+                patient_id: patientId,
+                scenario_index: scenarioIndex,
+                with_alternatives: withAlternatives,
+            });
+
+            if (response.data.success) {
+                setExplanation(response.data.data.explanation);
+                return response.data.data;
+            } else {
+                throw new Error(response.data.error || 'Failed to get explanation');
+            }
+        } catch (err) {
+            const message = err.response?.data?.error || err.message || 'Failed to get explanation';
+            console.error('Explanation error:', message);
+            throw err;
+        } finally {
+            setExplanationLoading(false);
         }
     }, []);
 
@@ -187,6 +236,13 @@ export function useBundleEngine() {
     }, []);
 
     /**
+     * Clear explanation state
+     */
+    const clearExplanation = useCallback(() => {
+        setExplanation(null);
+    }, []);
+
+    /**
      * Clear all state
      */
     const reset = useCallback(() => {
@@ -196,6 +252,9 @@ export function useBundleEngine() {
         setSelectedScenario(null);
         setError(null);
         setProfileSummary(null);
+        setAlgorithmScores(null);
+        setTriggeredCAPs([]);
+        setExplanation(null);
     }, []);
 
     return {
@@ -207,6 +266,11 @@ export function useBundleEngine() {
         loading,
         error,
         profileSummary,
+        // v2.2: Algorithm scores and CAPs
+        algorithmScores,
+        triggeredCAPs,
+        explanation,
+        explanationLoading,
 
         // Actions
         buildProfile,
@@ -217,6 +281,9 @@ export function useBundleEngine() {
         invalidateCache,
         selectScenario,
         reset,
+        // v2.2: Explanation
+        getExplanation,
+        clearExplanation,
     };
 }
 

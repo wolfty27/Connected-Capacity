@@ -2254,4 +2254,106 @@ Location: `config/bundle_engine/cap_triggers/cognition/mental_health.yaml`
 
 ### Next Step
 
-**Phase 7: UI Enhancements** - Display algorithm scores, CAPs, and AI explanations in the Care Bundle Wizard UI.
+~~**Phase 7: UI Enhancements**~~ - COMPLETE
+
+---
+
+## AI-Assisted Bundle Engine - Phase 7: UI Enhancements (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Display algorithm scores, triggered CAPs, and AI explanations in the Care Bundle Wizard UI.
+
+### Components Created
+
+#### 1. ClinicalInsightsPanel
+Location: `resources/js/components/care/ClinicalInsightsPanel.jsx`
+
+An expandable panel that displays:
+- **Algorithm Scores** - Visual progress bars with interpretations:
+  - PSA (Personal Support): 1-6 scale → Low/Moderate/High
+  - RHA (Rehabilitation): 1-5 scale → Maintenance/Moderate/High
+  - CHESS (Health Instability): 0-5 scale → Stable/Moderate/Unstable
+  - PAIN: 0-4 scale → None/Mild/Severe
+  - DMS (Distressed Mood): 0-12 scale → Low/Moderate/High
+  - SUA (Service Urgency): 1-6 scale → Routine/Elevated/Urgent
+
+- **Triggered CAPs** - Color-coded by level:
+  - IMPROVE (rose): Active intervention needed
+  - PREVENT (amber): Risk reduction needed
+  - FACILITATE (blue): Enhancement opportunity
+  - MAINTAIN (slate): Status quo monitoring
+
+- **BMHS Indicators** (if available):
+  - Self-Harm Risk Level (0-3)
+  - Violence Risk Level (0-3)
+
+#### 2. BundleExplanationModal
+Location: `resources/js/components/care/BundleExplanationModal.jsx`
+
+A modal dialog that displays AI-generated or rules-based explanations:
+- Source badge (AI Generated vs Rules-Based)
+- Confidence level badge
+- Short explanation (1-3 sentences)
+- Detailed key factors list
+- Response time indicator
+
+#### 3. useBundleEngine Hook Enhancements
+Location: `resources/js/hooks/useBundleEngine.js`
+
+New state:
+- `algorithmScores` - Extracted from profile summary
+- `triggeredCAPs` - List of active CAPs
+- `explanation` - Current explanation data
+- `explanationLoading` - Loading state
+
+New actions:
+- `getExplanation(patientId, scenarioIndex)` - Fetch explanation from API
+- `clearExplanation()` - Reset explanation state
+
+#### 4. CareBundleWizard Updates
+Location: `resources/js/pages/CarePlanning/CareBundleWizard.jsx`
+
+- Added `ClinicalInsightsPanel` to left sidebar
+- Added "Explain" button on each AI scenario card
+- Added `BundleExplanationModal` triggered by Explain button
+- Added explanation state management
+
+#### 5. API Response Enhancement
+Location: `app/Http/Controllers/Api/V2/BundleEngineController.php`
+
+Profile summary now includes:
+```php
+'profile_summary' => [
+    // Existing fields...
+    // v2.2: Algorithm scores
+    'personal_support_score' => $profile->personalSupportScore,
+    'rehabilitation_score' => $profile->rehabilitationScore,
+    'chess_ca_score' => $profile->chessCAScore,
+    'pain_score' => $profile->painScore,
+    'distressed_mood_score' => $profile->distressedMoodScore,
+    'service_urgency_score' => $profile->serviceUrgencyScore,
+    // v2.2: Triggered CAPs
+    'triggered_caps' => $profile->triggeredCAPs,
+    // v2.2: BMHS indicators
+    'has_bmhs' => $profile->hasBmhsAssessment,
+    'self_harm_risk_level' => $profile->selfHarmRiskLevel,
+    'violence_risk_level' => $profile->violenceRiskLevel,
+]
+```
+
+### Files Created/Modified
+
+**Created:**
+- `resources/js/components/care/ClinicalInsightsPanel.jsx`
+- `resources/js/components/care/BundleExplanationModal.jsx`
+
+**Modified:**
+- `resources/js/hooks/useBundleEngine.js` (explanation API)
+- `resources/js/pages/CarePlanning/CareBundleWizard.jsx` (integration)
+- `app/Http/Controllers/Api/V2/BundleEngineController.php` (API response)
+
+### Next Step
+
+**Phase 8: Learning Infrastructure** (Optional) - BigQuery schemas for scenario tracking and outcomes.

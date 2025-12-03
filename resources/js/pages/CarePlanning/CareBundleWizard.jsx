@@ -18,6 +18,8 @@ import {
 import PatientSummaryCard from '../../components/care/PatientSummaryCard';
 import ServiceCard from '../../components/care/ServiceCard';
 import BundleSummary from '../../components/care/BundleSummary';
+import ClinicalInsightsPanel from '../../components/care/ClinicalInsightsPanel';
+import BundleExplanationModal from '../../components/care/BundleExplanationModal';
 import useServiceTypes, { mapCategory } from '../../hooks/useServiceTypes';
 import careBundleBuilderApi from '../../services/careBundleBuilderApi';
 import useBundleEngine from '../../hooks/useBundleEngine';
@@ -61,6 +63,11 @@ const CareBundleWizard = () => {
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [globalDuration, setGlobalDuration] = useState(12);
     const [showAdditionalServices, setShowAdditionalServices] = useState(false);
+
+    // v2.2: Explanation modal state
+    const [showExplanationModal, setShowExplanationModal] = useState(false);
+    const [explanationScenario, setExplanationScenario] = useState(null);
+    const [explanationError, setExplanationError] = useState(null);
 
     // Initialize services from API when available
     // Initialize services from API types when available and wizard data is loaded
@@ -355,6 +362,21 @@ const CareBundleWizard = () => {
         // If we are on step 1, move to step 2
         if (step === 1) {
             setStep(2);
+        }
+    };
+
+    /**
+     * v2.2: Handle requesting an AI explanation for a scenario
+     */
+    const handleExplainScenario = async (scenario, idx) => {
+        setExplanationScenario(scenario);
+        setShowExplanationModal(true);
+        setExplanationError(null);
+
+        try {
+            await bundleEngine.getExplanation(patientId, idx, true);
+        } catch (err) {
+            setExplanationError(err.message || 'Failed to generate explanation');
         }
     };
 
@@ -691,6 +713,15 @@ const CareBundleWizard = () => {
                     <div className="w-1/4 min-w-[300px] shrink-0 overflow-y-auto border-r border-slate-200 bg-slate-50/50 p-6">
                         <PatientSummaryCard patient={patient} />
 
+                        {/* v2.2: Clinical Insights Panel - Algorithm Scores & CAPs */}
+                        {(bundleEngine.algorithmScores || bundleEngine.triggeredCAPs?.length > 0) && (
+                            <ClinicalInsightsPanel
+                                algorithmScores={bundleEngine.algorithmScores}
+                                triggeredCAPs={bundleEngine.triggeredCAPs}
+                                profileSummary={bundleEngine.profileSummary}
+                            />
+                        )}
+
                         {/* Queue Status Card */}
                         {patient?.is_in_queue && (
                             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -896,9 +927,21 @@ const CareBundleWizard = () => {
                                                     </div>
 
                                                     {/* Footer stats - always at bottom */}
-                                                    <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-auto pt-2 border-t border-slate-100">
-                                                        <span>{serviceCount} services</span>
-                                                        <span>{disciplineCount} disciplines</span>
+                                                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100">
+                                                        <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                                                            <span>{serviceCount} services</span>
+                                                            <span>{disciplineCount} disciplines</span>
+                                                        </div>
+                                                        {/* v2.2: Explain button */}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleExplainScenario(scenario, idx);
+                                                            }}
+                                                            className="px-2 py-1 text-[10px] font-medium text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded transition-colors"
+                                                        >
+                                                            Explain
+                                                        </button>
                                                     </div>
                                                 </div>
                                             );
@@ -1202,6 +1245,19 @@ const CareBundleWizard = () => {
                         </div>
                     )}
             </div>
+
+            {/* v2.2: Bundle Explanation Modal */}
+            <BundleExplanationModal
+                isOpen={showExplanationModal}
+                onClose={() => {
+                    setShowExplanationModal(false);
+                    bundleEngine.clearExplanation();
+                }}
+                explanation={bundleEngine.explanation}
+                loading={bundleEngine.explanationLoading}
+                scenarioTitle={explanationScenario?.label?.title || explanationScenario?.axis?.primary?.label || 'Scenario'}
+                error={explanationError}
+            />
         </div>
     );
 };
