@@ -2356,4 +2356,113 @@ Profile summary now includes:
 
 ### Next Step
 
-**Phase 8: Learning Infrastructure** (Optional) - BigQuery schemas for scenario tracking and outcomes.
+~~**Phase 8: Learning Infrastructure**~~ - COMPLETE
+
+---
+
+## AI-Assisted Bundle Engine - Phase 8: Learning Infrastructure (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Design and implement the data infrastructure for tracking scenario effectiveness and enabling future AI learning.
+
+### Components Created
+
+#### 1. BigQuery Schema Design
+Location: `docs/plans/Learning_Infrastructure_Design.md`
+
+**Tables Designed:**
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `bundle_scenarios_generated` | Track all generated scenarios | scenario_id, primary_axis, services, algorithm_scores, triggered_caps |
+| `bundle_scenarios_selected` | Track coordinator selections | scenario_id, was_recommended, modifications_made, selection_time |
+| `bundle_patient_outcomes` | Track patient outcomes | outcome_type, outcome_value, days_since_plan_start |
+
+#### 2. Laravel Migration
+Location: `database/migrations/2025_12_03_000001_create_bundle_engine_events_table.php`
+
+Creates `bundle_engine_events` table for local event storage:
+- UUID primary key
+- Event type indexing
+- Patient/user de-identification
+- JSON payload for flexible event data
+- BigQuery export tracking
+
+#### 3. BundleEventLogger Service
+Location: `app/Services/BundleEngine/BundleEventLogger.php`
+
+Methods:
+- `logScenarioGenerated()` - Log scenario creation
+- `logScenariosGenerated()` - Log batch generation
+- `logScenarioSelected()` - Log coordinator selection
+- `logCarePlanPublished()` - Log plan activation
+- `logPatientOutcome()` - Log outcome events
+- `logExplanationRequested()` - Log AI explanation requests
+- `getEventsForExport()` - Get pending events
+- `markEventsExported()` - Mark as exported
+- `getEventStats()` - Monitoring statistics
+
+#### 4. BigQuery Export Command
+Location: `app/Console/Commands/ExportBundleEventsToBigQuery.php`
+
+```bash
+# Export pending events
+php artisan bundle-engine:export-events
+
+# Export with custom limit
+php artisan bundle-engine:export-events --limit=500
+
+# Preview without exporting
+php artisan bundle-engine:export-events --dry-run
+```
+
+### Learning Loop Architecture
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Bundle    │───▶│   Local     │───▶│   BigQuery  │
+│   Engine    │    │   Events    │    │   Analytics │
+└─────────────┘    └─────────────┘    └─────────────┘
+       │                                     │
+       │                                     ▼
+       │                            ┌─────────────┐
+       │                            │   Learning  │
+       │                            │   Pipeline  │
+       │                            └─────────────┘
+       │                                     │
+       │                                     ▼
+       │                            ┌─────────────┐
+       ◀────────────────────────────│   Rule      │
+                                    │   Proposals │
+                                    └─────────────┘
+```
+
+### Event Types
+
+| Event | When Logged | Key Data |
+|-------|-------------|----------|
+| `scenario_generated` | Scenario created | Axis, services, costs, algorithm scores |
+| `scenario_selected` | Coordinator picks scenario | Rank, was_recommended, modifications |
+| `care_plan_published` | Plan activated | Final services, cost, deviation |
+| `patient_outcome` | Outcome recorded | Type (ADL change, hospitalization, etc.) |
+| `explanation_requested` | AI explanation viewed | Source (vertex_ai, rules_based) |
+
+### Files Created
+
+- `docs/plans/Learning_Infrastructure_Design.md`
+- `database/migrations/2025_12_03_000001_create_bundle_engine_events_table.php`
+- `app/Services/BundleEngine/BundleEventLogger.php`
+- `app/Console/Commands/ExportBundleEventsToBigQuery.php`
+
+### Files Modified
+
+- `app/Providers/BundleEngineServiceProvider.php` (register BundleEventLogger)
+
+### Next Steps (Future)
+
+1. **GCP Integration** - Configure BigQuery credentials and enable export
+2. **Analytics Dashboard** - Build visualizations for scenario effectiveness
+3. **Learning Pipeline** - Implement pattern mining and model training
+4. **Rule Proposals** - Auto-generate configuration refinements

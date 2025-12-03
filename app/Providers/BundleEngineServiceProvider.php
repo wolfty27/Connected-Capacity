@@ -20,6 +20,7 @@ use App\Services\BundleEngine\Engines\DecisionTreeEngine;
 use App\Services\BundleEngine\Engines\CAPTriggerEngine;
 use App\Services\BundleEngine\Engines\ServiceIntensityResolver;
 use App\Services\BundleEngine\AlgorithmEvaluator;
+use App\Services\BundleEngine\BundleEventLogger;
 
 /**
  * BundleEngineServiceProvider
@@ -145,6 +146,11 @@ class BundleEngineServiceProvider extends ServiceProvider
                 $app->make(CAPTriggerEngine::class)
             );
         });
+
+        // v2.2: Learning Infrastructure - Event Logger
+        $this->app->singleton(BundleEventLogger::class, function ($app) {
+            return new BundleEventLogger();
+        });
     }
 
     /**
@@ -179,6 +185,8 @@ class BundleEngineServiceProvider extends ServiceProvider
             CAPTriggerEngine::class,
             ServiceIntensityResolver::class,
             AlgorithmEvaluator::class,
+            // v2.2 Learning Infrastructure
+            BundleEventLogger::class,
         ];
     }
 }
