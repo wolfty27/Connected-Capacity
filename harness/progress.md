@@ -2010,3 +2010,124 @@ ScenarioGenerator.generateScenarios()
 ### Next Step
 
 **Phase 5: Vertex AI Explanation** (Optional/Parallel) - Create explanation service for AI-generated scenario narratives.
+
+---
+
+## AI-Assisted Bundle Engine - Phase 5: Vertex AI Explanation (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Create AI explanation service for bundle scenarios with PII-safe prompts and deterministic fallback.
+
+### Components Created
+
+#### 1. BundleExplanationPromptBuilder
+Location: `app/Services/BundleEngine/Explanation/BundleExplanationPromptBuilder.php`
+
+Features:
+- Strict PII/PHI masking (no names, addresses, OHIP, coordinates)
+- De-identified patient references (P-{hash})
+- Algorithm score context with interpretations
+- Triggered CAP context
+- Scenario axis and service breakdown
+- Cost context (reference, not constraint)
+
+#### 2. BundleExplanationService
+Location: `app/Services/BundleEngine/Explanation/BundleExplanationService.php`
+
+Features:
+- Tries Vertex AI first (if enabled)
+- Falls back to RulesBasedBundleExplanationProvider
+- Comprehensive error handling (timeout, rate limit, auth errors)
+- Audit logging (patient_id, scenario_id, source, status - never prompts/responses)
+
+#### 3. RulesBasedBundleExplanationProvider
+Location: `app/Services/BundleEngine/Explanation/RulesBasedBundleExplanationProvider.php`
+
+Features:
+- Deterministic explanations when Vertex AI unavailable
+- Axis-aware explanation generation
+- Algorithm score integration in explanations
+- CAP trigger mention in explanations
+- Confidence label based on data quality
+
+#### 4. API Endpoint
+Route: `POST /v2/bundle-engine/explain`
+
+Request:
+```json
+{
+  "patient_id": 1,
+  "scenario_index": 0,
+  "with_alternatives": true
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "scenario": {
+      "id": "uuid",
+      "title": "Community Integrated",
+      "axis": "community_integrated"
+    },
+    "explanation": {
+      "short_explanation": "This bundle integrates community resources...",
+      "key_factors": ["Factor 1", "Factor 2"],
+      "confidence_label": "High Confidence - Full HC Assessment",
+      "source": "rules_based",
+      "response_time_ms": 0
+    },
+    "vertex_ai_enabled": false
+  }
+}
+```
+
+### Test Results
+
+```
+=== Explanation Result ===
+Source: rules_based
+Confidence: High Confidence - Full HC Assessment
+Response Time: 0ms
+
+Short Explanation:
+This bundle integrates community resources for holistic care. 
+The Pain CAP indicates active intervention is recommended.
+
+Key Factors:
+  • Connects patient to community resources and day programs
+  • Pain management is prioritized in nursing care plan (Pain: 4/4)
+  • Pain CAP triggered - Significant pain requiring active intervention
+  • Bundle addresses identified risks: Health stability monitoring
+
+Vertex AI Status: No (disabled in config)
+```
+
+### PII Masking Validation
+
+The prompt builder enforces:
+- Forbidden field patterns: name, email, phone, address, ohip, dob, lat/lng
+- Email pattern detection
+- OHIP pattern detection (10-digit sequences)
+- De-identified references: P-{hash} instead of patient IDs
+
+### Files Created
+
+- `app/Services/BundleEngine/Explanation/BundleExplanationPromptBuilder.php`
+- `app/Services/BundleEngine/Explanation/BundleExplanationService.php`
+- `app/Services/BundleEngine/Explanation/RulesBasedBundleExplanationProvider.php`
+
+### Files Modified
+
+- `app/Http/Controllers/Api/V2/BundleEngineController.php` (added explainScenario)
+- `routes/api.php` (added POST /v2/bundle-engine/explain)
+
+### Next Steps (Optional)
+
+**Phase 6: BMHS Integration** - Map BMHS assessment data for mental health complexity.
+**Phase 7: UI Enhancements** - Display algorithm scores, CAPs, and AI explanations in UI.
+**Phase 8: Learning Infrastructure** - BigQuery schemas for scenario tracking and outcomes.

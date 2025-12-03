@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use App\Services\BundleEngine\Contracts\AssessmentIngestionServiceInterface;
 use App\Services\BundleEngine\Contracts\ScenarioGeneratorInterface;
+use App\Services\BundleEngine\Explanation\BundleExplanationService;
 use App\Services\BundleEngine\ScenarioAxisSelector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,8 +29,11 @@ class BundleEngineController extends Controller
     public function __construct(
         protected AssessmentIngestionServiceInterface $ingestionService,
         protected ScenarioGeneratorInterface $scenarioGenerator,
-        protected ScenarioAxisSelector $axisSelector
-    ) {}
+        protected ScenarioAxisSelector $axisSelector,
+        protected ?BundleExplanationService $explanationService = null
+    ) {
+        $this->explanationService = $explanationService ?? new BundleExplanationService();
+    }
 
     /**
      * Build patient needs profile.
@@ -269,6 +273,91 @@ class BundleEngineController extends Controller
             'success' => true,
             'message' => 'Profile cache invalidated',
         ]);
+    }
+
+    /**
+     * Generate AI explanation for a selected scenario.
+     *
+     * POST /v2/bundle-engine/explain
+     *
+     * Body:
+     * - patient_id: int - The patient ID
+     * - scenario_index: int - Index of the selected scenario (0-based)
+     * - with_alternatives: bool - Include alternative scenarios for context (default: true)
+     *
+     * Response includes:
+     * - short_explanation: 2-3 sentence summary
+     * - key_factors: Array of detailed explanation points
+     * - confidence_label: Confidence indicator
+     * - source: 'vertex_ai' or 'rules_based'
+     */
+    public function explainScenario(Request $request): JsonResponse
+    {
+        $request->validate([
+            'patient_id' => 'required|exists:patients,id',
+            'scenario_index' => 'required|integer|min:0',
+            'with_alternatives' => 'boolean',
+        ]);
+
+        try {
+            $patient = Patient::findOrFail($request->patient_id);
+            $profile = $this->ingestionService->buildPatientNeedsProfile($patient);
+            $scenarios = $this->scenarioGenerator->generateScenarios($profile);
+
+            $scenarioIndex = $request->integer('scenario_index');
+            if ($scenarioIndex >= count($scenarios)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Scenario index out of range',
+                    'available_scenarios' => count($scenarios),
+                ], 400);
+            }
+
+            $selectedScenario = $scenarios[$scenarioIndex];
+            $alternatives = $request->boolean('with_alternatives', true)
+                ? array_filter($scenarios, fn($s, $i) => $i !== $scenarioIndex, ARRAY_FILTER_USE_BOTH)
+                : [];
+
+            // Generate explanation
+            $explanation = $this->explanationService->explainScenario(
+                $profile,
+                $selectedScenario,
+                array_values($alternatives),
+                auth()->id()
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'scenario' => [
+                        'id' => $selectedScenario->scenarioId,
+                        'title' => $selectedScenario->title,
+                        'axis' => $selectedScenario->primaryAxis->value,
+                    ],
+                    'explanation' => [
+                        'short_explanation' => $explanation->shortExplanation,
+                        'key_factors' => $explanation->detailedPoints,
+                        'confidence_label' => $explanation->confidenceLabel,
+                        'source' => $explanation->source,
+                        'generated_at' => $explanation->generatedAt->toIso8601String(),
+                        'response_time_ms' => $explanation->responseTimeMs,
+                    ],
+                    'vertex_ai_enabled' => $this->explanationService->isVertexAiEnabled(),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate scenario explanation', [
+                'patient_id' => $request->patient_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate explanation: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

@@ -453,6 +453,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Compare two scenarios
         Route::post('/compare', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'compareScenarios']);
         
+        // Generate AI explanation for a scenario
+        Route::post('/explain', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'explainScenario']);
+        
         // Invalidate cached profile
         Route::post('/invalidate-cache/{patient}', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'invalidateCache'])
             ->where(['patient' => '[0-9]+']);
