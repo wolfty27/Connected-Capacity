@@ -2618,3 +2618,47 @@ Results:
 - rehab_support: floor=3 visits (2 from Rehab=3 + 1 from Falls CAP)
 - risk_mgmt_and_complexity: floor=6.7 units (Falls + Mood + lives_alone)
 - social_support: floor=1.7 units (Mood CAP)
+
+---
+
+## 2025-12-03: Patient Detail Page Layout Fixes
+
+### Issue
+Patient detail page header was experiencing rendering issues where:
+- Patient name "Albert Singh" was not visible at the top of the page
+- Only "Patient ID: 14" was showing, but the name above it was clipped/invisible
+- This was due to conflicting CSS layout between sticky/fixed navigation and main content padding
+
+### Root Cause
+The `AppLayout.jsx` navigation bar was using `fixed left-0 right-0 top-0` positioning with `pt-32` padding on main content, which was causing the first child elements to be clipped or rendered outside the viewport.
+
+### Solution Implemented
+1. **Fixed Navigation Positioning** (`AppLayout.jsx`)
+   - Changed from `fixed left-0 right-0 top-0` to `sticky top-0`
+   - Reduced main content padding from `pt-32` to `pt-6`
+   - This allows the nav to flow naturally in the document while still sticking to the top during scroll
+
+2. **Consistent Padding** (`DashboardLayout.jsx`)
+   - Updated from `mt-16` to `pt-6 md:pt-10 overflow-y-auto`
+   - Ensures consistent spacing across different layout components
+   - Maintains proper scroll behavior
+
+3. **Added Navigation Button** (`PatientDetailPage.jsx`)
+   - Added "Back to Patient Hub" button with ArrowLeft icon
+   - Styled with teal theme colors for brand consistency
+   - Used `!text-teal-700` to override any conflicting global styles
+   - Button now provides clear navigation back to patient list
+
+### Files Modified
+- `resources/js/components/Layout/AppLayout.jsx` - Fixed nav positioning
+- `resources/js/layouts/DashboardLayout.jsx` - Consistent padding
+- `resources/js/pages/Patients/PatientDetailPage.jsx` - Added back button
+
+### Verification
+- Patient name "Albert Singh" now displays correctly at top of page
+- "Back to Patient Hub" button is visible and functional
+- Navigation remains sticky during page scroll
+- Layout works consistently across all patient detail pages
+
+### Commit
+- `253c9e4` - fix(ui): Fix patient header layout and add Back to Patient Hub button
