@@ -1,0 +1,220 @@
+﻿Technical Architecture and Clinical Logic Report: Connected Capacity 2.1 AI-Assisted Bundle Builder
+1. Strategic Context and System Objectives
+The healthcare landscape in Ontario and across comparable jurisdictions is undergoing a profound structural transformation, necessitating a shift from volume-based, heuristic care coordination to value-based, algorithmic resource allocation. The Connected Capacity 2.1 AI-Assisted Bundle Builder represents a critical infrastructure intervention designed to operationalize this shift. The mandate from Ontario Health at Home (OHAH) is unequivocal: the system must support high-acuity caseloads with a target of 100% acceptance, rapid bundle creation, and bespoke service tailoring that respects the granular functional, medical, and social context of every patient.
+The current operational paradigm relies heavily on the manual cognitive processing of care coordinators. These professionals are tasked with synthesizing dozens of complex indicators from the interRAI Home Care (HC) or Contact Assessment (CA)—ranging from Activities of Daily Living (ADL) scores to nuanced caregiver distress metrics—and translating them into a service plan. This manual process is inherently subject to variability, cognitive fatigue, and localized practice norms that may not align with provincial standards or optimal clinical evidence. Furthermore, the sheer volume of data involved in a comprehensive assessment often leads to "information overload," where subtle but critical risk factors (such as early-stage cognitive decline paired with high caregiver reliance) may be overlooked in favor of more obvious acute needs.
+The AI-Assisted Bundle Builder addresses these systemic inefficiencies by introducing a four-stage intelligence pipeline. This pipeline does not merely digitize the existing manual workflow; it fundamentally restructures the decision-making process. By treating the care bundle as a deterministic output of a structured "PatientNeedsProfile," the system ensures equity, consistency, and safety. The architecture is designed to ingest heterogeneous assessment data, normalize it, apply a rigid evidence-based "Service Intensity Matrix," generate distinct care philosophies (scenarios), and finally, leverage the generative capabilities of Vertex AI (Gemini) to provide transparent, human-readable rationales for every recommendation.
+This report serves as the foundational design and research document for this system. It provides an exhaustive analysis of the clinical evidence required to power the decision engine, the technical specifications for data ingestion and transformation, and the strategic logic governing the generation of multi-scenario care bundles. It integrates the operational realities of the provided Service Catalog 1 with the theoretical frameworks of interRAI scholarship to create a blueprint for a robust, "expert-level" decision support system.
+________________
+2. Stage 1: The Intelligence of Assessment Ingestion
+The efficacy of any AI decision support system is inextricably linked to the quality and structure of its input data. In the context of Connected Capacity 2.1, the "input brain" is the AssessmentIngestionService, a complex ETL (Extract, Transform, Load) pipeline designed to ingest, validate, and normalize data from disparate sources into a unified schema known as the PatientNeedsProfile.
+2.1 Data Heterogeneity and Normalization Challenges
+The system must be agnostic to the source of the assessment while remaining highly specific in its internal processing. The inputs vary significantly in granularity and reliability:
+* interRAI Home Care (HC): The gold standard for long-stay home care clients. It provides comprehensive scales for cognition (CPS), functional performance (ADL/IADL), and medical stability (CHESS).
+* interRAI Contact Assessment (CA): A screening tool used for intake. It lacks the depth of the HC but provides critical "urgency" signals via the MAPLe score (Method for Assigning Priority Levels).
+* interRAI BMHS (Community Mental Health): Focuses on psychiatric symptoms, requiring a different mapping strategy to service lines compared to the geriatric-focused HC.
+* Referral/Hospital Data: Often unstructured or semi-structured (HL7 messages, PDF discharge summaries).
+* SPO Observational Data: Real-time feedback from service providers (Service Provider Organizations) that may contradict or update the static assessment.
+The AssessmentIngestionService functions as a translation layer. It must map these diverse inputs to the ~75 attributes of the PatientNeedsProfile. For example, an "unsteady gait" noted in a hospital discharge summary must be semantically mapped to the same internal risk flag as a "Falls CAP" trigger in an interRAI HC assessment. This normalization is critical because the downstream "Service Intensity Matrix" relies on a standardized vocabulary to assign resources.
+2.2 The PatientNeedsProfile: Architectural Definition
+The PatientNeedsProfile is not merely a data dump; it is a calculated representation of the patient's "capacity" versus their "performance." This distinction is vital for generating the "Recovery-Focused" scenario. The profile is structured around seven core domains, each influencing specific aspects of the service bundle.
+2.2.1 Functional Status Domain
+This domain aggregates data regarding the patient's physical ability to perform daily tasks. It is the primary driver for Personal Care (PSW) and Homemaking services.1
+* ADL Hierarchical Scale: A calculated score (0-6) derived from four key indicators: personal hygiene, toilet use, locomotion, and eating. The profile stores both the raw score and the decomposed sub-scores (e.g., "Locomotion Performance" vs. "Locomotion Capacity").
+* IADL Difficulty Score: Measures complexity in Instrumental Activities of Daily Living (e.g., meal preparation, phone use). A high score here, combined with a "Living Alone" status, triggers logistics services like Meal Delivery 1 or Homemaking.1
+* Transfer Dependency: A binary flag derived from the ADL scale. If true, it necessitates a "Safety Check" in the logic engine to ensure the recommended PSW visit duration accounts for mechanical lift usage or two-person transfers.
+2.2.2 Cognition and Behaviour Domain
+This domain drives the need for supervision and safety monitoring, heavily influencing the "Safety & Stability" scenario.
+* CPS (Cognitive Performance Scale): Maps the patient's cognitive status from Intact (0) to Very Severe Impairment (6).
+* Behavioural Symptoms: Flags for wandering, verbal aggression, or physical resistance to care. These are critical cost drivers; a patient with "Resistance to Care" requires highly trained staff or longer visit times, influencing the Operational Cost Driver for Personal Care (PSW).1
+* Mood/Mental Health: Triggers for depression or social isolation, which the logic engine maps to Social Work (SW) 1 or Social/Recreational 1 programs.
+2.2.3 Clinical Risks and Medical Complexity
+This domain identifies the need for regulated health professionals.
+* CHESS Score: The cardinal indicator of medical instability. A score ≥ 3 signals a high risk of adverse outcomes and mandates clinical oversight.
+* Specific Clinical Flags: Presence of pressure ulcers (Stage 2+), requirement for IV therapy, catheter maintenance, or tube feeding. These flags directly trigger specific items in the service catalog, such as Nursing (Infusion) or Dietetics (RD).1
+2.2.4 Caregiver Context
+The sustainability of any home care plan relies on the informal caregiver.
+* Caregiver Distress Index: A composite score measuring burnout risk.
+* Informal Hours Available: A quantitative measure of how much support the family can provide.
+* Reliance: A qualitative measure of how critical the caregiver is to the patient's survival at home. High reliance + High distress is the algorithm's strongest trigger for Respite Care.1
+________________
+3. Stage 2: The Service Intensity Matrix (Evidence and Logic)
+The core of the Bundle Builder is Stage 2, where the normalized PatientNeedsProfile is processed against the Service Intensity Matrix. This matrix is a deterministic, metadata-driven rules engine that codifies the relationship between clinical needs and resource allocation. It serves as the "Baseline" generator, ensuring that every patient receives a minimum standard of care dictated by evidence, irrespective of the scenarios generated later.
+3.1 The Evidence Hierarchy
+The Matrix is constructed from a hierarchy of evidence sources, ranked by their prescriptive authority:
+1. Provincial/Legislative Constraints: Hard limits on service provision (e.g., Ontario PSW maximums).
+2. interRAI Clinical Assessment Protocols (CAPs): Validated algorithms that identify clients who would benefit from specific interventions.
+3. Peer-Reviewed Research: Algorithms linking RUG-III/HC groups to resource utilization (e.g., the "Personal Support Algorithm").
+4. Best Practice Guidelines: Consensus-based norms for wound care, palliative management, and chronic disease pathways.
+3.2 Matrix Logic: Clinical Assessment Protocols (CAPs)
+The logic engine uses CAP triggers to activate specific lines in the Service Catalog.1 The following analysis details how key CAPs map to the provided services.
+3.2.1 The Falls CAP and Physical Activity Promotion
+Falls are a leading cause of hospitalization and institutionalization. The Falls CAP identifies patients with a history of falls, unsteady gait, or dizziness.
+* Evidence Basis: Research indicates that targeted exercise and environmental modification can reduce fall risk by up to 30%.
+* Matrix Mapping:
+   * Trigger: Falls CAP = Triggered (Medium/High Risk).
+   * Primary Intervention: Physiotherapy (PT).1 The matrix assigns a baseline frequency (e.g., 1 assessment + 4-6 treatment visits) focusing on "Mobility: Gait training, fall prevention."
+   * Secondary Intervention: Occupational Therapy (OT).1 Assigned for "Safety: Home environment assessment" to identify trip hazards.
+   * Tertiary Intervention: Lifeline (PERS).1 If the patient lives alone (social_caregiver.living_situation = Alone), the logic mandates a subscription to a Personal Emergency Response System.
+3.2.2 The Skin Integrity and Pressure Ulcer CAP
+This CAP targets patients with existing ulcers or those at high risk (e.g., bedfast, bowel incontinence).
+* Evidence Basis: Regular repositioning and specialized wound care are essential for healing and prevention.
+* Matrix Mapping:
+   * Trigger: Pressure Ulcer CAP = Triggered.
+   * Primary Intervention: Nursing (RN/RPN).1 Specifically mapped to "Wound Care: Surgical, pressure ulcers." The frequency is derived from the severity of the wound (e.g., Daily for Stage 3/4, 2x/Week for Stage 2).
+   * Supportive Intervention: Personal Care (PSW).1 The matrix increases PSW duration to accommodate "Turning/positioning" 1 during hygiene visits.
+   * Equipment: Occupational Therapy (OT) 1 is triggered for surface selection (e.g., air mattress).
+3.2.3 The Nutrition CAP
+Identifies patients with weight loss, dehydration, or swallowing difficulties.
+* Matrix Mapping:
+   * Trigger: Nutrition CAP = Triggered OR clinical_complexity.tube_feeding = True.
+   * Primary Intervention: Dietetics (RD).1 Mapped to "Nutrition: Therapeutic diets... tube feeding formulas."
+   * Secondary Intervention: If the patient cannot prepare meals (iadl_meal_prep = Dependent), the matrix triggers Meal Delivery 1 ("Coordination and payment for prepared meal delivery").
+   * Safety Intervention: If swallowing issues are flagged (clinical_complexity.dysphagia = True), Speech-Language (SLP) 1 is triggered for "Swallowing: Dysphagia management."
+3.3 Matrix Logic: The RUG-III/HC Case-Mix System
+While CAPs identify what to do, the RUG-III/HC classification helps determine how much to do. The matrix uses the patient's RUG group as a statistical guardrail for intensity.
+
+
+RUG-III Category
+	Clinical Characteristics
+	Service Intensity Implications
+	Special Rehabilitation
+	PT/OT/SLP required ≥ 45 mins/week
+	High Therapy: The matrix prioritizes PT/OT 1 budget. PSW services focus on "ADL Training" rather than passive assistance.
+	Extensive Services
+	IV, Tracheostomy, Ventilator
+	High Nursing: Triggers daily/multiple daily Nursing (RN/RPN) 1 and Respiratory Therapy (RT).1 Nurse Practitioner (NP) 1 consult mandated for acuity oversight.
+	Clinically Complex
+	High CHESS, Burns, Chemotherapy
+	Moderate Nursing + High Monitoring: Triggers Remote Patient Monitoring (RPM) 1 to track stability between nursing visits.
+	Impaired Cognition
+	Cognitive impairment, Wandering
+	High Supervision: Prioritizes Adult Day Programs (Social/Recreational 1) and Respite Care 1 to prevent caregiver burnout.
+	Reduced Physical Function
+	ADL deficits only
+	High Personal Support: The bulk of the budget is allocated to Personal Care (PSW) 1 for hygiene and transfer assistance.
+	3.4 Matrix Logic: The Personal Support Algorithm
+The allocation of PSW hours is often the most contentious and expensive part of a care plan. The matrix employs a "Personal Support Algorithm" derived from the ADL Hierarchical Scale and the "Time per Task" operational cost drivers.
+* Logic Step 1: ADL Evaluation. The system evaluates the adl_score_hierarchical.
+   * Score 0-1 (Independent/Supervision): No hands-on PSW. Refer to Homemaking 1 if IADL deficits exist.
+   * Score 2-3 (Limited Assistance): Triggers "Setup/Hygiene" visits. Duration: ~30-45 mins. Frequency: 1-3x/week (Bathing focus).
+   * Score 4+ (Extensive Assistance/Dependent): Triggers "ADL Routine" visits. Duration: 60-90 mins. Frequency: Daily or 2x Daily (Morning/Evening).
+* Logic Step 2: Modifier Application.
+   * Incontinence Modifier: If clinical_complexity.continence = Bowel/Bladder Incontinent, ADD 15 mins per visit for "incontinence care".1
+   * Behaviour Modifier: If cognition_behaviour.aggression = Present, INCREASE duration by 25% to account for de-escalation time.
+   * Caregiver Modifier: If social_caregiver.informal_hours > 20, REDUCE frequency (assume family covers evening/weekend shifts).
+________________
+4. Stage 3: Scenario Generation (The "Persona" Engine)
+Once the Baseline Service Requirement is established via the Matrix, the system moves to Stage 3: Scenario Generation. This stage distinguishes the AI Bundle Builder from a simple calculator. It recognizes that "optimal care" is subjective and dependent on the goals of the patient and family. The ScenarioGenerator creates 3-5 distinct "ScenarioBundleDTOs" (Data Transfer Objects), each meeting the safety baseline but emphasizing different "Scenario Axes."
+4.1 Scenario A: Recovery-Focused (The "Rehab" Bundle)
+* Target Profile: Patients with rehab_potential = Good/Excellent, Post-Acute discharge, or triggering the Rehab CAP.
+* Philosophy: High short-term investment for long-term functional gain. Prioritizes independence over passive support.
+* Service Configuration:
+   * Physiotherapy (PT) 1: Intensity increased to maximum evidence-based frequency (e.g., 2-3x/week). Focus on "Mobility" and "Chest PT."
+   * Occupational Therapy (OT) 1: Added for "ADL Training" (retraining the patient to dress themselves) rather than just providing equipment.
+   * Personal Care (PSW) 1: Hours are constrained or focused strictly on "setup" to encourage the patient to perform tasks themselves.
+   * Medical Transportation 1: Budget allocated for travel to external clinics/imaging.
+* Trade-off Note: "Weekly cost is highest ($X) for the first 6 weeks, projected to decrease as independence improves."
+4.2 Scenario B: Safety & Stability (The "Risk Management" Bundle)
+* Target Profile: High CPS (Cognitive Impairment), High Falls Risk, Living Alone, High CHESS.
+* Philosophy: Prevent catastrophic events (falls, wandering, medical crises) through constant surveillance.
+* Service Configuration:
+   * Technology: Lifeline (PERS) 1 and Remote Patient Monitoring (RPM) 1 are mandatory. RPM tracks vitals to catch CHESS decline early.
+   * Security Checks 1: Added for days where no other provider is present (Telephone reassurance or physical checks).
+   * Personal Care (PSW) 1: Shifts focus from "Hygiene" to "Supervision" and "Turning/positioning."
+* Trade-off Note: "Focuses on preventing ED visits. May feel intrusive to some patients due to high monitoring frequency."
+4.3 Scenario C: Caregiver Relief (The "Sustainability" Bundle)
+* Target Profile: High caregiver_distress_index, High caregiver_reliance.
+* Philosophy: The patient's ability to remain at home is entirely dependent on the caregiver's wellbeing. The "patient" is effectively the dyad (client + caregiver).
+* Service Configuration:
+   * Respite Care 1: The primary volume driver. Maximized to the allowable cap (e.g., blocks of 4-6 hours).
+   * Homemaking 1: Triggers "Cleaning" and "Errands" to offload instrumental tasks from the family.
+   * Meal Delivery 1: Added to reduce daily burden.
+   * Social/Recreational 1: Adult Day Programs are prioritized to get the patient out of the house, providing the caregiver with rest.
+* Trade-off Note: "Direct care to the patient is minimized in favor of services that support the family unit."
+4.4 Scenario D: Tech-Enabled (The "Modern" Bundle)
+* Target Profile: Moderate medical complexity, comfortable with technology, rural location (where staff is scarce).
+* Philosophy: Leverage digital tools to overcome geographic or staffing constraints.
+* Service Configuration:
+   * Remote Patient Monitoring (RPM) 1: Replaces 50% of routine Nursing visits for vitals checks.
+   * Social/Recreational 1: "Virtual" friendly visiting or online social inclusion programming.
+   * Medical Transportation 1: Minimized in favor of virtual care.
+________________
+
+
+5. Detailed Analysis of the Service Catalog
+1
+
+
+The system's output is constrained by the "Menu of Interventions" provided in BundleComponents.csv.1 Each item in this catalog has specific "Operational Cost Drivers" and "Internal Codes" that the AI must manipulate.
+5.1 Clinical Services: The High-Cost Drivers
+These services are generally "Per Visit" or "Hourly Labour" but at a higher rate than PSWs.
+* Nursing (RN/RPN):
+   * Categories: Wound Care, Infusion, Palliative, Meds.
+   * AI Logic: The AI must differentiate "Task-based" nursing (Wound Care - 30 mins) from "Assessment-based" nursing (Palliative - 60 mins). The "Infusion" category requires a logic check for Pharmacy Support to ensure the drug is delivered.
+* Therapies (PT/OT/RT/SLP/RD/SW):
+   * Operational Driver: "Per Visit Rate."
+   * Constraint: Unlike nursing, these are often "Episode-based." The AI should bundle them as a "Course of Treatment" (e.g., 6 visits over 3 weeks) rather than an indefinite weekly recurring event.
+* Nurse Practitioner (NP):
+   * Role: "Advanced Care."
+   * Trigger: This is a strategic resource. The AI triggers NP services only for "High-Acuity" caseloads (CHESS 4-5) to prevent hospital readmission.
+5.2 Personal Support & Daily Living: The Volume Drivers
+These represent the bulk of hours and weekly cost.
+* Personal Care (PSW):
+   * Sub-tasks: Hygiene, Mobility.
+   * Constraint: The "Delegated Acts" category is critical. If the AI assigns a delegated act (e.g., glucometer testing), it must pair it with a Nursing "Teach and Delegate" visit in the first week.
+* Homemaking:
+   * Overlap: Note that Homemaking and Personal Care often share the same Internal Code (COST-PSW) and "Sched 3" source. The AI must clearly distinguish the task in the bundle description so the provider knows whether to send a staff member willing to clean versus one focused on patient care.
+* Respite Care:
+   * Driver: Hourly Labour.
+   * AI Logic: This is the "flex" capacity. If the bundle is under budget, Respite is the first "add-on" to suggest for caregiver goodwill.
+5.3 Safety, Monitoring & Technology
+* Lifeline (PERS):
+   * Driver: Monthly Subscription.
+   * Value: High ROI. A $40/month button is infinitely cheaper than a fall. The AI weights this heavily in all scenarios for patients > 75 years old.
+* Remote Patient Monitoring (RPM):
+   * Driver: Device Lease + Software Fee.
+   * Integration: Includes "staff time to monitor alerts." The AI must ensure that if RPM is ordered, the SPO has the capacity to monitor the dashboard.
+5.4 Logistics & Access Services
+* Medical Transportation:
+   * Driver: Per Trip / Per Km.
+   * Critical Gap: The catalog lists "no distance cap defined." The AI needs a geospatial module (Stage 1) to estimate this cost accurately. A patient 100km from a dialysis center will blow the budget on transport alone.
+* Meal Delivery:
+   * Driver: Per Meal Cost.
+   * Logic: "Meals on Wheels" is often cheaper than paying a PSW 1 hour to cook a meal. The AI should prioritize this for "Cost-Conscious" optimization.
+________________
+6. Stage 4: Vertex AI and the Explanation Layer
+The fourth stage addresses the "Black Box" problem. Healthcare providers are trained to be skeptical; they will not accept a "computer-generated" plan without understanding the rationale. Stage 4 utilizes Google Vertex AI (Gemini) to generate these rationales.
+6.1 The Architecture of Explanation
+The system does not ask Gemini to decide the care (that was done by the deterministic Matrix in Stage 2 and Scenario Generator in Stage 3). Instead, it asks Gemini to interpret the data.
+* Input to Vertex AI:
+   1. De-identified Patient Profile: { "adl_score": 4, "chess_score": 3, "caregiver_distress": "High"... }
+   2. Generated Scenario DTO: { "scenario": "Safety & Stability", "services": }
+   3. Clinical Rationale Library: Snippets of evidence (e.g., "High CHESS score indicates mortality risk").
+* Prompt Engineering Strategy:
+The prompt is strictly engineered to prevent hallucination."You are an expert Clinical Care Coordinator. Using ONLY the provided patient profile and the selected service bundle, explain to a peer why this specific combination of services was chosen. Explicitly reference the patient's 'Falls Risk' and 'Cognitive Status' as primary drivers. Do not invent new symptoms. Maintain a professional, empathetic tone."
+6.2 Output Generation
+Gemini produces a structured narrative:
+"Rationale for Safety & Stability Bundle: Mrs. Doe presents with a high risk of falls (Falls CAP triggered) and moderate cognitive decline (CPS 3), complicated by living alone. This bundle prioritizes continuous monitoring over episodic care. We have included Remote Patient Monitoring (RPM) to track her heart failure symptoms (CHESS 3) daily, reducing the need for frequent nursing visits. Lifeline is included for immediate emergency response. Personal Support is scheduled daily, focusing on safe transfers and medication reminders rather than extensive rehabilitation, aligning with the goal of maintaining her current stability in the home."
+6.3 Future State: AI Scenario Generation (Phase 5)
+In the future, the system will move beyond explanation to de novo generation. Gemini will propose new bundles by exploring the entire solution space of the Service Catalog. This requires a feedback loop (Reinforcement Learning from Human Feedback - RLHF) where the AI learns from the "edits" coordinators make to the Phase 2 bundles. If coordinators consistently add "Wound Care" when "Diabetes" is present, the AI learns this association.
+________________
+7. Research Gaps and Future Requirements
+While the defined architecture is robust, there are specific evidence gaps that must be addressed to achieve "100% acceptance" and optimal precision.
+7.1 The "Dose-Response" Gap
+   * The Issue: We know that PT helps fall risk. We do not have a precise algorithm for how much PT is optimal (e.g., is 2x/week significantly better than 1x/week for a MAPLe 3 patient?).
+   * Requirement: Analysis of historical claims data linked to outcomes (e.g., ADL change scores). The system needs a "Therapy Intensity Curve" to optimize ROI.
+7.2 The Rurality/Friction Coefficient
+   * The Issue: The Service Catalog lists "Medical Transportation" 1 and "Travel Complexity" attributes, but lacks a unified "Friction Coefficient." Providing 1 hour of PSW care in a remote fly-in community costs significantly more (in staff time and travel) than in downtown Toronto.
+   * Requirement: Integration of a geospatial service (e.g., Google Maps API) into Stage 2. The Matrix must adjust "Duration" or "Cost" based on travel time. A "Rural Service Modifier" should automatically pad visit times to account for logistics.
+7.3 Caregiver Burnout Thresholds
+   * The Issue: The Caregiver Distress Index is a scale, but the "tipping point" (where the caregiver collapses and the patient goes to ER) is not well-defined in the catalog.
+   * Requirement: Research into the correlation between Distress Scores and "Unplanned Institutionalization." This would allow the AI to trigger "Emergency Respite" before the breakdown occurs.
+7.4 Service Availability (Capacity Checking)
+   * The Issue: The AI assumes infinite supply. It might build a perfect bundle requiring a "Male PSW" and "Speech Therapy," neither of which may be available in the specific SPO (Service Provider Organization) region.
+   * Requirement: A real-time "Capacity API" integration in Stage 3. The Scenario Generator should query the SPO's availability engine. If "Speech Therapy" is unavailable, the AI should propose a valid alternative (e.g., "Dietitian for texture modification" + "Nurse for feeding strategies").
+________________
+8. Conclusion
+The Connected Capacity 2.1 AI-Assisted Bundle Builder represents a sophisticated synthesis of clinical evidence, data engineering, and generative AI. By structuring the chaotic inputs of home care assessment into a normalized PatientNeedsProfile and processing them through a deterministic Service Intensity Matrix, the system solves the core problems of variability and inequity. The addition of the "Scenario Generator" and the "Vertex AI Explanation Layer" ensures that the output is not just clinically sound, but also personalized and intelligible to human decision-makers.
+To fully realize the goal of managing high-acuity caseloads with 100% acceptance, the system must rigorously implement the mappings detailed in this report—specifically the links between interRAI CAPs and the Service Catalog.1 Furthermore, immediate attention must be paid to the identified research gaps, particularly regarding the geospatial modeling of service delivery and the precise calibration of "dose-response" curves for therapy services. With these elements in place, the Bundle Builder will transform care coordination from a bottleneck into a strategic enabler of health system capacity.
+Works cited
+   1. BundleComponents.csv

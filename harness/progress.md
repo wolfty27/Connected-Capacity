@@ -1382,3 +1382,172 @@ Completed UI integration and refinements for the AI-Assisted Bundle Engine.
 - ✅ Bundle card clicks don't auto-advance
 - ✅ No Provider dropdown in service customization
 - ✅ Single frequency/duration display in controls
+
+---
+
+## AI-Assisted Bundle Engine - v2.2 Architecture Redesign (2025-12-03)
+
+### Status: PLAN FINALIZED ✅
+
+### Executive Summary
+
+Major architecture redesign incorporating InterRAI CA algorithms, CAP triggers, and a data-driven rule engine. The key insight is that InterRAI provides **standardized clinical algorithms** that should drive service intensity decisions rather than custom heuristics.
+
+### New Documents Reviewed
+
+| Document | Key Insights |
+|----------|--------------|
+| `InterRAI-CA.txt` | 7 decision-support algorithms: SRI, AUA, SUA, Rehab, PSA, DMS, Pain, CHESS-CA |
+| `InterRAI-CAPS-1.txt` through `InterRAI-CAPS-6.txt` | 25+ Clinical Assessment Protocols organized into 4 domains |
+| `interRAI Brief Mental Health Screener (BMHS)` | Mental health screening items for caregiver relief/MH service triggers |
+
+### Three-Tier Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TIER 3: AI-AUGMENTED                         │
+│  • Vertex AI explanations                                       │
+│  • LLM-proposed scenario variations                             │
+│  • Learning loop (outcome → rule refinement)                    │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+┌─────────────────────────────────────────────────────────────────┐
+│                 TIER 2: STANDARDIZED CLINICAL LOGIC             │
+│  • InterRAI Algorithm Engine (JSON decision trees)              │
+│  • CAP Trigger Engine (YAML rules, conditional on HC)           │
+│  • Service Intensity Matrix (JSON config, admin-editable)       │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+┌─────────────────────────────────────────────────────────────────┐
+│                 TIER 1: BASIC BUNDLE GENERATION                 │
+│  • PatientNeedsProfile DTO                                      │
+│  • Assessment Mappers (HC, CA, BMHS)                            │
+│  • ScenarioGenerator + Templates                                │
+│  • Cost Annotation                                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+
+1. **Data-Driven Rules, Not Hardcoded Classes**
+   - 8 algorithm JSON files instead of 8 PHP calculator classes
+   - 25+ CAP trigger YAML files instead of 25+ PHP trigger classes
+   - Service intensity matrix in JSON (admin-editable)
+   - One interpreter class (`DecisionTreeEngine`, `CAPTriggerEngine`) reads config files
+
+2. **Conditional CAP Execution**
+   - CAP logic exists but is **inert** until HC data is present
+   - CA-only path uses CA algorithms only, skips CAPs
+   - Mirrors how real home care agencies operate
+
+3. **Schema-Driven Testing**
+   - Test the interpreter engine, not each algorithm individually
+   - Test cases live in JSON alongside algorithm definitions
+   - Cuts test volume by ~70%
+
+4. **Algorithm Verification Gates**
+   - All algorithm JSONs start as `verification_status: "unverified"`
+   - Must be validated against authoritative InterRAI source before production
+   - `*.verified.json` suffix convention for deployment
+
+5. **Service Intensity Matrix Validation**
+   - Each mapping includes: `source`, `confidence`, `rationale`
+   - Elevates config from arbitrary numbers to versioned clinical artifact
+
+### File Structure (New)
+
+```
+config/bundle_engine/
+├── algorithms/
+│   ├── self_reliance_index.json
+│   ├── assessment_urgency.json
+│   ├── service_urgency.json
+│   ├── rehabilitation.json
+│   ├── personal_support.json
+│   ├── distressed_mood.json
+│   ├── pain_scale.json
+│   ├── chess_ca.json
+│   └── tests/*.test.json
+├── cap_triggers/
+│   ├── functional/*.yaml
+│   ├── cognition/*.yaml
+│   ├── social/*.yaml
+│   └── clinical/*.yaml
+├── service_intensity_matrix.json
+└── scenario_templates.json
+
+app/Services/BundleEngine/
+├── Engines/                    # NEW
+│   ├── DecisionTreeEngine.php
+│   ├── CAPTriggerEngine.php
+│   └── ServiceIntensityResolver.php
+├── DTOs/
+│   └── PatientNeedsProfile.php  # Add toCAPInput() method
+└── Llm/
+    └── BundleExplanationService.php  # NEW
+```
+
+### Implementation Phases
+
+| Phase | Name | Duration | Key Deliverables |
+|-------|------|----------|------------------|
+| **0** | Data Exploration | 0.5 days | `DATA_AVAILABILITY_AUDIT.md` |
+| **1** | Engine Infrastructure | 3-4 days | `DecisionTreeEngine`, `CAPTriggerEngine`, `ALGORITHM_DSL.md` |
+| **2** | Algorithm Definitions | 2-3 days | 8 JSON algorithm files + verification gate |
+| **3** | CAP Trigger Definitions | 3-4 days | 25+ YAML CAP files |
+| **4** | Enhanced Scenario Generator | 3-4 days | Algorithm-driven + CAP-driven generation |
+| **5** | Vertex AI Explanation | 2-3 days | Bundle explanation service (parallel with 2-3) |
+| **6** | BMHS Integration | 2 days | BMHS mapper + fields |
+| **7** | UI Enhancements | 2-3 days | Algorithm scores, CAPs, explanation modal |
+| **8** | Learning Infrastructure | 3-4 days | BigQuery schemas, event logging |
+| **9** | Learning Loop | 4-5 days | Effectiveness analyzer, rule proposer, review UI |
+
+**Total**: ~26-33 days for full implementation
+
+### Key InterRAI CA Algorithms
+
+| Algorithm | Score Range | Bundle Engine Use |
+|-----------|-------------|-------------------|
+| Self-Reliance Index (SRI) | Binary | Overall care complexity tier |
+| Assessment Urgency (AUA) | 1-6 | Prioritize comprehensive assessment |
+| Service Urgency (SUA) | 1-4 | Urgency for nursing/wound care |
+| Rehabilitation | 1-5 | PT/OT service intensity |
+| Personal Support (PSA) | 1-6 | PSW service hours |
+| Distressed Mood (DMS) | 0-9 | Mental health services flag |
+| Pain Scale | 0-4 | Pain management services |
+| CHESS-CA | 0-5 | Nursing intensity |
+
+### Key CAP Categories
+
+| Domain | CAPs | Bundle Impact |
+|--------|------|---------------|
+| Functional | ADL, IADL, Physical Activities, Home Environment | PSW, OT, Home Safety |
+| Cognition/MH | Cognitive Loss, Delirium, Mood, Behavior | MH SW, Cognitive support |
+| Social | Activities, Informal Support, Social Relationship | Day programs, Respite |
+| Clinical | Falls, Pain, Pressure Ulcer, Nutrition, Medications | Nursing, PT, Wound care |
+
+### Critical Design Notes
+
+1. **Algorithm Accuracy Warning**
+   - Current JSON examples are interpretations based on documentation
+   - Actual decision trees are in InterRAI appendices not yet reviewed
+   - Phase 2.13 is a **verification gate** - must validate before production
+
+2. **CAPs Are Designed for HC, Not CA**
+   - CAP triggers conditional on `profile.hasFullHcAssessment`
+   - CA-only path uses CA algorithms only
+   - This is clinically aligned (CA is screening, HC is full assessment)
+
+3. **Learning Loop Future-Proofing**
+   - By moving rules to config files, we enable:
+   - Vertex AI proposes JSON/YAML edits (not code)
+   - Humans review and approve
+   - Rules improve over time with outcomes data
+
+### Files Created This Session
+
+None - planning only. Implementation begins with Phase 0.
+
+### Next Immediate Step
+
+**Phase 0: Data Exploration** - Query `interrai_assessments` to document what CA/HC data is actually available before implementing algorithm calculators.
