@@ -1,0 +1,136 @@
+{
+  "name": "CHESS-CA (Changes in Health, End-stage disease, Signs and Symptoms)",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual - CHESS-CA Scale",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [0, 5],
+  "output_type": "integer",
+  "description": "Measure of health instability predicting mortality and acute hospital use. Scores 3+ indicate urgent nursing follow-up needed. ~1/3 of score 4 hospitalized within 90 days. >1/2 of score 5 die within 90 days.",
+
+  "items_used": [
+    {"ca_code": "B2c", "hc_code": null, "description": "Referral for palliative services", "mapping_notes": "Check referral_type"},
+    {"ca_code": "C3", "hc_code": "dyspnea", "description": "Dyspnea (shortness of breath)"},
+    {"ca_code": "D1", "hc_code": null, "description": "Change in decision making", "mapping_notes": "NOT AVAILABLE - default 0"},
+    {"ca_code": "D4", "hc_code": null, "description": "Change in ADL status", "mapping_notes": "NOT AVAILABLE - default 0"},
+    {"ca_code": "D7c", "hc_code": "edema", "description": "Peripheral edema"},
+    {"ca_code": "D7d", "hc_code": "vomiting", "description": "Vomiting"},
+    {"ca_code": "D10a", "hc_code": null, "description": "Decrease in food/fluid consumed", "mapping_notes": "NOT AVAILABLE - default 0"},
+    {"ca_code": "D10b", "hc_code": "weight_loss", "description": "Unintended weight loss"}
+  ],
+
+  "computed_inputs": {
+    "palliative_referral": {
+      "formula": "B2c >= 1",
+      "description": "Referral for palliative services"
+    },
+    "has_dyspnea": {
+      "formula": "C3 >= 2",
+      "description": "Dyspnea at rest or with normal activities"
+    },
+    "cognitive_decline": {
+      "formula": "D1 >= 2",
+      "description": "Cognitive decline noted"
+    },
+    "adl_decline": {
+      "formula": "D4 >= 2",
+      "description": "ADL decline noted"
+    },
+    "has_edema": {
+      "formula": "D7c >= 1",
+      "description": "Peripheral edema present"
+    },
+    "has_vomiting": {
+      "formula": "D7d >= 1",
+      "description": "Vomiting present"
+    },
+    "decreased_intake": {
+      "formula": "D10a >= 1",
+      "description": "Decreased food/fluid intake"
+    },
+    "has_weight_loss": {
+      "formula": "D10b >= 1",
+      "description": "Unintended weight loss"
+    },
+    "instability_count": {
+      "formula": "(palliative_referral ? 1 : 0) + (has_dyspnea ? 1 : 0) + (cognitive_decline ? 1 : 0) + (adl_decline ? 1 : 0) + (has_edema ? 1 : 0) + (has_vomiting ? 1 : 0) + (decreased_intake ? 1 : 0) + (has_weight_loss ? 1 : 0)",
+      "description": "Count of health instability indicators"
+    }
+  },
+
+  "tree": {
+    "condition": "palliative_referral == true",
+    "true_branch": { "return": 5 },
+    "false_branch": {
+      "condition": "instability_count >= 5",
+      "true_branch": { "return": 5 },
+      "false_branch": {
+        "condition": "instability_count >= 4",
+        "true_branch": { "return": 4 },
+        "false_branch": {
+          "condition": "instability_count >= 3",
+          "true_branch": { "return": 3 },
+          "false_branch": {
+            "condition": "instability_count >= 2",
+            "true_branch": { "return": 2 },
+            "false_branch": {
+              "condition": "instability_count >= 1",
+              "true_branch": { "return": 1 },
+              "false_branch": { "return": 0 }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "interpretation": {
+    "0": "No health instability indicators",
+    "1": "Low instability",
+    "2": "Moderate instability",
+    "3": "High instability - urgent nursing follow-up",
+    "4": "Very high instability - ~1/3 hospitalized in 90 days",
+    "5": "Critical instability - >1/2 die within 90 days"
+  },
+
+  "test_cases": [
+    {
+      "name": "Stable - no indicators",
+      "input": {"B2c": 0, "C3": 0, "D1": 0, "D4": 0, "D7c": 0, "D7d": 0, "D10a": 0, "D10b": 0},
+      "expected_output": 0,
+      "description": "No health instability"
+    },
+    {
+      "name": "Low instability",
+      "input": {"B2c": 0, "C3": 0, "D1": 0, "D4": 0, "D7c": 1, "D7d": 0, "D10a": 0, "D10b": 0},
+      "expected_output": 1,
+      "description": "Single indicator (edema)"
+    },
+    {
+      "name": "Moderate instability",
+      "input": {"B2c": 0, "C3": 2, "D1": 0, "D4": 0, "D7c": 1, "D7d": 0, "D10a": 0, "D10b": 0},
+      "expected_output": 2,
+      "description": "Dyspnea + edema"
+    },
+    {
+      "name": "High instability",
+      "input": {"B2c": 0, "C3": 2, "D1": 0, "D4": 0, "D7c": 1, "D7d": 1, "D10a": 0, "D10b": 1},
+      "expected_output": 4,
+      "description": "Multiple indicators - urgent follow-up"
+    },
+    {
+      "name": "Palliative referral",
+      "input": {"B2c": 1, "C3": 0, "D1": 0, "D4": 0, "D7c": 0, "D7d": 0, "D10a": 0, "D10b": 0},
+      "expected_output": 5,
+      "description": "Palliative referral → maximum CHESS"
+    },
+    {
+      "name": "Critical - multiple severe indicators",
+      "input": {"B2c": 0, "C3": 3, "D1": 2, "D4": 2, "D7c": 1, "D7d": 1, "D10a": 1, "D10b": 1},
+      "expected_output": 5,
+      "description": "5+ indicators → critical instability"
+    }
+  ]
+}
+

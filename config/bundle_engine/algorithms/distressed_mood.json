@@ -1,0 +1,82 @@
+{
+  "name": "Distressed Mood Scale (Self-Report)",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual - Distressed Mood Scale (DMS)",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [0, 9],
+  "output_type": "integer",
+  "description": "Additive scale measuring psychological well-being based on frequency of indicators of dysphoria, anhedonia, and anxiety. Scores 3+ associated with mood disorder. Scores 5+ associated with higher risk of self-harm behaviors.",
+
+  "items_used": [
+    {"ca_code": "C5a", "hc_code": "mood_sad_expressions", "description": "Loss of interest (anhedonia)", "mapping_notes": "Using sad expressions as proxy"},
+    {"ca_code": "C5b", "hc_code": "mood_unrealistic_fears", "description": "Anxious, restless, uneasy", "mapping_notes": "Using unrealistic fears as proxy"},
+    {"ca_code": "C5c", "hc_code": "mood_crying", "description": "Sad, depressed, hopeless", "mapping_notes": "Using crying as proxy"}
+  ],
+
+  "computed_inputs": {
+    "loss_of_interest_score": {
+      "formula": "C5a",
+      "description": "Score 0-3 for loss of interest indicator"
+    },
+    "anxious_score": {
+      "formula": "C5b",
+      "description": "Score 0-3 for anxious/restless indicator"
+    },
+    "sad_depressed_score": {
+      "formula": "C5c",
+      "description": "Score 0-3 for sad/depressed indicator"
+    }
+  },
+
+  "tree": {
+    "condition": "C5a >= 0",
+    "true_branch": { "return": 0 },
+    "false_branch": { "return": 0 }
+  },
+
+  "calculation_method": "additive",
+  "formula": "C5a + C5b + C5c",
+  "formula_description": "Sum of three mood indicator frequencies (each 0-3), range 0-9",
+
+  "interpretation": {
+    "0-2": "No significant mood distress",
+    "3-4": "Moderate distress - consider comprehensive assessment",
+    "5-9": "High distress - consider mental health referral"
+  },
+
+  "test_cases": [
+    {
+      "name": "No mood indicators",
+      "input": {"C5a": 0, "C5b": 0, "C5c": 0},
+      "expected_output": 0,
+      "description": "No distress"
+    },
+    {
+      "name": "Minimal distress",
+      "input": {"C5a": 1, "C5b": 0, "C5c": 1},
+      "expected_output": 2,
+      "description": "Occasional symptoms"
+    },
+    {
+      "name": "Moderate distress",
+      "input": {"C5a": 1, "C5b": 1, "C5c": 1},
+      "expected_output": 3,
+      "description": "Multiple symptoms present - mood disorder threshold"
+    },
+    {
+      "name": "Significant distress",
+      "input": {"C5a": 2, "C5b": 1, "C5c": 2},
+      "expected_output": 5,
+      "description": "Self-harm risk threshold"
+    },
+    {
+      "name": "Severe distress",
+      "input": {"C5a": 3, "C5b": 3, "C5c": 3},
+      "expected_output": 9,
+      "description": "Maximum score - urgent mental health referral"
+    }
+  ]
+}
+

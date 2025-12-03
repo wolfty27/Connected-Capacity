@@ -1,0 +1,75 @@
+{
+  "name": "Self-Reliance Index",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual - Self-Reliance Index",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [0, 1],
+  "output_type": "boolean",
+  "description": "Binary indicator differentiating persons who are self-reliant in all five ADLs and cognition from those who are impaired in one or more areas. Used as input to other CA algorithms.",
+
+  "items_used": [
+    {"ca_code": "C1", "hc_code": "iB3a", "description": "Daily decision making (0-6)"},
+    {"ca_code": "C2a", "hc_code": "iG1ga", "description": "Bathing (0-6)"},
+    {"ca_code": "C2b", "hc_code": "iG1ia", "description": "Bath transfer (0-6)"},
+    {"ca_code": "C2c", "hc_code": "iG1fa", "description": "Personal hygiene (0-6)"},
+    {"ca_code": "C2d", "hc_code": "iG1ca", "description": "Dressing lower body (0-6)"},
+    {"ca_code": "C2e", "hc_code": "iG1ha", "description": "Locomotion (0-6)"}
+  ],
+
+  "computed_inputs": {
+    "any_cognitive_impairment": {
+      "formula": "C1 > 0",
+      "description": "Any impairment in daily decision making"
+    },
+    "any_adl_impairment": {
+      "formula": "C2a > 0 || C2b > 0 || C2c > 0 || C2d > 0 || C2e > 0",
+      "description": "Any impairment in the 5 ADL areas"
+    }
+  },
+
+  "tree": {
+    "condition": "any_cognitive_impairment == true",
+    "true_branch": { "return": false },
+    "false_branch": {
+      "condition": "any_adl_impairment == true",
+      "true_branch": { "return": false },
+      "false_branch": { "return": true }
+    }
+  },
+
+  "test_cases": [
+    {
+      "name": "Fully self-reliant",
+      "input": {"C1": 0, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0},
+      "expected_output": true,
+      "description": "No impairments → self-reliant"
+    },
+    {
+      "name": "Cognitive impairment only",
+      "input": {"C1": 2, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0},
+      "expected_output": false,
+      "description": "Decision making impaired → not self-reliant"
+    },
+    {
+      "name": "Single ADL impairment",
+      "input": {"C1": 0, "C2a": 1, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0},
+      "expected_output": false,
+      "description": "Bathing needs supervision → not self-reliant"
+    },
+    {
+      "name": "Multiple ADL impairments",
+      "input": {"C1": 0, "C2a": 2, "C2b": 2, "C2c": 2, "C2d": 0, "C2e": 0},
+      "expected_output": false,
+      "description": "Multiple ADL issues → not self-reliant"
+    },
+    {
+      "name": "Both cognitive and ADL impairment",
+      "input": {"C1": 3, "C2a": 3, "C2b": 2, "C2c": 2, "C2d": 2, "C2e": 2},
+      "expected_output": false,
+      "description": "Multiple impairments → not self-reliant"
+    }
+  ]
+}
+

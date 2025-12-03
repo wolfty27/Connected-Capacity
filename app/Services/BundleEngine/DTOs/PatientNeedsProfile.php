@@ -197,6 +197,57 @@ class PatientNeedsProfile
 
         /** @var string|null Notes about data quality */
         public readonly ?string $dataQualityNotes = null,
+
+        // === CA Algorithm Scores (v2.2) ===
+        /** @var bool Self-Reliance Index: true if fully self-reliant in ADL and cognition */
+        public readonly bool $selfRelianceIndex = false,
+
+        /** @var int Assessment Urgency Algorithm score: 1-6 (3-4 medium, 5-6 high urgency) */
+        public readonly int $assessmentUrgencyScore = 1,
+
+        /** @var int Service Urgency Algorithm score: 1-4 (3-4 = need services within 72 hours) */
+        public readonly int $serviceUrgencyScore = 1,
+
+        /** @var int Rehabilitation Algorithm score: 1-5 (higher = more rehab potential/need) */
+        public readonly int $rehabilitationScore = 1,
+
+        /** @var int Personal Support Algorithm score: 1-6 (higher = more PSW hours needed) */
+        public readonly int $personalSupportScore = 1,
+
+        /** @var int Distressed Mood Scale: 0-9 (3+ = mood disorder risk, 5+ = self-harm risk) */
+        public readonly int $distressedMoodScore = 0,
+
+        /** @var int Pain Scale: 0-4 (2+ = daily pain, 3+ = urgent nursing follow-up) */
+        public readonly int $painScore = 0,
+
+        /** @var int CHESS-CA: 0-5 (3+ = urgent nursing, 4+ = high hospitalization risk) */
+        public readonly int $chessCAScore = 0,
+
+        // === CAP Triggers (v2.2) ===
+        /** @var array|null Triggered CAPs with levels (e.g., ['falls' => 'IMPROVE', 'pain' => 'PREVENT']) */
+        public readonly ?array $triggeredCAPs = null,
+
+        // === Additional Risk Indicators for CAPs ===
+        /** @var bool Has had a fall in the last 90 days */
+        public readonly bool $hasRecentFall = false,
+
+        /** @var bool Has delirium indicators */
+        public readonly bool $hasDelirium = false,
+
+        /** @var bool Has home environment safety concerns */
+        public readonly bool $hasHomeEnvironmentRisk = false,
+
+        /** @var bool Has polypharmacy risk (9+ medications) */
+        public readonly bool $hasPolypharmacyRisk = false,
+
+        /** @var bool Has had hospital stay in last 90 days */
+        public readonly bool $hasRecentHospitalStay = false,
+
+        /** @var bool Has had ED visit in last 90 days */
+        public readonly bool $hasRecentErVisit = false,
+
+        /** @var int Number of medications */
+        public readonly int $medicationCount = 0,
     ) {}
 
     /*
@@ -336,6 +387,17 @@ class PatientNeedsProfile
                 'level' => $this->confidenceLevel,
                 'label' => $this->getConfidenceLabel(),
             ],
+            'algorithm_scores' => [
+                'self_reliance_index' => $this->selfRelianceIndex,
+                'assessment_urgency' => $this->assessmentUrgencyScore,
+                'service_urgency' => $this->serviceUrgencyScore,
+                'rehabilitation' => $this->rehabilitationScore,
+                'personal_support' => $this->personalSupportScore,
+                'distressed_mood' => $this->distressedMoodScore,
+                'pain' => $this->painScore,
+                'chess_ca' => $this->chessCAScore,
+            ],
+            'triggered_caps' => $this->triggeredCAPs,
         ];
     }
 
@@ -355,6 +417,126 @@ class PatientNeedsProfile
                 'data_quality_notes' => $this->dataQualityNotes,
             ]
         );
+    }
+
+    /**
+     * Convert profile to standardized input for CAP trigger evaluation.
+     *
+     * This provides a consistent interface for the CAPTriggerEngine,
+     * abstracting away the underlying raw_items complexity.
+     *
+     * @see docs/ALGORITHM_DSL.md Section 2.4
+     * @return array<string, mixed>
+     */
+    public function toCAPInput(): array
+    {
+        return [
+            // Fall Risk
+            'has_recent_fall' => $this->hasRecentFall,
+            'falls_risk_level' => $this->fallsRiskLevel,
+
+            // Mobility & Function
+            'mobility_complexity' => $this->mobilityComplexity,
+            'adl_support_level' => $this->adlSupportLevel,
+            'iadl_support_level' => $this->iadlSupportLevel,
+
+            // Cognition & Behaviour
+            'cognitive_complexity' => $this->cognitiveComplexity,
+            'has_delirium' => $this->hasDelirium,
+            'behavioural_complexity' => $this->behaviouralComplexity,
+
+            // Clinical Risk
+            'pain_score' => $this->painScore,
+            'health_instability' => $this->healthInstability,
+            'has_pressure_ulcer_risk' => $this->skinIntegrityRisk >= 2,
+            'has_polypharmacy_risk' => $this->hasPolypharmacyRisk,
+
+            // Environment & Support
+            'has_home_environment_risk' => $this->hasHomeEnvironmentRisk,
+            'caregiver_stress_level' => $this->caregiverStressLevel,
+            'lives_alone' => $this->livesAlone,
+
+            // Recent Events
+            'has_recent_hospital_stay' => $this->hasRecentHospitalStay,
+            'has_recent_er_visit' => $this->hasRecentErVisit,
+
+            // Assessment Context
+            'has_full_hc_assessment' => $this->hasFullHcAssessment,
+            'episode_type' => $this->episodeType ?? 'unknown',
+            'rehab_potential_score' => $this->rehabPotentialScore,
+
+            // Algorithm Scores (from CA algorithms)
+            'self_reliance_index' => $this->selfRelianceIndex,
+            'personal_support_score' => $this->personalSupportScore,
+            'rehabilitation_score' => $this->rehabilitationScore,
+            'chess_ca_score' => $this->chessCAScore,
+            'distressed_mood_score' => $this->distressedMoodScore,
+            'pain_scale_score' => $this->painScore,
+            'assessment_urgency_score' => $this->assessmentUrgencyScore,
+            'service_urgency_score' => $this->serviceUrgencyScore,
+        ];
+    }
+
+    /**
+     * Get algorithm scores summary for UI display.
+     *
+     * @return array<string, array{score: int|bool, label: string, interpretation: string}>
+     */
+    public function getAlgorithmScoresSummary(): array
+    {
+        return [
+            'self_reliance_index' => [
+                'score' => $this->selfRelianceIndex,
+                'label' => 'Self-Reliance Index',
+                'interpretation' => $this->selfRelianceIndex ? 'Self-reliant' : 'Requires assistance',
+            ],
+            'personal_support' => [
+                'score' => $this->personalSupportScore,
+                'label' => 'Personal Support',
+                'interpretation' => match (true) {
+                    $this->personalSupportScore <= 2 => 'Low need',
+                    $this->personalSupportScore <= 4 => 'Moderate need',
+                    default => 'High need',
+                },
+            ],
+            'rehabilitation' => [
+                'score' => $this->rehabilitationScore,
+                'label' => 'Rehabilitation',
+                'interpretation' => match (true) {
+                    $this->rehabilitationScore <= 2 => 'Low potential',
+                    $this->rehabilitationScore <= 3 => 'Moderate potential',
+                    default => 'High potential',
+                },
+            ],
+            'chess_ca' => [
+                'score' => $this->chessCAScore,
+                'label' => 'Health Instability',
+                'interpretation' => match (true) {
+                    $this->chessCAScore <= 1 => 'Stable',
+                    $this->chessCAScore <= 2 => 'Low instability',
+                    $this->chessCAScore <= 3 => 'Moderate instability',
+                    default => 'High instability',
+                },
+            ],
+            'distressed_mood' => [
+                'score' => $this->distressedMoodScore,
+                'label' => 'Distressed Mood',
+                'interpretation' => match (true) {
+                    $this->distressedMoodScore < 3 => 'No significant distress',
+                    $this->distressedMoodScore < 5 => 'Moderate distress',
+                    default => 'High distress - mental health referral recommended',
+                },
+            ],
+            'pain' => [
+                'score' => $this->painScore,
+                'label' => 'Pain',
+                'interpretation' => match (true) {
+                    $this->painScore == 0 => 'No pain',
+                    $this->painScore <= 2 => 'Mild/occasional pain',
+                    default => 'Significant pain - nursing follow-up',
+                },
+            ],
+        ];
     }
 
     /**

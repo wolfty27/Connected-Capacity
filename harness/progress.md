@@ -1728,3 +1728,105 @@ Both algorithms marked as `hc_mapped`:
 ### Next Step
 
 **Phase 2: Algorithm Definitions** - Define remaining 6 CA algorithms (SRI, AUA, SUA, DMS, Pain, CHESS-CA).
+
+---
+
+## AI-Assisted Bundle Engine - Phase 2: Algorithm Definitions (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Define all 8 CA algorithms as JSON configurations with test cases, and integrate with PatientNeedsProfile.
+
+### Algorithm Files Created
+
+| Algorithm | File | Output Range | Description |
+|-----------|------|--------------|-------------|
+| Self-Reliance Index | `self_reliance_index.json` | boolean | Binary: self-reliant vs requires assistance |
+| Assessment Urgency | `assessment_urgency.json` | 1-6 | Urgency for comprehensive HC assessment |
+| Service Urgency | `service_urgency.json` | 1-4 | Urgency for clinical services (72-hour window) |
+| Rehabilitation | `rehabilitation.json` | 1-5 | PT/OT rehabilitation need/potential |
+| Personal Support | `personal_support.json` | 1-6 | PSW hours needed |
+| Distressed Mood | `distressed_mood.json` | 0-9 | Mood disorder/self-harm risk (additive) |
+| Pain Scale | `pain_scale.json` | 0-4 | Pain frequency × intensity |
+| CHESS-CA | `chess_ca.json` | 0-5 | Health instability/mortality risk |
+
+### Service Classes Created
+
+| File | Purpose |
+|------|---------|
+| `app/Services/BundleEngine/AlgorithmEvaluator.php` | Computes all algorithm scores from raw_items |
+
+### PatientNeedsProfile Enhancements
+
+New algorithm score fields:
+- `selfRelianceIndex` (bool)
+- `assessmentUrgencyScore` (1-6)
+- `serviceUrgencyScore` (1-4)
+- `rehabilitationScore` (1-5)
+- `personalSupportScore` (1-6)
+- `distressedMoodScore` (0-9)
+- `painScore` (0-4)
+- `chessCAScore` (0-5)
+- `triggeredCAPs` (array)
+
+New risk indicator fields:
+- `hasRecentFall`, `hasDelirium`, `hasHomeEnvironmentRisk`
+- `hasPolypharmacyRisk`, `hasRecentHospitalStay`, `hasRecentErVisit`
+- `medicationCount`
+
+New methods:
+- `toCAPInput()` - Standardized input for CAP evaluation
+- `getAlgorithmScoresSummary()` - UI-friendly score interpretations
+
+### CA→HC Item Mapping
+
+The AlgorithmEvaluator maps CA item codes to available HC `raw_items`:
+
+| CA Code | HC Key | Notes |
+|---------|--------|-------|
+| C1 | `iB3a` | Decision making |
+| C2a | `adl_bathing` | Bathing |
+| C2b | `adl_transfer` | Transfer |
+| C3 | `dyspnea` | Shortness of breath |
+| D8a | `pain_frequency` | Pain frequency |
+| D19b | `caregiver_stress` | Caregiver overwhelmed |
+
+Unavailable items (defaulted or derived):
+- `C4`, `C6a`: Derived from `chess` score
+- `D3d`, `D4`: Default to 0 (stair use, ADL decline)
+- `D15`, `D16`: From additional context (hospital stay, ED visit)
+- `B2c`: From referral type (palliative)
+
+### Test Results with Real Data
+
+```
+Assessment Type: hc
+Patient ID: 1
+
+Algorithm Scores:
+  self_reliance_index: false
+  assessment_urgency:  4 (medium-high urgency)
+  service_urgency:     2 (low-medium)
+  rehabilitation:      2 (maintenance therapy)
+  personal_support:    2 (minimal support)
+  distressed_mood:     0 (no distress)
+  pain:                4 (daily severe pain!)
+  chess_ca:            0 (stable)
+```
+
+### Provider Updates
+
+`BundleEngineServiceProvider.php`:
+- Registered `AlgorithmEvaluator` as singleton
+
+### Verification Status
+
+All algorithms marked as `hc_mapped`:
+- Using HC assessment data with CA item mapping
+- Awaiting authoritative InterRAI source verification
+- Test cases included in each JSON file
+
+### Next Step
+
+**Phase 3: CAP Trigger Definitions** - Define remaining CAP triggers (ADL, IADL, Mood, Cognitive Loss, Informal Support).

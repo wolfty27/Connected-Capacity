@@ -1,0 +1,105 @@
+{
+  "name": "Pain Scale",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual - Pain Scale",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [0, 4],
+  "output_type": "integer",
+  "description": "Additive scale measuring severity and frequency of pain symptoms. Scores 2+ include persons with daily pain. Scores 3+ should be prioritized for urgent nursing follow-up or primary care referral.",
+
+  "items_used": [
+    {"ca_code": "D8a", "hc_code": "iJ1a", "description": "Pain frequency (0=no pain, 1=not in last 3 days, 2=less than daily, 3=daily)"},
+    {"ca_code": "D8b", "hc_code": "iJ1b", "description": "Pain intensity (1=mild, 2=moderate, 3=severe, 4=horrible/excruciating)"}
+  ],
+
+  "computed_inputs": {
+    "has_pain": {
+      "formula": "D8a >= 1",
+      "description": "Any pain present"
+    },
+    "daily_pain": {
+      "formula": "D8a >= 3",
+      "description": "Pain is daily"
+    },
+    "severe_pain": {
+      "formula": "D8b >= 3",
+      "description": "Pain intensity severe or worse"
+    }
+  },
+
+  "tree": {
+    "condition": "D8a == 0",
+    "true_branch": { "return": 0 },
+    "false_branch": {
+      "condition": "daily_pain == true",
+      "true_branch": {
+        "condition": "severe_pain == true",
+        "true_branch": { "return": 4 },
+        "false_branch": {
+          "condition": "D8b >= 2",
+          "true_branch": { "return": 3 },
+          "false_branch": { "return": 2 }
+        }
+      },
+      "false_branch": {
+        "condition": "D8a >= 2",
+        "true_branch": {
+          "condition": "severe_pain == true",
+          "true_branch": { "return": 3 },
+          "false_branch": { "return": 2 }
+        },
+        "false_branch": { "return": 1 }
+      }
+    }
+  },
+
+  "interpretation": {
+    "0": "No pain",
+    "1": "Pain not in last 3 days (mild)",
+    "2": "Less than daily pain OR daily mild pain",
+    "3": "Daily moderate pain OR less than daily severe pain",
+    "4": "Daily severe/excruciating pain"
+  },
+
+  "test_cases": [
+    {
+      "name": "No pain",
+      "input": {"D8a": 0, "D8b": 0},
+      "expected_output": 0,
+      "description": "No pain reported"
+    },
+    {
+      "name": "Pain not in last 3 days",
+      "input": {"D8a": 1, "D8b": 1},
+      "expected_output": 1,
+      "description": "Had pain but not recently"
+    },
+    {
+      "name": "Less than daily, moderate pain",
+      "input": {"D8a": 2, "D8b": 2},
+      "expected_output": 2,
+      "description": "Occasional moderate pain"
+    },
+    {
+      "name": "Daily moderate pain",
+      "input": {"D8a": 3, "D8b": 2},
+      "expected_output": 3,
+      "description": "Daily pain - urgent follow-up threshold"
+    },
+    {
+      "name": "Daily severe pain",
+      "input": {"D8a": 3, "D8b": 3},
+      "expected_output": 4,
+      "description": "Daily severe pain - highest priority"
+    },
+    {
+      "name": "Daily excruciating pain",
+      "input": {"D8a": 3, "D8b": 4},
+      "expected_output": 4,
+      "description": "Daily excruciating pain - highest priority"
+    }
+  ]
+}
+

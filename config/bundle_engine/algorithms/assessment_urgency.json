@@ -1,0 +1,138 @@
+{
+  "name": "Assessment Urgency Algorithm",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual - Assessment Urgency Algorithm (AUA)",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [1, 6],
+  "output_type": "integer",
+  "description": "Prioritizes need and urgency for comprehensive follow-up assessment (e.g., interRAI HC). Scores 3-4 = medium urgency, 5-6 = high urgency. Persons with AUA 1-2 may not need full CA unless clinician deems necessary.",
+
+  "items_used": [
+    {"ca_code": "C1", "hc_code": "iB3a", "description": "Daily decision making (0-6)"},
+    {"ca_code": "C2a", "hc_code": "iG1ga", "description": "Bathing (0-6)"},
+    {"ca_code": "C2b", "hc_code": "iG1ia", "description": "Bath transfer (0-6)"},
+    {"ca_code": "C2c", "hc_code": "iG1fa", "description": "Personal hygiene (0-6)"},
+    {"ca_code": "C2d", "hc_code": "iG1ca", "description": "Dressing lower body (0-6)"},
+    {"ca_code": "C2e", "hc_code": "iG1ha", "description": "Locomotion (0-6)"},
+    {"ca_code": "C3", "hc_code": "dyspnea", "description": "Dyspnea/shortness of breath"},
+    {"ca_code": "C4", "hc_code": null, "description": "Self-reported health (NOT AVAILABLE)", "mapping_notes": "Default to 1 (good)"},
+    {"ca_code": "C5c", "hc_code": "mood_sad_expressions", "description": "Sad, depressed, hopeless"},
+    {"ca_code": "C6a", "hc_code": null, "description": "Unstable conditions", "mapping_notes": "Derive from chess >= 3"},
+    {"ca_code": "D19b", "hc_code": "caregiver_stress", "description": "Family/caregiver overwhelmed"}
+  ],
+
+  "computed_inputs": {
+    "SRI": {
+      "formula": "C1 == 0 && C2a == 0 && C2b == 0 && C2c == 0 && C2d == 0 && C2e == 0",
+      "description": "Self-Reliance Index"
+    },
+    "has_mood_indicator": {
+      "formula": "C5c >= 1",
+      "description": "Sad, depressed, hopeless indicator present"
+    },
+    "has_unstable_condition": {
+      "formula": "C6a >= 1",
+      "description": "Unstable medical condition"
+    },
+    "has_dyspnea": {
+      "formula": "C3 >= 2",
+      "description": "Dyspnea at moderate activities or worse"
+    },
+    "poor_self_health": {
+      "formula": "C4 >= 3",
+      "description": "Self-reported health poor or worse"
+    },
+    "caregiver_overwhelmed": {
+      "formula": "D19b >= 1",
+      "description": "Family/caregiver overwhelmed"
+    },
+    "high_risk_count": {
+      "formula": "(has_mood_indicator ? 1 : 0) + (has_unstable_condition ? 1 : 0) + (has_dyspnea ? 1 : 0) + (poor_self_health ? 1 : 0) + (caregiver_overwhelmed ? 1 : 0)",
+      "description": "Count of high-risk indicators"
+    },
+    "ADL_impairment_count": {
+      "formula": "(C2a > 0 ? 1 : 0) + (C2b > 0 ? 1 : 0) + (C2c > 0 ? 1 : 0) + (C2d > 0 ? 1 : 0) + (C2e > 0 ? 1 : 0)",
+      "description": "Number of ADL areas with any impairment"
+    }
+  },
+
+  "tree": {
+    "condition": "SRI == true",
+    "true_branch": {
+      "condition": "high_risk_count >= 2",
+      "true_branch": { "return": 3 },
+      "false_branch": {
+        "condition": "high_risk_count >= 1",
+        "true_branch": { "return": 2 },
+        "false_branch": { "return": 1 }
+      }
+    },
+    "false_branch": {
+      "condition": "C1 >= 4",
+      "true_branch": {
+        "condition": "high_risk_count >= 2",
+        "true_branch": { "return": 6 },
+        "false_branch": { "return": 5 }
+      },
+      "false_branch": {
+        "condition": "ADL_impairment_count >= 3",
+        "true_branch": {
+          "condition": "high_risk_count >= 1",
+          "true_branch": { "return": 5 },
+          "false_branch": { "return": 4 }
+        },
+        "false_branch": {
+          "condition": "high_risk_count >= 2",
+          "true_branch": { "return": 4 },
+          "false_branch": {
+            "condition": "high_risk_count >= 1",
+            "true_branch": { "return": 3 },
+            "false_branch": { "return": 2 }
+          }
+        }
+      }
+    }
+  },
+
+  "test_cases": [
+    {
+      "name": "Self-reliant, no risk factors",
+      "input": {"C1": 0, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0, "C3": 0, "C4": 1, "C5c": 0, "C6a": 0, "D19b": 0},
+      "expected_output": 1,
+      "description": "Low urgency - no assessment needed unless clinician deems necessary"
+    },
+    {
+      "name": "Self-reliant with one risk factor",
+      "input": {"C1": 0, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0, "C3": 0, "C4": 1, "C5c": 1, "C6a": 0, "D19b": 0},
+      "expected_output": 2,
+      "description": "Low-medium urgency - mood indicator present"
+    },
+    {
+      "name": "ADL impairment with risk factor",
+      "input": {"C1": 1, "C2a": 2, "C2b": 1, "C2c": 0, "C2d": 0, "C2e": 0, "C3": 0, "C4": 1, "C5c": 1, "C6a": 0, "D19b": 0},
+      "expected_output": 3,
+      "description": "Medium urgency - some ADL impairment + mood"
+    },
+    {
+      "name": "Multiple ADL impairments",
+      "input": {"C1": 2, "C2a": 2, "C2b": 2, "C2c": 2, "C2d": 0, "C2e": 0, "C3": 0, "C4": 1, "C5c": 0, "C6a": 0, "D19b": 0},
+      "expected_output": 4,
+      "description": "Medium-high urgency - 3+ ADL areas impaired"
+    },
+    {
+      "name": "Severe cognitive impairment",
+      "input": {"C1": 5, "C2a": 3, "C2b": 2, "C2c": 2, "C2d": 2, "C2e": 2, "C3": 0, "C4": 1, "C5c": 0, "C6a": 0, "D19b": 0},
+      "expected_output": 5,
+      "description": "High urgency - severe cognitive impairment"
+    },
+    {
+      "name": "Severe cognitive + multiple risk factors",
+      "input": {"C1": 5, "C2a": 3, "C2b": 3, "C2c": 3, "C2d": 2, "C2e": 2, "C3": 2, "C4": 3, "C5c": 1, "C6a": 1, "D19b": 1},
+      "expected_output": 6,
+      "description": "Highest urgency - severe cognitive + unstable + caregiver overwhelmed"
+    }
+  ]
+}
+

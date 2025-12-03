@@ -19,6 +19,7 @@ use App\Services\BundleEngine\Derivers\RehabPotentialDeriver;
 use App\Services\BundleEngine\Engines\DecisionTreeEngine;
 use App\Services\BundleEngine\Engines\CAPTriggerEngine;
 use App\Services\BundleEngine\Engines\ServiceIntensityResolver;
+use App\Services\BundleEngine\AlgorithmEvaluator;
 
 /**
  * BundleEngineServiceProvider
@@ -127,6 +128,14 @@ class BundleEngineServiceProvider extends ServiceProvider
                 config_path('bundle_engine/service_intensity_matrix.json')
             );
         });
+
+        // AlgorithmEvaluator - Computes all algorithm scores for a patient
+        $this->app->singleton(AlgorithmEvaluator::class, function ($app) {
+            return new AlgorithmEvaluator(
+                $app->make(DecisionTreeEngine::class),
+                $app->make(CAPTriggerEngine::class)
+            );
+        });
     }
 
     /**
@@ -160,6 +169,7 @@ class BundleEngineServiceProvider extends ServiceProvider
             DecisionTreeEngine::class,
             CAPTriggerEngine::class,
             ServiceIntensityResolver::class,
+            AlgorithmEvaluator::class,
         ];
     }
 }

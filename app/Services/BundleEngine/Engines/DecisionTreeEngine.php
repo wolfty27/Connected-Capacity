@@ -72,6 +72,11 @@ class DecisionTreeEngine
         // Merge with original input (computed values take precedence)
         $context = array_merge($input, $context);
         
+        // Handle additive calculation method (e.g., DMS)
+        if (($algorithm['calculation_method'] ?? null) === 'additive' && isset($algorithm['formula'])) {
+            return (int) $this->evaluateExpression($algorithm['formula'], $context);
+        }
+        
         // Traverse the decision tree
         return $this->traverseTree($algorithm['tree'], $context);
     }

@@ -1,0 +1,116 @@
+{
+  "name": "Service Urgency Algorithm",
+  "version": "1.0.0-hc_mapped",
+  "verification_status": "hc_mapped",
+  "verification_source": "InterRAI CA Manual - Service Urgency Algorithm (SUA)",
+  "verification_date": null,
+  "verified_by": null,
+  "output_range": [1, 4],
+  "output_type": "integer",
+  "description": "Identifies persons who may be in urgent need of clinical services (e.g., wound care, IV medication). Scores 3-4 indicate persons likely to need home services within 72 hours or less.",
+
+  "items_used": [
+    {"ca_code": "C1", "hc_code": "iB3a", "description": "Daily decision making (0-6)"},
+    {"ca_code": "C2a", "hc_code": "iG1ga", "description": "Bathing (0-6)"},
+    {"ca_code": "C2b", "hc_code": "iG1ia", "description": "Bath transfer (0-6)"},
+    {"ca_code": "C2c", "hc_code": "iG1fa", "description": "Personal hygiene (0-6)"},
+    {"ca_code": "C2d", "hc_code": "iG1ca", "description": "Dressing lower body (0-6)"},
+    {"ca_code": "C2e", "hc_code": "iG1ha", "description": "Locomotion (0-6)"},
+    {"ca_code": "D8a", "hc_code": "iJ1a", "description": "Daily pain (frequency)"},
+    {"ca_code": "D14b", "hc_code": "iP1aa", "description": "IV therapy"},
+    {"ca_code": "D14e", "hc_code": "clinical_wound", "description": "Wound care needed"},
+    {"ca_code": "D15", "hc_code": null, "description": "Last hospital stay", "mapping_notes": "NOT AVAILABLE - default 0"},
+    {"ca_code": "D16", "hc_code": null, "description": "ED visits in last 90 days", "mapping_notes": "NOT AVAILABLE - default 0"}
+  ],
+
+  "computed_inputs": {
+    "SRI": {
+      "formula": "C1 == 0 && C2a == 0 && C2b == 0 && C2c == 0 && C2d == 0 && C2e == 0",
+      "description": "Self-Reliance Index"
+    },
+    "has_daily_pain": {
+      "formula": "D8a >= 3",
+      "description": "Pain frequency is daily"
+    },
+    "needs_iv_therapy": {
+      "formula": "D14b >= 1",
+      "description": "IV therapy required"
+    },
+    "needs_wound_care": {
+      "formula": "D14e >= 1",
+      "description": "Wound care required"
+    },
+    "recent_hospital": {
+      "formula": "D15 >= 1",
+      "description": "Recent hospital stay"
+    },
+    "recent_ed": {
+      "formula": "D16 >= 1",
+      "description": "Recent ED visit"
+    },
+    "urgent_clinical_need": {
+      "formula": "needs_iv_therapy || needs_wound_care",
+      "description": "Has urgent clinical service need"
+    },
+    "clinical_indicator_count": {
+      "formula": "(has_daily_pain ? 1 : 0) + (needs_iv_therapy ? 1 : 0) + (needs_wound_care ? 1 : 0) + (recent_hospital ? 1 : 0) + (recent_ed ? 1 : 0)",
+      "description": "Count of clinical indicators"
+    }
+  },
+
+  "tree": {
+    "condition": "urgent_clinical_need == true",
+    "true_branch": {
+      "condition": "clinical_indicator_count >= 3",
+      "true_branch": { "return": 4 },
+      "false_branch": { "return": 3 }
+    },
+    "false_branch": {
+      "condition": "SRI == true",
+      "true_branch": { "return": 1 },
+      "false_branch": {
+        "condition": "clinical_indicator_count >= 2",
+        "true_branch": { "return": 3 },
+        "false_branch": {
+          "condition": "clinical_indicator_count >= 1",
+          "true_branch": { "return": 2 },
+          "false_branch": { "return": 1 }
+        }
+      }
+    }
+  },
+
+  "test_cases": [
+    {
+      "name": "Self-reliant, no clinical needs",
+      "input": {"C1": 0, "C2a": 0, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0, "D8a": 0, "D14b": 0, "D14e": 0, "D15": 0, "D16": 0},
+      "expected_output": 1,
+      "description": "Low urgency - no immediate service need"
+    },
+    {
+      "name": "ADL impairment with daily pain",
+      "input": {"C1": 1, "C2a": 2, "C2b": 0, "C2c": 0, "C2d": 0, "C2e": 0, "D8a": 3, "D14b": 0, "D14e": 0, "D15": 0, "D16": 0},
+      "expected_output": 2,
+      "description": "Low-medium urgency - pain but no urgent clinical need"
+    },
+    {
+      "name": "IV therapy needed",
+      "input": {"C1": 1, "C2a": 2, "C2b": 2, "C2c": 0, "C2d": 0, "C2e": 0, "D8a": 0, "D14b": 1, "D14e": 0, "D15": 0, "D16": 0},
+      "expected_output": 3,
+      "description": "High urgency - IV therapy within 72 hours"
+    },
+    {
+      "name": "Wound care needed",
+      "input": {"C1": 1, "C2a": 2, "C2b": 2, "C2c": 0, "C2d": 0, "C2e": 0, "D8a": 0, "D14b": 0, "D14e": 1, "D15": 0, "D16": 0},
+      "expected_output": 3,
+      "description": "High urgency - wound care within 72 hours"
+    },
+    {
+      "name": "Multiple urgent needs",
+      "input": {"C1": 2, "C2a": 3, "C2b": 2, "C2c": 2, "C2d": 2, "C2e": 2, "D8a": 3, "D14b": 1, "D14e": 1, "D15": 1, "D16": 0},
+      "expected_output": 4,
+      "description": "Highest urgency - IV + wound + pain + recent hospital"
+    }
+  ]
+}
+
