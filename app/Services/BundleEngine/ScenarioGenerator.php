@@ -12,6 +12,8 @@ use App\Services\BundleEngine\DTOs\ScenarioBundleDTO;
 use App\Services\BundleEngine\DTOs\ScenarioServiceLine;
 use App\Services\BundleEngine\Enums\NeedsCluster;
 use App\Services\BundleEngine\Enums\ScenarioAxis;
+use App\Services\BundleEngine\Engines\ServiceIntensityResolver;
+use App\Services\BundleEngine\Engines\CAPTriggerEngine;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
@@ -40,15 +42,21 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
     protected ScenarioAxisSelector $axisSelector;
     protected CostAnnotationServiceInterface $costService;
     protected ServiceRateRepository $rateRepository;
+    protected ?ServiceIntensityResolver $intensityResolver;
+    protected ?CAPTriggerEngine $capEngine;
 
     public function __construct(
         ?ScenarioAxisSelector $axisSelector = null,
         ?CostAnnotationServiceInterface $costService = null,
-        ?ServiceRateRepository $rateRepository = null
+        ?ServiceRateRepository $rateRepository = null,
+        ?ServiceIntensityResolver $intensityResolver = null,
+        ?CAPTriggerEngine $capEngine = null
     ) {
         $this->axisSelector = $axisSelector ?? new ScenarioAxisSelector();
         $this->costService = $costService ?? new CostAnnotationService();
         $this->rateRepository = $rateRepository ?? new ServiceRateRepository();
+        $this->intensityResolver = $intensityResolver;
+        $this->capEngine = $capEngine;
     }
 
     /**
@@ -438,10 +446,92 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
     /**
      * Get default services when no template is available.
      *
-     * Always returns at least baseline services to ensure scenarios have content.
-     * Uses rate menu (ServiceRateRepository) for pricing.
+     * v2.2: Now uses algorithm scores and ServiceIntensityResolver for evidence-based
+     * service frequencies when available, with fallback to profile-based rules.
+     *
+     * @param PatientNeedsProfile $profile
+     * @param ScenarioAxis|null $axis Optional axis for intensity modifiers
+     * @return array
      */
-    protected function getDefaultServices(PatientNeedsProfile $profile): array
+    protected function getDefaultServices(PatientNeedsProfile $profile, ?ScenarioAxis $axis = null): array
+    {
+        // Try algorithm-driven approach first (v2.2)
+        if ($this->intensityResolver) {
+            return $this->getAlgorithmDrivenServices($profile, $axis);
+        }
+
+        // Fallback to rule-based approach
+        return $this->getRuleBasedServices($profile);
+    }
+
+    /**
+     * Get services using algorithm scores and ServiceIntensityResolver.
+     * This provides evidence-based service frequencies based on CA algorithms.
+     */
+    protected function getAlgorithmDrivenServices(PatientNeedsProfile $profile, ?ScenarioAxis $axis = null): array
+    {
+        $services = [];
+
+        // Build algorithm scores from profile
+        $algorithmScores = [
+            'personal_support' => $profile->personalSupportScore,
+            'rehabilitation' => $profile->rehabilitationScore,
+            'chess_ca' => $profile->chessCAScore,
+        ];
+
+        // Get triggered CAPs for service adjustments
+        $triggeredCAPs = [];
+        if ($this->capEngine && $profile->hasFullHcAssessment) {
+            $capInput = $profile->toCAPInput();
+            $triggeredCAPs = $this->capEngine->evaluateAll($capInput);
+        }
+
+        // Resolve algorithm scores to service intensities
+        $axisName = $axis?->value;
+        $resolvedServices = $this->intensityResolver->resolve($algorithmScores, $triggeredCAPs, $axisName);
+
+        // Build service array from resolved intensities
+        foreach ($resolvedServices as $serviceCode => $intensity) {
+            $serviceType = ServiceType::where('code', $serviceCode)->first();
+            if (!$serviceType) {
+                continue;
+            }
+
+            // Skip if no hours/visits
+            $hours = $intensity['hours'] ?? 0;
+            $visits = $intensity['visits'] ?? 0;
+            if ($hours <= 0 && $visits <= 0) {
+                continue;
+            }
+
+            // Calculate frequency based on hours or visits
+            $frequency = $visits > 0 ? (int) ceil($visits) : (int) ceil($hours / 1.5); // Assume 1.5h/visit
+            $duration = $visits > 0 ? 60 : (int) round(($hours * 60) / max(1, $frequency));
+
+            $services[] = [
+                'service_type' => $serviceType,
+                'frequency_count' => max(1, $frequency),
+                'frequency_period' => 'week',
+                'duration_minutes' => min(180, max(30, $duration)), // 30-180 min range
+                'cost_per_visit' => $this->getEffectiveRate($serviceType),
+                'is_required' => ($intensity['priority'] ?? 'recommended') === 'core',
+                'priority_level' => $intensity['priority'] ?? 'recommended',
+                'algorithm_source' => $intensity['source'] ?? 'algorithm',
+                'clinical_rationale' => $intensity['rationale'] ?? null,
+                'cap_triggered' => $intensity['cap_triggered'] ?? false,
+            ];
+        }
+
+        // Ensure minimum baseline services
+        $services = $this->ensureBaselineServices($services, $profile);
+
+        return $services;
+    }
+
+    /**
+     * Fallback rule-based service calculation (original logic).
+     */
+    protected function getRuleBasedServices(PatientNeedsProfile $profile): array
     {
         $services = [];
 
@@ -552,6 +642,50 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
     }
 
     /**
+     * Ensure baseline services are present in the service list.
+     */
+    protected function ensureBaselineServices(array $services, PatientNeedsProfile $profile): array
+    {
+        $serviceCodes = collect($services)->pluck('service_type.code')->toArray();
+
+        // Always need nursing for monitoring
+        if (!in_array('NUR', $serviceCodes)) {
+            $nursing = ServiceType::where('code', 'NUR')->first();
+            if ($nursing) {
+                $services[] = [
+                    'service_type' => $nursing,
+                    'frequency_count' => 1,
+                    'frequency_period' => 'week',
+                    'duration_minutes' => 60,
+                    'cost_per_visit' => $this->getEffectiveRate($nursing),
+                    'is_required' => true,
+                    'priority_level' => 'core',
+                    'clinical_rationale' => 'Baseline nursing for care coordination',
+                ];
+            }
+        }
+
+        // Need PSW if ADL support required
+        if (!in_array('PSW', $serviceCodes) && $profile->adlSupportLevel >= 2) {
+            $psw = ServiceType::where('code', 'PSW')->first();
+            if ($psw) {
+                $services[] = [
+                    'service_type' => $psw,
+                    'frequency_count' => max(2, $profile->adlSupportLevel),
+                    'frequency_period' => 'week',
+                    'duration_minutes' => 60,
+                    'cost_per_visit' => $this->getEffectiveRate($psw),
+                    'is_required' => $profile->adlSupportLevel >= 3,
+                    'priority_level' => 'recommended',
+                    'clinical_rationale' => 'ADL support based on functional needs',
+                ];
+            }
+        }
+
+        return $services;
+    }
+
+    /**
      * Apply axis modifiers to services.
      */
     protected function applyAxisModifiers(array $services, ScenarioAxis $axis, PatientNeedsProfile $profile, float $weight = 1.0): array
@@ -586,6 +720,8 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
 
     /**
      * Build service lines from modified services.
+     *
+     * v2.2: Now includes algorithm-driven clinical rationale.
      */
     protected function buildServiceLines(array $services, ScenarioAxis $axis, PatientNeedsProfile $profile): array
     {
@@ -593,6 +729,15 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
 
         foreach ($services as $service) {
             $serviceType = $service['service_type'];
+
+            // Use algorithm-provided rationale if available, otherwise generate
+            $rationale = $service['clinical_rationale'] 
+                ?? $this->generateClinicalRationale($serviceType, $profile, $service);
+
+            // Add CAP indicator to rationale if triggered
+            if (!empty($service['cap_triggered'])) {
+                $rationale .= ' [CAP-triggered]';
+            }
 
             $serviceLine = new ScenarioServiceLine(
                 // Required parameters first
@@ -611,7 +756,7 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
                 weeklyEstimatedCost: $this->calculateWeeklyCost($service),
                 priorityLevel: $service['priority_level'],
                 isSafetyCritical: $service['is_required'] ?? false,
-                clinicalRationale: $this->generateClinicalRationale($serviceType, $profile),
+                clinicalRationale: $rationale,
                 patientGoalSupported: $this->getGoalForService($serviceType, $axis),
                 axisContribution: $this->getAxisContribution($serviceType, $axis),
             );
@@ -825,19 +970,137 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
 
     /**
      * Generate clinical rationale for a service.
+     *
+     * v2.2: Now includes algorithm scores and CAP triggers in rationale.
      */
-    protected function generateClinicalRationale(ServiceType $serviceType, PatientNeedsProfile $profile): string
+    protected function generateClinicalRationale(ServiceType $serviceType, PatientNeedsProfile $profile, ?array $serviceData = null): string
     {
+        $code = strtoupper($serviceType->code ?? '');
         $category = strtolower($serviceType->category ?? '');
 
-        return match ($category) {
-            'nursing' => 'Clinical monitoring and care coordination',
-            'psw' => 'Personal care and daily living support',
-            'therapy', 'pt', 'ot' => 'Functional restoration and mobility support',
-            'respite' => 'Caregiver support and sustainability',
-            'remote_monitoring' => 'Continuous health monitoring',
-            default => 'Comprehensive care support',
+        // Check if we have algorithm-driven rationale
+        if ($serviceData && isset($serviceData['clinical_rationale'])) {
+            return $serviceData['clinical_rationale'];
+        }
+
+        // Build algorithm-aware rationale
+        $rationale = match ($code) {
+            'NUR' => $this->getNursingRationale($profile),
+            'PSW' => $this->getPswRationale($profile),
+            'PT' => $this->getPtRationale($profile),
+            'OT' => $this->getOtRationale($profile),
+            'SW' => $this->getSwRationale($profile),
+            default => match ($category) {
+                'nursing' => 'Clinical monitoring and care coordination',
+                'psw' => 'Personal care and daily living support',
+                'therapy', 'pt', 'ot' => 'Functional restoration and mobility support',
+                'respite' => 'Caregiver support and sustainability',
+                'remote_monitoring' => 'Continuous health monitoring',
+                default => 'Comprehensive care support',
+            },
         };
+
+        return $rationale;
+    }
+
+    /**
+     * Generate nursing-specific rationale based on algorithm scores.
+     */
+    protected function getNursingRationale(PatientNeedsProfile $profile): string
+    {
+        $reasons = [];
+
+        if ($profile->chessCAScore >= 3) {
+            $reasons[] = "CHESS-CA {$profile->chessCAScore}/5 indicates health instability";
+        }
+        if ($profile->painScore >= 3) {
+            $reasons[] = "Pain Scale {$profile->painScore}/4 requires monitoring";
+        }
+        if ($profile->serviceUrgencyScore >= 3) {
+            $reasons[] = "Service Urgency {$profile->serviceUrgencyScore}/4 - clinical services needed within 72h";
+        }
+
+        if (empty($reasons)) {
+            return 'Baseline nursing for care coordination and monitoring';
+        }
+
+        return implode('; ', $reasons);
+    }
+
+    /**
+     * Generate PSW-specific rationale based on algorithm scores.
+     */
+    protected function getPswRationale(PatientNeedsProfile $profile): string
+    {
+        $psa = $profile->personalSupportScore;
+        $label = match (true) {
+            $psa >= 5 => 'high',
+            $psa >= 3 => 'moderate',
+            default => 'light',
+        };
+
+        $rationale = "PSA {$psa}/6 indicates {$label} personal support need";
+
+        if (!$profile->selfRelianceIndex) {
+            $rationale .= '; not self-reliant in ADL/cognition';
+        }
+
+        return $rationale;
+    }
+
+    /**
+     * Generate PT-specific rationale based on algorithm scores.
+     */
+    protected function getPtRationale(PatientNeedsProfile $profile): string
+    {
+        $rehab = $profile->rehabilitationScore;
+        $label = match (true) {
+            $rehab >= 4 => 'high',
+            $rehab >= 3 => 'moderate',
+            default => 'maintenance',
+        };
+
+        return "Rehabilitation {$rehab}/5 indicates {$label} PT/OT rehabilitation potential";
+    }
+
+    /**
+     * Generate OT-specific rationale based on algorithm scores.
+     */
+    protected function getOtRationale(PatientNeedsProfile $profile): string
+    {
+        $reasons = [];
+
+        if ($profile->rehabilitationScore >= 3) {
+            $reasons[] = "Rehab {$profile->rehabilitationScore}/5 for functional improvement";
+        }
+        if ($profile->iadlSupportLevel >= 3) {
+            $reasons[] = 'IADL deficits for skill-building';
+        }
+        if ($profile->hasHomeEnvironmentRisk) {
+            $reasons[] = 'Home environment safety assessment';
+        }
+
+        return empty($reasons) ? 'Occupational therapy for daily function' : implode('; ', $reasons);
+    }
+
+    /**
+     * Generate SW-specific rationale based on algorithm scores.
+     */
+    protected function getSwRationale(PatientNeedsProfile $profile): string
+    {
+        $reasons = [];
+
+        if ($profile->distressedMoodScore >= 3) {
+            $reasons[] = "DMS {$profile->distressedMoodScore}/9 - mood support needed";
+        }
+        if ($profile->caregiverStressLevel >= 3) {
+            $reasons[] = 'Caregiver stress - support/respite planning';
+        }
+        if ($profile->livesAlone && $profile->cognitiveComplexity >= 2) {
+            $reasons[] = 'Lives alone with cognitive needs - community linkage';
+        }
+
+        return empty($reasons) ? 'Psychosocial support and care coordination' : implode('; ', $reasons);
     }
 
     /**

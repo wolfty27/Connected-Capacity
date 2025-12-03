@@ -1910,3 +1910,103 @@ Each triggered CAP includes:
 ### Next Step
 
 **Phase 4: ScenarioGenerator Integration** - Wire algorithm scores and CAP triggers into scenario generation.
+
+---
+
+## AI-Assisted Bundle Engine - Phase 4: Enhanced Scenario Generator (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Integrate algorithm scores and CAP triggers into the scenario generation pipeline, providing evidence-based service recommendations with clinical rationale.
+
+### Key Changes
+
+#### 1. ScenarioGenerator Enhanced
+- Added `ServiceIntensityResolver` and `CAPTriggerEngine` dependencies
+- New `getAlgorithmDrivenServices()` method for algorithm-based service calculation
+- `getRuleBasedServices()` fallback when algorithms unavailable
+- `ensureBaselineServices()` guarantees minimum care coverage
+
+#### 2. Algorithm-Driven Rationale
+Service lines now include algorithm scores in clinical rationale:
+- **Nursing**: "Pain Scale 4/4 requires monitoring; CHESS-CA 3/5 indicates health instability"
+- **PSW**: "PSA 2/6 indicates light personal support need; not self-reliant"
+- **PT**: "Rehabilitation 3/5 indicates moderate PT/OT potential"
+- **SW**: "DMS 5/9 - mood support needed; caregiver stress level 3"
+
+#### 3. AssessmentIngestionService Enhanced
+- Added `AlgorithmEvaluator` and `CAPTriggerEngine` dependencies
+- `computeAlgorithmScores()` computes all 8 CA algorithms from HC data
+- `buildCapInput()` prepares profile data for CAP evaluation
+- `getDefaultAlgorithmScores()` fallback when evaluator unavailable
+
+#### 4. Service Provider Updates
+Both `AssessmentIngestionService` and `ScenarioGenerator` now receive:
+- `AlgorithmEvaluator` for CA algorithm computation
+- `CAPTriggerEngine` for CAP trigger evaluation
+- `ServiceIntensityResolver` for algorithm→service mapping
+
+### Integration Test Results
+
+```
+=== Full Integration Test ===
+
+Patient ID: 1
+RUG Group: CC0
+Confidence: high
+
+Algorithm Scores:
+  Self-Reliance Index: Requires assistance
+  Assessment Urgency: 4/6
+  Service Urgency: 2/4
+  Rehabilitation: 2/5
+  Personal Support: 2/6
+  Distressed Mood: 0/9
+  Pain: 4/4  ← Triggers Pain CAP
+  CHESS-CA: 0/5
+
+Triggered CAPs:
+  pain: IMPROVE  ← Active intervention needed
+
+Generated Scenarios (3):
+  • Community Integrated: $3,104/wk, 8 services
+  • Balanced Care: $3,104/wk, 8 services
+  • Safety & Stability: $3,104/wk, 8 services
+
+Clinical Rationale Examples:
+  - Nursing: "Pain Scale 4/4 requires monitoring"
+  - PSW: "PSA 2/6 indicates light personal support need; not self-reliant"
+```
+
+### Data Flow Summary
+
+```
+HC Assessment (raw_items)
+    ↓
+AlgorithmEvaluator.evaluateAllAlgorithms()
+    ↓
+[SRI, AUA, SUA, Rehab, PSA, DMS, Pain, CHESS-CA]
+    ↓
+CAPTriggerEngine.evaluateAll()
+    ↓
+[Triggered CAPs: Falls, Pain, ADL, etc.]
+    ↓
+ServiceIntensityResolver.resolve()
+    ↓
+[Service Hours/Visits with clinical rationale]
+    ↓
+ScenarioGenerator.generateScenarios()
+    ↓
+[3-5 Patient-Experience Scenarios]
+```
+
+### Files Modified
+
+- `app/Services/BundleEngine/ScenarioGenerator.php`
+- `app/Services/BundleEngine/AssessmentIngestionService.php`
+- `app/Providers/BundleEngineServiceProvider.php`
+
+### Next Step
+
+**Phase 5: Vertex AI Explanation** (Optional/Parallel) - Create explanation service for AI-generated scenario narratives.

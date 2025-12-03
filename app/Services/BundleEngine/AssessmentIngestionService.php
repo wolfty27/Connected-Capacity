@@ -11,6 +11,8 @@ use App\Services\BundleEngine\Derivers\EpisodeTypeDeriver;
 use App\Services\BundleEngine\Derivers\RehabPotentialDeriver;
 use App\Services\BundleEngine\Mappers\HcAssessmentMapper;
 use App\Services\BundleEngine\Mappers\CaAssessmentMapper;
+use App\Services\BundleEngine\AlgorithmEvaluator;
+use App\Services\BundleEngine\Engines\CAPTriggerEngine;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -61,11 +63,23 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
      */
     protected RehabPotentialDeriver $rehabPotentialDeriver;
 
+    /**
+     * Algorithm evaluator for CA algorithm scores (v2.2).
+     */
+    protected ?AlgorithmEvaluator $algorithmEvaluator;
+
+    /**
+     * CAP trigger engine for evaluating CAPs (v2.2).
+     */
+    protected ?CAPTriggerEngine $capEngine;
+
     public function __construct(
         ?HcAssessmentMapper $hcMapper = null,
         ?CaAssessmentMapper $caMapper = null,
         ?EpisodeTypeDeriver $episodeTypeDeriver = null,
-        ?RehabPotentialDeriver $rehabPotentialDeriver = null
+        ?RehabPotentialDeriver $rehabPotentialDeriver = null,
+        ?AlgorithmEvaluator $algorithmEvaluator = null,
+        ?CAPTriggerEngine $capEngine = null
     ) {
         $this->mappers = [
             'hc' => $hcMapper ?? new HcAssessmentMapper(),
@@ -73,6 +87,8 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
         ];
         $this->episodeTypeDeriver = $episodeTypeDeriver ?? new EpisodeTypeDeriver();
         $this->rehabPotentialDeriver = $rehabPotentialDeriver ?? new RehabPotentialDeriver();
+        $this->algorithmEvaluator = $algorithmEvaluator;
+        $this->capEngine = $capEngine;
     }
 
     /**
@@ -255,6 +271,22 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
         $mergedData['hasRehabPotential'] = $rehabResult['hasRehabPotential'];
         $mergedData['rehabPotentialScore'] = $rehabResult['score'];
 
+        // v2.2: Compute CA algorithm scores
+        $algorithmScores = $this->computeAlgorithmScores($hcAssessment ?? $caAssessment, $mergedData, $referral);
+        $mergedData = array_merge($mergedData, $algorithmScores);
+
+        // v2.2: Evaluate CAP triggers (only if HC assessment available)
+        $triggeredCAPs = [];
+        if ($hcAssessment && $this->capEngine) {
+            try {
+                $capInput = $this->buildCapInput($mergedData);
+                $triggeredCAPs = $this->capEngine->evaluateAll($capInput);
+            } catch (\Exception $e) {
+                Log::warning('CAP evaluation failed', ['error' => $e->getMessage()]);
+            }
+        }
+        $mergedData['triggeredCAPs'] = $triggeredCAPs;
+
         // Calculate confidence and completeness
         $confidence = $this->calculateConfidenceLevel($confidenceFactors, $mergedData);
         $completeness = $this->calculateCompletenessScore($mergedData);
@@ -340,6 +372,28 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
             confidenceLevel: $confidence,
             missingDataFields: $this->getMissingFields($mergedData),
             dataQualityNotes: $this->generateDataQualityNotes($mergedData, $hcAssessment, $caAssessment),
+
+            // v2.2: CA Algorithm Scores
+            selfRelianceIndex: $mergedData['selfRelianceIndex'] ?? false,
+            assessmentUrgencyScore: $mergedData['assessmentUrgencyScore'] ?? 1,
+            serviceUrgencyScore: $mergedData['serviceUrgencyScore'] ?? 1,
+            rehabilitationScore: $mergedData['rehabilitationScore'] ?? 1,
+            personalSupportScore: $mergedData['personalSupportScore'] ?? 1,
+            distressedMoodScore: $mergedData['distressedMoodScore'] ?? 0,
+            painScore: $mergedData['painScore'] ?? 0,
+            chessCAScore: $mergedData['chessCAScore'] ?? 0,
+
+            // v2.2: CAP Triggers
+            triggeredCAPs: $mergedData['triggeredCAPs'] ?? null,
+
+            // v2.2: Additional Risk Indicators
+            hasRecentFall: $mergedData['hasRecentFall'] ?? false,
+            hasDelirium: $mergedData['hasDelirium'] ?? false,
+            hasHomeEnvironmentRisk: $mergedData['hasHomeEnvironmentRisk'] ?? false,
+            hasPolypharmacyRisk: $mergedData['hasPolypharmacyRisk'] ?? false,
+            hasRecentHospitalStay: $mergedData['hasRecentHospitalStay'] ?? false,
+            hasRecentErVisit: $mergedData['hasRecentErVisit'] ?? false,
+            medicationCount: $mergedData['medicationCount'] ?? 0,
         );
     }
 
@@ -513,6 +567,154 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
         }
 
         return implode('. ', $notes);
+    }
+
+    /**
+     * Compute CA algorithm scores from assessment data (v2.2).
+     *
+     * @param InterraiAssessment|null $assessment Primary assessment
+     * @param array $mergedData Merged profile data
+     * @param mixed $referral Referral data
+     * @return array Algorithm scores keyed by field name
+     */
+    protected function computeAlgorithmScores(?InterraiAssessment $assessment, array $mergedData, $referral): array
+    {
+        // If no algorithm evaluator, return defaults
+        if (!$this->algorithmEvaluator) {
+            return $this->getDefaultAlgorithmScores($mergedData);
+        }
+
+        // If no assessment, return defaults based on profile data
+        if (!$assessment) {
+            return $this->getDefaultAlgorithmScores($mergedData);
+        }
+
+        try {
+            $rawItems = $assessment->raw_items ?? [];
+            
+            // Build additional context for algorithm evaluation
+            $additionalContext = [
+                'has_recent_hospital_stay' => $mergedData['hasRecentHospitalStay'] ?? false,
+                'has_recent_er_visit' => $mergedData['hasRecentErVisit'] ?? false,
+                'is_palliative' => ($referral && isset($referral->referral_type) && 
+                    str_contains(strtolower($referral->referral_type), 'palliative')),
+            ];
+
+            // Evaluate all algorithms
+            $scores = $this->algorithmEvaluator->evaluateAllAlgorithms($rawItems, $additionalContext);
+
+            return [
+                'selfRelianceIndex' => $scores['self_reliance_index'] ?? false,
+                'assessmentUrgencyScore' => $scores['assessment_urgency'] ?? 1,
+                'serviceUrgencyScore' => $scores['service_urgency'] ?? 1,
+                'rehabilitationScore' => $scores['rehabilitation'] ?? 1,
+                'personalSupportScore' => $scores['personal_support'] ?? 1,
+                'distressedMoodScore' => $scores['distressed_mood'] ?? 0,
+                'painScore' => $scores['pain'] ?? 0,
+                'chessCAScore' => $scores['chess_ca'] ?? 0,
+            ];
+        } catch (\Exception $e) {
+            Log::warning('Algorithm evaluation failed, using defaults', [
+                'error' => $e->getMessage(),
+            ]);
+            return $this->getDefaultAlgorithmScores($mergedData);
+        }
+    }
+
+    /**
+     * Get default algorithm scores based on profile data.
+     * Used when algorithm evaluator is not available or fails.
+     */
+    protected function getDefaultAlgorithmScores(array $mergedData): array
+    {
+        // Derive approximate scores from profile data
+        $adlLevel = $mergedData['adlSupportLevel'] ?? 0;
+        $cogLevel = $mergedData['cognitiveComplexity'] ?? 0;
+        $healthInstability = $mergedData['healthInstability'] ?? 0;
+
+        // Self-reliance: only if no ADL or cognitive impairment
+        $selfReliant = $adlLevel == 0 && $cogLevel == 0;
+
+        // Personal Support: map ADL level roughly
+        $psa = match (true) {
+            $adlLevel >= 5 => 6,
+            $adlLevel >= 4 => 5,
+            $adlLevel >= 3 => 4,
+            $adlLevel >= 2 => 3,
+            $adlLevel >= 1 => 2,
+            default => 1,
+        };
+
+        // Rehabilitation: inverse relationship with cognitive impairment
+        $rehab = match (true) {
+            $cogLevel >= 4 => 1, // Severe cognitive = low rehab potential
+            $adlLevel >= 3 && $cogLevel < 3 => 3, // ADL issues but cognitive ok = rehab potential
+            $adlLevel >= 2 => 2,
+            default => 1,
+        };
+
+        // CHESS: map health instability
+        $chess = min(5, $healthInstability);
+
+        return [
+            'selfRelianceIndex' => $selfReliant,
+            'assessmentUrgencyScore' => min(6, max(1, $adlLevel + ($cogLevel >= 3 ? 2 : 0))),
+            'serviceUrgencyScore' => $healthInstability >= 3 ? 3 : 1,
+            'rehabilitationScore' => $rehab,
+            'personalSupportScore' => $psa,
+            'distressedMoodScore' => $mergedData['mentalHealthComplexity'] ?? 0,
+            'painScore' => $mergedData['painManagementNeed'] ?? 0,
+            'chessCAScore' => $chess,
+        ];
+    }
+
+    /**
+     * Build CAP input from merged data for CAP trigger evaluation.
+     */
+    protected function buildCapInput(array $mergedData): array
+    {
+        return [
+            // Fall Risk
+            'has_recent_fall' => $mergedData['hasRecentFall'] ?? ($mergedData['fallsRiskLevel'] ?? 0) >= 2,
+            'falls_risk_level' => $mergedData['fallsRiskLevel'] ?? 0,
+
+            // Mobility & Function
+            'mobility_complexity' => $mergedData['mobilityComplexity'] ?? 0,
+            'adl_support_level' => $mergedData['adlSupportLevel'] ?? 0,
+            'iadl_support_level' => $mergedData['iadlSupportLevel'] ?? 0,
+
+            // Cognition & Behaviour
+            'cognitive_complexity' => $mergedData['cognitiveComplexity'] ?? 0,
+            'has_delirium' => $mergedData['hasDelirium'] ?? false,
+            'behavioural_complexity' => $mergedData['behaviouralComplexity'] ?? 0,
+
+            // Clinical Risk
+            'pain_score' => $mergedData['painScore'] ?? $mergedData['painManagementNeed'] ?? 0,
+            'health_instability' => $mergedData['healthInstability'] ?? 0,
+            'has_pressure_ulcer_risk' => ($mergedData['skinIntegrityRisk'] ?? 0) >= 2,
+            'has_polypharmacy_risk' => $mergedData['hasPolypharmacyRisk'] ?? false,
+
+            // Environment & Support
+            'has_home_environment_risk' => $mergedData['hasHomeEnvironmentRisk'] ?? false,
+            'caregiver_stress_level' => $mergedData['caregiverStressLevel'] ?? 0,
+            'lives_alone' => $mergedData['livesAlone'] ?? false,
+
+            // Recent Events
+            'has_recent_hospital_stay' => $mergedData['hasRecentHospitalStay'] ?? false,
+            'has_recent_er_visit' => $mergedData['hasRecentErVisit'] ?? false,
+
+            // Assessment Context
+            'has_full_hc_assessment' => true, // Only called when HC available
+            'episode_type' => $mergedData['episodeType'] ?? 'unknown',
+            'rehab_potential_score' => $mergedData['rehabPotentialScore'] ?? 0,
+
+            // Algorithm Scores
+            'self_reliance_index' => $mergedData['selfRelianceIndex'] ?? false,
+            'personal_support_score' => $mergedData['personalSupportScore'] ?? 1,
+            'rehabilitation_score' => $mergedData['rehabilitationScore'] ?? 1,
+            'chess_ca_score' => $mergedData['chessCAScore'] ?? 0,
+            'distressed_mood_score' => $mergedData['distressedMoodScore'] ?? 0,
+        ];
     }
 }
 

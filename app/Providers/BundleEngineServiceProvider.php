@@ -71,6 +71,8 @@ class BundleEngineServiceProvider extends ServiceProvider
         });
 
         // Bind interface to implementation: AssessmentIngestionService
+        // v2.2: Now includes AlgorithmEvaluator and CAPTriggerEngine for
+        // computing CA algorithm scores and CAP triggers
         $this->app->singleton(
             AssessmentIngestionServiceInterface::class,
             function ($app) {
@@ -78,7 +80,9 @@ class BundleEngineServiceProvider extends ServiceProvider
                     $app->make(HcAssessmentMapper::class),
                     $app->make(CaAssessmentMapper::class),
                     $app->make(EpisodeTypeDeriver::class),
-                    $app->make(RehabPotentialDeriver::class)
+                    $app->make(RehabPotentialDeriver::class),
+                    $app->make(AlgorithmEvaluator::class),
+                    $app->make(CAPTriggerEngine::class)
                 );
             }
         );
@@ -92,12 +96,17 @@ class BundleEngineServiceProvider extends ServiceProvider
         );
 
         // Bind interface to implementation: ScenarioGenerator
+        // v2.2: Now includes ServiceIntensityResolver and CAPTriggerEngine for
+        // algorithm-driven service frequencies and CAP-based recommendations
         $this->app->singleton(
             ScenarioGeneratorInterface::class,
             function ($app) {
                 return new ScenarioGenerator(
                     $app->make(ScenarioAxisSelector::class),
-                    $app->make(CostAnnotationServiceInterface::class)
+                    $app->make(CostAnnotationServiceInterface::class),
+                    null, // ServiceRateRepository - will use default
+                    $app->make(ServiceIntensityResolver::class),
+                    $app->make(CAPTriggerEngine::class)
                 );
             }
         );
