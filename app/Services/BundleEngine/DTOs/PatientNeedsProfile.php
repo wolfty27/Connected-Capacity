@@ -93,7 +93,7 @@ class PatientNeedsProfile
         /** @var int Behavioural complexity from behavioural items: 0=none, 4=severe */
         public readonly int $behaviouralComplexity = 0,
 
-        /** @var int Mental health complexity from BMHS if available: 0=none, 3=severe */
+        /** @var int Mental health complexity from BMHS if available: 0=none, 5=severe */
         public readonly int $mentalHealthComplexity = 0,
 
         /** @var bool Has wandering/elopement risk */
@@ -104,6 +104,37 @@ class PatientNeedsProfile
 
         /** @var array|null Specific behavioural flags (e.g., ['verbal_aggression', 'resists_care']) */
         public readonly ?array $behaviouralFlags = null,
+
+        // === BMHS-Specific Fields (v2.2) ===
+        /** @var bool Has psychotic symptoms (hallucinations/delusions) */
+        public readonly bool $hasPsychoticSymptoms = false,
+
+        /** @var bool Has command hallucinations (safety critical) */
+        public readonly bool $hasCommandHallucinations = false,
+
+        /** @var int Self-harm risk level: 0=none, 1=moderate, 2=high, 3=critical */
+        public readonly int $selfHarmRiskLevel = 0,
+
+        /** @var int Violence risk level: 0=none, 1=moderate, 2=high, 3=critical */
+        public readonly int $violenceRiskLevel = 0,
+
+        /** @var string|null Mental health insight: full, limited, none, unknown */
+        public readonly ?string $mentalHealthInsight = null,
+
+        /** @var bool Requires psychiatric consultation based on BMHS */
+        public readonly bool $requiresPsychiatricConsult = false,
+
+        /** @var bool Requires behavioural support services based on BMHS */
+        public readonly bool $requiresBehaviouralSupport = false,
+
+        /** @var bool Requires crisis intervention based on BMHS */
+        public readonly bool $requiresCrisisIntervention = false,
+
+        /** @var int Disordered thought score (0-20 from BMHS Section B) */
+        public readonly int $disorderedThoughtScore = 0,
+
+        /** @var int Risk of harm score (0-11 from BMHS Section C) */
+        public readonly int $riskOfHarmScore = 0,
 
         // === Clinical Risk Profile ===
         /** @var int Falls risk level: 0=low, 1=moderate, 2=high */

@@ -1,0 +1,77 @@
+{
+  "name": "Mental Health Complexity Algorithm",
+  "version": "1.0.0",
+  "verification_status": "unverified",
+  "verification_source": "InterRAI BMHS Assessment Form - Custom derivation",
+  "description": "Derives mental health complexity score from BMHS Section B (Disordered Thought) items. Higher scores indicate more complex mental health presentations requiring specialized support.",
+  "output_range": [0, 5],
+  "algorithm_type": "additive",
+  
+  "additive_items": [
+    {
+      "field": "bmhs_command_hallucinations",
+      "weight": 2,
+      "threshold": 1,
+      "rationale": "Command hallucinations are safety-critical and indicate severe psychiatric presentation"
+    },
+    {
+      "field": "bmhs_hallucinations",
+      "weight": 1,
+      "threshold": 1,
+      "rationale": "Hallucinations indicate psychotic symptoms"
+    },
+    {
+      "field": "bmhs_delusions",
+      "weight": 1,
+      "threshold": 1,
+      "rationale": "Delusions indicate psychotic symptoms"
+    },
+    {
+      "field": "bmhs_insight",
+      "weight": 1,
+      "threshold": 2,
+      "rationale": "No insight (value=2) indicates poor awareness of mental health issues"
+    },
+    {
+      "field": "bmhs_abnormal_thought",
+      "weight": 1,
+      "threshold": 1,
+      "rationale": "Abnormal thought process indicates cognitive/psychiatric disturbance"
+    }
+  ],
+  
+  "max_score": 5,
+  "interpretation": {
+    "0": "No mental health complexity - standard care appropriate",
+    "1": "Mild complexity - monitoring recommended",
+    "2": "Moderate complexity - mental health support services recommended",
+    "3": "High complexity - specialized mental health services required",
+    "4": "Very high complexity - intensive psychiatric support needed",
+    "5": "Severe complexity - crisis-level intervention may be required"
+  },
+  
+  "service_implications": {
+    "0-1": {
+      "sw_visits_per_week": 0,
+      "requires_behavioural_psw": false,
+      "psychiatric_consult": false
+    },
+    "2": {
+      "sw_visits_per_week": 1,
+      "requires_behavioural_psw": false,
+      "psychiatric_consult": false
+    },
+    "3": {
+      "sw_visits_per_week": 2,
+      "requires_behavioural_psw": true,
+      "psychiatric_consult": true
+    },
+    "4-5": {
+      "sw_visits_per_week": 3,
+      "requires_behavioural_psw": true,
+      "psychiatric_consult": true,
+      "consider_crisis_team": true
+    }
+  }
+}
+

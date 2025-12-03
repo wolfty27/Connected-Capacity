@@ -1,0 +1,93 @@
+name: Mental Health CAP
+version: "1.0.0"
+source: "InterRAI BMHS Assessment Form - Derived for Bundle Engine"
+applicable_instruments: [HC, BMHS]
+category: cognition
+
+description: |
+  The Mental Health CAP identifies persons with significant mental health
+  complexity who may benefit from specialized psychiatric or behavioural
+  support services. Based on BMHS Section B (Disordered Thought) indicators.
+
+triggers:
+  - level: IMPROVE
+    description: "Significant mental health presentation requiring intervention"
+    conditions:
+      any:
+        - field: has_command_hallucinations
+          operator: "=="
+          value: true
+        - field: mental_health_complexity
+          operator: ">="
+          value: 4
+        - field: self_harm_risk_level
+          operator: ">="
+          value: 2
+      min_count:
+        count: 2
+        from:
+          - field: has_psychotic_symptoms
+            operator: "=="
+            value: true
+          - field: mental_health_insight
+            operator: "=="
+            value: "none"
+          - field: disordered_thought_score
+            operator: ">="
+            value: 6
+          - field: requires_psychiatric_consult
+            operator: "=="
+            value: true
+    service_recommendations:
+      SW:
+        priority: core
+        frequency_multiplier: 2.0
+        focus: psychiatric_support
+      NUR:
+        priority: core
+        frequency_multiplier: 1.5
+        focus: medication_monitoring
+      PSW:
+        priority: recommended
+        requires_specialization: behavioural
+        focus: behavioural_support
+    care_guidelines:
+      - "Arrange psychiatric consultation within 72 hours"
+      - "Implement medication compliance monitoring"
+      - "Develop crisis safety plan with patient/family"
+      - "Ensure PSW staff trained in behavioural management"
+      - "Monitor for changes in mental status"
+      - "Coordinate with community mental health services"
+
+  - level: PREVENT
+    description: "Moderate mental health indicators - proactive support"
+    conditions:
+      any:
+        - field: mental_health_complexity
+          operator: ">="
+          value: 2
+        - field: has_psychotic_symptoms
+          operator: "=="
+          value: true
+        - field: disordered_thought_score
+          operator: ">="
+          value: 4
+    service_recommendations:
+      SW:
+        priority: recommended
+        focus: mental_health_support
+      NUR:
+        priority: recommended
+        focus: mental_status_monitoring
+    care_guidelines:
+      - "Monitor mental health status during visits"
+      - "Assess medication compliance"
+      - "Provide supportive counselling"
+      - "Connect with community mental health resources"
+      - "Educate family on mental health warning signs"
+
+  - level: NOT_TRIGGERED
+    description: "No significant mental health indicators"
+    conditions:
+      default: true
+

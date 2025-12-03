@@ -11,6 +11,7 @@ use App\Services\BundleEngine\Derivers\EpisodeTypeDeriver;
 use App\Services\BundleEngine\Derivers\RehabPotentialDeriver;
 use App\Services\BundleEngine\Mappers\HcAssessmentMapper;
 use App\Services\BundleEngine\Mappers\CaAssessmentMapper;
+use App\Services\BundleEngine\Mappers\BmhsAssessmentMapper;
 use App\Services\BundleEngine\AlgorithmEvaluator;
 use App\Services\BundleEngine\Engines\CAPTriggerEngine;
 use Carbon\Carbon;
@@ -76,6 +77,7 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
     public function __construct(
         ?HcAssessmentMapper $hcMapper = null,
         ?CaAssessmentMapper $caMapper = null,
+        ?BmhsAssessmentMapper $bmhsMapper = null,
         ?EpisodeTypeDeriver $episodeTypeDeriver = null,
         ?RehabPotentialDeriver $rehabPotentialDeriver = null,
         ?AlgorithmEvaluator $algorithmEvaluator = null,
@@ -84,6 +86,7 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
         $this->mappers = [
             'hc' => $hcMapper ?? new HcAssessmentMapper(),
             'ca' => $caMapper ?? new CaAssessmentMapper(),
+            'bmhs' => $bmhsMapper ?? new BmhsAssessmentMapper(),
         ];
         $this->episodeTypeDeriver = $episodeTypeDeriver ?? new EpisodeTypeDeriver();
         $this->rehabPotentialDeriver = $rehabPotentialDeriver ?? new RehabPotentialDeriver();
@@ -333,6 +336,18 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
             hasAggressionRisk: $mergedData['hasAggressionRisk'] ?? false,
             behaviouralFlags: $mergedData['behaviouralFlags'] ?? null,
 
+            // v2.2: BMHS-Specific Fields
+            hasPsychoticSymptoms: ($mergedData['hasHallucinations'] ?? false) || ($mergedData['hasDelusions'] ?? false),
+            hasCommandHallucinations: $mergedData['hasCommandHallucinations'] ?? false,
+            selfHarmRiskLevel: $mergedData['selfHarmRiskLevel'] ?? 0,
+            violenceRiskLevel: $mergedData['violenceRiskLevel'] ?? 0,
+            mentalHealthInsight: $mergedData['mentalHealthInsight'] ?? null,
+            requiresPsychiatricConsult: $mergedData['requiresPsychiatricConsult'] ?? false,
+            requiresBehaviouralSupport: $mergedData['requiresBehaviouralSupport'] ?? false,
+            requiresCrisisIntervention: $mergedData['requiresCrisisIntervention'] ?? false,
+            disorderedThoughtScore: $mergedData['disorderedThoughtScore'] ?? 0,
+            riskOfHarmScore: $mergedData['riskOfHarmScore'] ?? 0,
+
             // Clinical risk profile
             fallsRiskLevel: $mergedData['fallsRiskLevel'] ?? 0,
             skinIntegrityRisk: $mergedData['skinIntegrityRisk'] ?? 0,
@@ -411,37 +426,15 @@ class AssessmentIngestionService implements AssessmentIngestionServiceInterface
     }
 
     /**
-     * Map BMHS assessment data.
+     * Map BMHS assessment data using the BmhsAssessmentMapper.
+     *
+     * v2.2: Now uses proper mapper for comprehensive BMHS field extraction.
      */
     protected function mapBmhsAssessment(InterraiAssessment $assessment): array
     {
-        $rawItems = $assessment->raw_items ?? [];
-
-        // BMHS-specific fields (supplement behavioural/MH data)
-        return [
-            'hasBmhsAssessment' => true,
-            'mentalHealthComplexity' => $this->deriveMentalHealthComplexity($rawItems),
-            // BMHS can refine behavioural complexity
-        ];
-    }
-
-    /**
-     * Derive mental health complexity from BMHS items.
-     */
-    protected function deriveMentalHealthComplexity(array $rawItems): int
-    {
-        // VERIFY: Check actual BMHS field names
-        $depression = (int) ($rawItems['depression_rating'] ?? 0);
-        $anxiety = (int) ($rawItems['anxiety_scale'] ?? 0);
-        $psychosis = (int) ($rawItems['psychosis_indicators'] ?? 0);
-
-        // Simple scoring
-        $score = 0;
-        if ($depression >= 3) $score++;
-        if ($anxiety >= 3) $score++;
-        if ($psychosis > 0) $score++;
-
-        return min(3, $score);
+        // Use the BMHS mapper
+        $bmhsMapper = $this->mappers['bmhs'];
+        return $bmhsMapper->mapToProfileFields($assessment);
     }
 
     /**

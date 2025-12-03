@@ -2131,3 +2131,127 @@ The prompt builder enforces:
 **Phase 6: BMHS Integration** - Map BMHS assessment data for mental health complexity.
 **Phase 7: UI Enhancements** - Display algorithm scores, CAPs, and AI explanations in UI.
 **Phase 8: Learning Infrastructure** - BigQuery schemas for scenario tracking and outcomes.
+
+---
+
+## AI-Assisted Bundle Engine - Phase 6: BMHS Integration (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Integrate InterRAI Brief Mental Health Screener (BMHS) data for mental health complexity assessment.
+
+### BMHS Overview
+
+The BMHS is designed to document:
+1. **Section B** - Indicators of Disordered Thought (10 items)
+2. **Section C** - Indicators of Risk of Harm (11 items)
+
+### Components Created
+
+#### 1. BmhsAssessmentMapper
+Location: `app/Services/BundleEngine/Mappers/BmhsAssessmentMapper.php`
+
+**Section B Items Mapped:**
+| Code | Field | Description |
+|------|-------|-------------|
+| B1a | bmhs_irritability | Short-tempered or easily upset |
+| B1b | bmhs_hallucinations | False sensory perceptions |
+| B1c | bmhs_command_hallucinations | Hallucinations directing action |
+| B1d | bmhs_delusions | Fixed false beliefs |
+| B1e | bmhs_hyperarousal | Motor excitation, high activity |
+| B1f | bmhs_pressured_speech | Rapid speech, racing thoughts |
+| B1g | bmhs_abnormal_thought | Loosening associations, blocking |
+| B1h | bmhs_inappropriate_behaviour | Disruptive behaviour |
+| B1i | bmhs_verbal_abuse | Threats, cursing |
+| B1j | bmhs_intoxication | Drug/alcohol intoxication |
+
+**Section C Items Mapped:**
+| Code | Field | Description |
+|------|-------|-------------|
+| C1 | bmhs_previous_police_contact | Police contact in last 30 days |
+| C2 | bmhs_weapon_history | Weapon use in last year |
+| C3a | bmhs_violent_ideation | Thoughts/plans of violence |
+| C3b | bmhs_intimidation | Threatening behaviour |
+| C3c | bmhs_violence_to_others | Physical violence |
+| C4a | bmhs_self_injury_attempt | Self-injury in last 7 days |
+| C4b | bmhs_self_injury_considered | Considered self-injury in 30 days |
+| C4c | bmhs_suicide_plan | Suicide plan in last 30 days |
+| C4d | bmhs_others_concern_self_harm | Others concerned about self-harm |
+| C5 | bmhs_squalid_home | Squalid living conditions |
+| C6 | bmhs_medication_refusal | Refused medication in 3 days |
+
+#### 2. PatientNeedsProfile Fields Added
+
+```php
+// BMHS-Specific Fields (v2.2)
+public readonly bool $hasPsychoticSymptoms = false,
+public readonly bool $hasCommandHallucinations = false,
+public readonly int $selfHarmRiskLevel = 0,      // 0-3
+public readonly int $violenceRiskLevel = 0,       // 0-3
+public readonly ?string $mentalHealthInsight = null,
+public readonly bool $requiresPsychiatricConsult = false,
+public readonly bool $requiresBehaviouralSupport = false,
+public readonly bool $requiresCrisisIntervention = false,
+public readonly int $disorderedThoughtScore = 0,  // 0-20
+public readonly int $riskOfHarmScore = 0,         // 0-11
+```
+
+#### 3. Risk Level Calculations
+
+**Self-Harm Risk Levels:**
+| Level | Description | Triggers |
+|-------|-------------|----------|
+| 0 | None | No indicators |
+| 1 | Moderate | Considered self-harm OR others concerned |
+| 2 | High | Suicide plan OR considered + factors |
+| 3 | Critical | Recent attempt OR plan + command hallucinations |
+
+**Violence Risk Levels:**
+| Level | Description | Triggers |
+|-------|-------------|----------|
+| 0 | None | No indicators |
+| 1 | Moderate | Violent ideation OR intimidation |
+| 2 | High | History of violence OR intimidation + weapon/hallucinations |
+| 3 | Critical | Recent violence to others |
+
+#### 4. Mental Health Complexity Algorithm
+Location: `config/bundle_engine/algorithms/mental_health_complexity.json`
+
+Additive scoring from BMHS items:
+- Command hallucinations: +2
+- Hallucinations: +1
+- Delusions: +1
+- No insight: +1
+- Abnormal thought: +1
+
+Score range: 0-5
+
+#### 5. Mental Health CAP Trigger
+Location: `config/bundle_engine/cap_triggers/cognition/mental_health.yaml`
+
+**IMPROVE Level Triggers:**
+- Command hallucinations
+- Mental health complexity ≥ 4
+- Self-harm risk ≥ 2
+- 2+ of: psychotic symptoms, no insight, disordered thought ≥ 6
+
+**Service Recommendations:**
+- SW: Core, 2x frequency (psychiatric support)
+- NUR: Core, 1.5x frequency (medication monitoring)
+- PSW: Behavioural specialization required
+
+### Files Created/Modified
+
+**Created:**
+- `app/Services/BundleEngine/Mappers/BmhsAssessmentMapper.php`
+- `config/bundle_engine/algorithms/mental_health_complexity.json`
+- `config/bundle_engine/cap_triggers/cognition/mental_health.yaml`
+
+**Modified:**
+- `app/Services/BundleEngine/DTOs/PatientNeedsProfile.php` (10 new fields)
+- `app/Services/BundleEngine/AssessmentIngestionService.php` (BMHS mapper integration)
+
+### Next Step
+
+**Phase 7: UI Enhancements** - Display algorithm scores, CAPs, and AI explanations in the Care Bundle Wizard UI.
