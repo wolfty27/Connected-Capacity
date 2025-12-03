@@ -13,6 +13,7 @@ use App\Services\BundleEngine\ScenarioAxisSelector;
 use App\Services\BundleEngine\ScenarioGenerator;
 use App\Services\BundleEngine\Mappers\HcAssessmentMapper;
 use App\Services\BundleEngine\Mappers\CaAssessmentMapper;
+use App\Services\BundleEngine\Mappers\BmhsAssessmentMapper;
 use App\Services\BundleEngine\Derivers\EpisodeTypeDeriver;
 use App\Services\BundleEngine\Derivers\RehabPotentialDeriver;
 // v2.2 Engines for data-driven algorithms and CAP triggers
@@ -71,15 +72,20 @@ class BundleEngineServiceProvider extends ServiceProvider
             return new CaAssessmentMapper();
         });
 
+        // v2.2: BMHS Assessment Mapper
+        $this->app->singleton(BmhsAssessmentMapper::class, function ($app) {
+            return new BmhsAssessmentMapper();
+        });
+
         // Bind interface to implementation: AssessmentIngestionService
-        // v2.2: Now includes AlgorithmEvaluator and CAPTriggerEngine for
-        // computing CA algorithm scores and CAP triggers
+        // v2.2: Now includes BmhsAssessmentMapper, AlgorithmEvaluator and CAPTriggerEngine
         $this->app->singleton(
             AssessmentIngestionServiceInterface::class,
             function ($app) {
                 return new AssessmentIngestionService(
                     $app->make(HcAssessmentMapper::class),
                     $app->make(CaAssessmentMapper::class),
+                    $app->make(BmhsAssessmentMapper::class),
                     $app->make(EpisodeTypeDeriver::class),
                     $app->make(RehabPotentialDeriver::class),
                     $app->make(AlgorithmEvaluator::class),
@@ -178,6 +184,7 @@ class BundleEngineServiceProvider extends ServiceProvider
             ScenarioAxisSelector::class,
             HcAssessmentMapper::class,
             CaAssessmentMapper::class,
+            BmhsAssessmentMapper::class,
             EpisodeTypeDeriver::class,
             RehabPotentialDeriver::class,
             // v2.2 Engines
