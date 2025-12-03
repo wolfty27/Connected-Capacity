@@ -534,126 +534,79 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
     }
 
     /**
-     * Reshape services for an axis - add, boost, reduce, or remove services
-     * to create genuinely differentiated patient experiences.
+     * Add axis-specific services on TOP of algorithm-driven baseline.
      *
-     * This goes beyond intensity modifiers to change the SERVICE MIX itself.
+     * IMPORTANT: This method RESPECTS the algorithm-driven baseline:
+     * - Algorithms (PSA, CHESS, Rehab) determine CLINICAL NEED
+     * - Axis adds COMPLEMENTARY services for patient experience
+     * - We do NOT reduce algorithm-indicated services (that's clinical need)
+     * - We only ADD services that support the axis focus
+     *
+     * The differentiation comes from WHAT we add, not from reducing clinical services.
      */
     protected function addAxisSpecificServices(array $services, ScenarioAxis $axis, PatientNeedsProfile $profile): array
     {
-        // Define axis configurations: add, boost, reduce, remove
-        $axisConfig = match ($axis) {
+        // Define axis-specific ADDITIONS only
+        // These complement (not replace) the algorithm-driven baseline
+        $axisAdditions = match ($axis) {
             ScenarioAxis::COMMUNITY_INTEGRATED => [
-                'add' => [
-                    'ADP' => ['frequency' => 3, 'duration' => 240, 'priority' => 'core'],      // Adult Day Program - KEY differentiator
-                    'TRANS' => ['frequency' => 3, 'duration' => 60, 'priority' => 'core'],     // Transportation to programs
-                    'REC' => ['frequency' => 2, 'duration' => 120, 'priority' => 'recommended'], // Social/recreational
-                ],
-                'reduce' => ['NUR' => 0.5, 'PSW' => 0.7],  // Less clinical, more community
-                'remove' => ['RPM', 'PERS'],               // Not tech-focused
+                // Focus: Social engagement, community connection
+                'ADP' => ['frequency' => 2, 'duration' => 240, 'priority' => 'core', 'rationale' => 'Adult Day Program for social engagement'],
+                'TRANS' => ['frequency' => 2, 'duration' => 60, 'priority' => 'core', 'rationale' => 'Transportation enables community participation'],
+                'REC' => ['frequency' => 1, 'duration' => 120, 'priority' => 'recommended', 'rationale' => 'Social/recreational activities'],
+                'MEAL' => ['frequency' => 5, 'duration' => 15, 'priority' => 'recommended', 'rationale' => 'Meal delivery supports independence'],
             ],
             ScenarioAxis::SAFETY_STABILITY => [
-                'add' => [
-                    'RPM' => ['frequency' => 7, 'duration' => 15, 'priority' => 'core'],       // Remote monitoring - KEY
-                    'PERS' => ['frequency' => 7, 'duration' => 5, 'priority' => 'core'],       // PERS/Lifeline - KEY
-                    'FALL-MON' => ['frequency' => 7, 'duration' => 10, 'priority' => 'core'],  // Falls monitoring
-                ],
-                'boost' => ['NUR' => 1.3, 'PSW' => 1.2],   // More monitoring/support
-                'reduce' => ['PT' => 0.5, 'OT' => 0.5],    // Less therapy focus
-                'remove' => ['ADP', 'REC'],                // Not community-focused
+                // Focus: Monitoring, fall prevention, crisis avoidance
+                'RPM' => ['frequency' => 7, 'duration' => 15, 'priority' => 'core', 'rationale' => 'Continuous health monitoring'],
+                'PERS' => ['frequency' => 7, 'duration' => 5, 'priority' => 'core', 'rationale' => 'Emergency response system'],
+                'FALL-MON' => ['frequency' => 7, 'duration' => 10, 'priority' => 'core', 'rationale' => 'Falls detection and prevention'],
+                'SEC' => ['frequency' => 3, 'duration' => 15, 'priority' => 'recommended', 'rationale' => 'Regular safety checks'],
             ],
             ScenarioAxis::CAREGIVER_RELIEF => [
-                'add' => [
-                    'RES' => ['frequency' => 3, 'duration' => 240, 'priority' => 'core'],      // Respite - KEY differentiator
-                    'ADP' => ['frequency' => 2, 'duration' => 240, 'priority' => 'core'],      // Day program (gives caregiver break)
-                    'CGC' => ['frequency' => 1, 'duration' => 60, 'priority' => 'recommended'], // Caregiver coaching
-                ],
-                'boost' => ['HMK' => 1.5],                 // More homemaking help
-                'reduce' => ['NUR' => 0.7],                // Less clinical focus
-                'remove' => ['RPM'],                       // Not tech-focused
+                // Focus: Caregiver support, respite, sustainability
+                'RES' => ['frequency' => 2, 'duration' => 240, 'priority' => 'core', 'rationale' => 'Respite gives caregiver essential breaks'],
+                'ADP' => ['frequency' => 2, 'duration' => 240, 'priority' => 'core', 'rationale' => 'Day program provides structured relief'],
+                'CGC' => ['frequency' => 1, 'duration' => 60, 'priority' => 'recommended', 'rationale' => 'Caregiver coaching and support'],
+                'HMK' => ['frequency' => 2, 'duration' => 120, 'priority' => 'recommended', 'rationale' => 'Homemaking reduces caregiver burden'],
             ],
             ScenarioAxis::TECH_ENABLED => [
-                'add' => [
-                    'RPM' => ['frequency' => 7, 'duration' => 15, 'priority' => 'core'],       // Remote monitoring - KEY
-                    'TELE' => ['frequency' => 3, 'duration' => 30, 'priority' => 'core'],      // Telehealth visits
-                    'VPC' => ['frequency' => 1, 'duration' => 20, 'priority' => 'recommended'], // Virtual primary care
-                    'MED-DISP' => ['frequency' => 7, 'duration' => 5, 'priority' => 'core'],   // Med dispensing
-                ],
-                'reduce' => ['NUR' => 0.5, 'PSW' => 0.6, 'PT' => 0.7, 'OT' => 0.7], // Fewer in-person visits
-                'remove' => ['ADP', 'RES'],                // Not in-person focused
+                // Focus: Remote monitoring, virtual care, reduced travel
+                'RPM' => ['frequency' => 7, 'duration' => 15, 'priority' => 'core', 'rationale' => 'Remote vital sign monitoring'],
+                'TELE' => ['frequency' => 2, 'duration' => 30, 'priority' => 'core', 'rationale' => 'Telehealth replaces some in-person visits'],
+                'VPC' => ['frequency' => 1, 'duration' => 20, 'priority' => 'recommended', 'rationale' => 'Virtual primary care access'],
+                'MED-DISP' => ['frequency' => 7, 'duration' => 5, 'priority' => 'recommended', 'rationale' => 'Automated medication management'],
             ],
             ScenarioAxis::COGNITIVE_SUPPORT => [
-                'add' => [
-                    'DEM' => ['frequency' => 5, 'duration' => 120, 'priority' => 'core'],      // Dementia care - KEY
-                    'BEH' => ['frequency' => 3, 'duration' => 90, 'priority' => 'core'],       // Behavioural supports
-                    'ADP' => ['frequency' => 3, 'duration' => 240, 'priority' => 'recommended'], // Structured day program
-                ],
-                'boost' => ['PSW' => 1.3],                 // More personal support
-                'reduce' => ['PT' => 0.5],                 // Less traditional therapy
-                'remove' => ['RPM', 'TELE'],               // Tech may confuse
+                // Focus: Cognitive stimulation, behaviour support, structure
+                'DEM' => ['frequency' => 3, 'duration' => 120, 'priority' => 'core', 'rationale' => 'Specialized dementia care'],
+                'BEH' => ['frequency' => 2, 'duration' => 90, 'priority' => 'core', 'rationale' => 'Behavioural support interventions'],
+                'ADP' => ['frequency' => 2, 'duration' => 240, 'priority' => 'recommended', 'rationale' => 'Structured programming aids cognition'],
             ],
             ScenarioAxis::RECOVERY_REHAB => [
-                'add' => [
-                    'SLP' => ['frequency' => 1, 'duration' => 45, 'priority' => 'recommended'], // Speech therapy if needed
-                ],
-                'boost' => ['PT' => 1.5, 'OT' => 1.5],     // Heavy therapy focus
-                'reduce' => ['PSW' => 0.8, 'HMK' => 0.7],  // Less daily living, more rehab
-                'remove' => ['ADP', 'RES'],                // Not community/respite focused
+                // Focus: Intensive therapy, functional restoration
+                // Note: PT/OT already boosted by algorithm modifiers - add complementary services
+                'SLP' => ['frequency' => 1, 'duration' => 45, 'priority' => 'recommended', 'rationale' => 'Speech therapy if communication affected'],
             ],
             ScenarioAxis::MEDICAL_INTENSIVE => [
-                'add' => [
-                    'DEL-ACTS' => ['frequency' => 7, 'duration' => 45, 'priority' => 'core'],  // Delegated acts
-                    'RPM' => ['frequency' => 7, 'duration' => 15, 'priority' => 'core'],       // Vital monitoring
-                ],
-                'boost' => ['NUR' => 2.0],                 // Heavy nursing
-                'reduce' => ['PT' => 0.5, 'OT' => 0.5, 'HMK' => 0.5], // Less focus elsewhere
-                'remove' => ['ADP', 'REC'],                // Not social focused
+                // Focus: Complex medical management
+                'DEL-ACTS' => ['frequency' => 5, 'duration' => 45, 'priority' => 'core', 'rationale' => 'Delegated nursing acts for complex care'],
+                'RPM' => ['frequency' => 7, 'duration' => 15, 'priority' => 'core', 'rationale' => 'Continuous vital sign monitoring'],
             ],
             ScenarioAxis::BALANCED => [
-                // Balanced keeps the algorithm-driven mix as-is
-                'add' => [],
-                'boost' => [],
-                'reduce' => [],
-                'remove' => [],
+                // Balanced uses algorithm baseline with minimal additions
+                'MEAL' => ['frequency' => 3, 'duration' => 15, 'priority' => 'recommended', 'rationale' => 'Nutritional support'],
             ],
-            default => ['add' => [], 'boost' => [], 'reduce' => [], 'remove' => []],
+            default => [],
         };
 
-        // 1. Remove services that don't fit this axis
-        $removeCodes = $axisConfig['remove'] ?? [];
-        $services = array_filter($services, function ($service) use ($removeCodes) {
-            $code = $service['service_type']->code ?? '';
-            return !in_array($code, $removeCodes);
-        });
-        $services = array_values($services); // Re-index
-
-        // 2. Reduce frequencies for de-emphasized services
-        $reduceMultipliers = $axisConfig['reduce'] ?? [];
-        foreach ($services as &$service) {
-            $code = $service['service_type']->code ?? '';
-            if (isset($reduceMultipliers[$code])) {
-                $service['frequency_count'] = max(1, (int) round($service['frequency_count'] * $reduceMultipliers[$code]));
-            }
-        }
-        unset($service);
-
-        // 3. Boost frequencies for emphasized services
-        $boostMultipliers = $axisConfig['boost'] ?? [];
-        foreach ($services as &$service) {
-            $code = $service['service_type']->code ?? '';
-            if (isset($boostMultipliers[$code])) {
-                $service['frequency_count'] = (int) round($service['frequency_count'] * $boostMultipliers[$code]);
-            }
-        }
-        unset($service);
-
-        // 4. Add axis-specific services
-        $addServices = $axisConfig['add'] ?? [];
+        // Get existing service codes to avoid duplicates
         $existingCodes = array_map(fn($s) => $s['service_type']->code ?? '', $services);
 
-        foreach ($addServices as $code => $config) {
+        // Add axis-specific services
+        foreach ($axisAdditions as $code => $config) {
             if (in_array($code, $existingCodes)) {
-                continue; // Already have this service
+                continue; // Algorithm already included this service
             }
 
             $serviceType = ServiceType::where('code', $code)->first();
@@ -669,8 +622,8 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
                 'cost_per_visit' => $this->getEffectiveRate($serviceType),
                 'is_required' => $config['priority'] === 'core',
                 'priority_level' => $config['priority'],
-                'algorithm_source' => 'axis_specific',
-                'clinical_rationale' => "Core service for {$axis->getLabel()} approach",
+                'algorithm_source' => 'axis_addition',
+                'clinical_rationale' => $config['rationale'],
             ];
         }
 
