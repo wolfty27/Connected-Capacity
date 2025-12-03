@@ -25,6 +25,7 @@ class CAPTriggerEngine
     // CAP trigger levels
     public const LEVEL_IMPROVE = 'IMPROVE';
     public const LEVEL_PREVENT = 'PREVENT';
+    public const LEVEL_FACILITATE = 'FACILITATE';
     public const LEVEL_NOT_TRIGGERED = 'NOT_TRIGGERED';
 
     public function __construct(?string $capTriggersPath = null)
@@ -192,7 +193,7 @@ class CAPTriggerEngine
                 throw new RuntimeException("Trigger {$index} missing 'level'");
             }
             
-            $validLevels = [self::LEVEL_IMPROVE, self::LEVEL_PREVENT, self::LEVEL_NOT_TRIGGERED];
+            $validLevels = [self::LEVEL_IMPROVE, self::LEVEL_PREVENT, self::LEVEL_FACILITATE, self::LEVEL_NOT_TRIGGERED];
             if (!in_array($trigger['level'], $validLevels)) {
                 throw new RuntimeException("Invalid trigger level: {$trigger['level']}");
             }

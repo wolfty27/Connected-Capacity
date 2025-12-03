@@ -1,0 +1,89 @@
+name: ADL (Activities of Daily Living) CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 1 - ADL Functional/Rehabilitation Potential"
+applicable_instruments: [HC, LTCF]
+category: functional
+
+description: |
+  The ADL CAP identifies persons with ADL deficits who may benefit from
+  restorative care, rehabilitation services, or personal support services.
+  Two trigger levels:
+  - IMPROVE: ADL deficits with potential for improvement
+  - FACILITATE: ADL deficits requiring maintenance/support focus
+
+triggers:
+  - level: IMPROVE
+    description: "ADL deficits with rehabilitation potential - restorative focus"
+    conditions:
+      all:
+        - field: adl_support_level
+          operator: ">="
+          value: 2
+        - field: rehabilitation_score
+          operator: ">="
+          value: 3
+      any:
+        - field: has_full_hc_assessment
+          operator: "=="
+          value: true
+        - field: episode_type
+          operator: "=="
+          value: "post_acute"
+    service_recommendations:
+      PT:
+        priority: core
+        frequency_multiplier: 1.3
+        focus: functional_restoration
+      OT:
+        priority: core
+        frequency_multiplier: 1.3
+        focus: adl_training
+      PSW:
+        priority: recommended
+        frequency_multiplier: 1.1
+        focus: restorative_support
+    care_guidelines:
+      - "Establish baseline ADL performance levels"
+      - "Set realistic, measurable improvement goals"
+      - "Implement restorative care approach with PSW training"
+      - "Focus on self-care activities the person values most"
+      - "Review progress weekly and adjust goals"
+      - "Consider adaptive equipment to enhance independence"
+
+  - level: FACILITATE
+    description: "ADL deficits requiring ongoing support - maintenance focus"
+    conditions:
+      all:
+        - field: adl_support_level
+          operator: ">="
+          value: 3
+      any:
+        - field: rehabilitation_score
+          operator: "<"
+          value: 3
+        - field: cognitive_complexity
+          operator: ">="
+          value: 4
+    service_recommendations:
+      PSW:
+        priority: core
+        frequency_multiplier: 1.2
+        focus: daily_support
+      OT:
+        priority: recommended
+        focus: adaptive_equipment
+      NUR:
+        priority: optional
+        focus: skin_integrity
+    care_guidelines:
+      - "Focus on maintaining current function and preventing decline"
+      - "Ensure adequate PSW support for ADL assistance"
+      - "Assess need for adaptive equipment and home modifications"
+      - "Monitor for skin integrity with bathing/dressing activities"
+      - "Support caregiver in providing ADL assistance safely"
+
+  - level: NOT_TRIGGERED
+    description: "ADL function adequate or minimal support needed"
+    conditions:
+      default: true
+

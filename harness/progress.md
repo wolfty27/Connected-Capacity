@@ -1830,3 +1830,83 @@ All algorithms marked as `hc_mapped`:
 ### Next Step
 
 **Phase 3: CAP Trigger Definitions** - Define remaining CAP triggers (ADL, IADL, Mood, Cognitive Loss, Informal Support).
+
+---
+
+## AI-Assisted Bundle Engine - Phase 3: CAP Trigger Definitions (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Define all CAP (Clinical Assessment Protocol) triggers as YAML configurations with service recommendations and care guidelines.
+
+### CAP Files Created
+
+| Category | CAP | File | Trigger Levels |
+|----------|-----|------|----------------|
+| **Functional** | ADL | `functional/adl.yaml` | IMPROVE, FACILITATE |
+| **Functional** | IADL | `functional/iadl.yaml` | IMPROVE, FACILITATE |
+| **Clinical** | Falls | `clinical/falls.yaml` | IMPROVE, PREVENT |
+| **Clinical** | Pain | `clinical/pain.yaml` | IMPROVE, PREVENT |
+| **Clinical** | Pressure Ulcer | `clinical/pressure_ulcer.yaml` | IMPROVE, PREVENT |
+| **Cognition** | Mood | `cognition/mood.yaml` | IMPROVE, PREVENT |
+| **Cognition** | Cognitive Loss | `cognition/cognitive_loss.yaml` | IMPROVE, FACILITATE |
+| **Social** | Informal Support | `social/informal_support.yaml` | IMPROVE, PREVENT |
+
+### CAP Trigger Levels
+
+| Level | Purpose | Action Focus |
+|-------|---------|--------------|
+| **IMPROVE** | Active intervention needed | Treatment, rehabilitation, restoration |
+| **FACILITATE** | Support/maintenance needed | Coping strategies, ongoing support |
+| **PREVENT** | Risk factors present | Prevention, monitoring, education |
+| **NOT_TRIGGERED** | No significant risk | Standard care |
+
+### CAPTriggerEngine Updates
+
+- Added `LEVEL_FACILITATE` constant
+- Updated validation to accept IMPROVE, PREVENT, FACILITATE, NOT_TRIGGERED
+
+### Test Results
+
+**Patient 1: High ADL + Caregiver Stress**
+```
+adl:              IMPROVE
+iadl:             IMPROVE
+pain:             PREVENT
+pressure_ulcer:   PREVENT
+informal_support: IMPROVE
+```
+
+**Patient 2: Cognitive Impairment + Lives Alone**
+```
+falls:            IMPROVE
+pain:             PREVENT
+cognitive_loss:   FACILITATE
+informal_support: PREVENT
+```
+
+**Patient 3: Mood Disturbance + Pressure Ulcer Risk**
+```
+adl:              IMPROVE
+iadl:             FACILITATE
+pain:             IMPROVE
+pressure_ulcer:   IMPROVE
+cognitive_loss:   IMPROVE
+mood:             IMPROVE
+```
+
+### CAP Service Recommendations Structure
+
+Each triggered CAP includes:
+- `level`: Trigger level (IMPROVE/FACILITATE/PREVENT)
+- `description`: Human-readable explanation
+- `recommendations`: Service-specific guidance
+  - `priority`: core | recommended | optional
+  - `frequency_multiplier`: Adjustment to baseline hours/visits
+  - `focus`: Area of clinical focus
+- `guidelines`: Clinical care guidelines array
+
+### Next Step
+
+**Phase 4: ScenarioGenerator Integration** - Wire algorithm scores and CAP triggers into scenario generation.

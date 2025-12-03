@@ -1,0 +1,83 @@
+name: Mood CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 10 - Mood"
+applicable_instruments: [HC, LTCF]
+category: cognition
+
+description: |
+  The Mood CAP identifies persons with depressive symptoms, anxiety,
+  or mood disturbance who may benefit from mental health intervention,
+  social support, or medication review.
+
+triggers:
+  - level: IMPROVE
+    description: "Significant mood disturbance requiring intervention"
+    conditions:
+      any:
+        - field: distressed_mood_score
+          operator: ">="
+          value: 5
+      min_count:
+        count: 2
+        from:
+          - field: distressed_mood_score
+            operator: ">="
+            value: 3
+          - field: lives_alone
+            operator: "=="
+            value: true
+          - field: caregiver_stress_level
+            operator: ">="
+            value: 3
+          - field: health_instability
+            operator: ">="
+            value: 3
+    service_recommendations:
+      SW:
+        priority: core
+        frequency_multiplier: 1.5
+        focus: mental_health_support
+      NUR:
+        priority: core
+        focus: medication_review
+      PSW:
+        priority: recommended
+        focus: social_engagement
+    care_guidelines:
+      - "Complete comprehensive mood assessment"
+      - "Assess for suicidal ideation if DMS >= 5"
+      - "Review medications for depression-inducing side effects"
+      - "Consider referral to mental health services"
+      - "Implement structured social activities"
+      - "Monitor mood weekly and document changes"
+      - "Educate caregivers on depression recognition and support"
+
+  - level: PREVENT
+    description: "Mild mood indicators - monitoring and prevention"
+    conditions:
+      all:
+        - field: distressed_mood_score
+          operator: ">="
+          value: 3
+        - field: distressed_mood_score
+          operator: "<"
+          value: 5
+    service_recommendations:
+      SW:
+        priority: recommended
+        focus: supportive_counseling
+      PSW:
+        priority: optional
+        focus: social_engagement
+    care_guidelines:
+      - "Monitor mood indicators during regular visits"
+      - "Encourage social participation and activities"
+      - "Assess for changes in sleep, appetite, energy"
+      - "Provide emotional support and active listening"
+      - "Consider adult day program for socialization"
+
+  - level: NOT_TRIGGERED
+    description: "No significant mood disturbance"
+    conditions:
+      default: true
+

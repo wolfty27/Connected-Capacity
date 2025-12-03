@@ -1,0 +1,95 @@
+name: Informal Support CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 19 - Informal Support"
+applicable_instruments: [HC, LTCF]
+category: social
+
+description: |
+  The Informal Support CAP identifies situations where informal caregivers
+  (family, friends) may be at risk of burnout or where their capacity to
+  provide care is threatened. Also identifies persons with limited or no
+  informal support who may be at higher risk.
+
+triggers:
+  - level: IMPROVE
+    description: "Caregiver at risk of burnout - intervention needed"
+    conditions:
+      any:
+        - field: caregiver_stress_level
+          operator: ">="
+          value: 3
+      min_count:
+        count: 2
+        from:
+          - field: caregiver_stress_level
+            operator: ">="
+            value: 2
+          - field: behavioural_complexity
+            operator: ">="
+            value: 2
+          - field: adl_support_level
+            operator: ">="
+            value: 4
+          - field: cognitive_complexity
+            operator: ">="
+            value: 3
+    service_recommendations:
+      SW:
+        priority: core
+        frequency_multiplier: 1.3
+        focus: caregiver_support
+      PSW:
+        priority: core
+        frequency_multiplier: 1.25
+        focus: respite
+    care_guidelines:
+      - "Complete caregiver assessment (strain, health, needs)"
+      - "Develop caregiver support plan"
+      - "Arrange respite care (in-home PSW, adult day program)"
+      - "Connect caregiver with support groups"
+      - "Educate on available community resources"
+      - "Monitor caregiver wellbeing during visits"
+      - "Assess for signs of caregiver depression"
+      - "Consider family meeting to share care responsibilities"
+
+  - level: PREVENT
+    description: "Limited informal support - proactive support planning"
+    conditions:
+      all:
+        - field: lives_alone
+          operator: "=="
+          value: true
+      any:
+        - field: adl_support_level
+          operator: ">="
+          value: 2
+        - field: cognitive_complexity
+          operator: ">="
+          value: 2
+        - field: health_instability
+          operator: ">="
+          value: 2
+    service_recommendations:
+      PSW:
+        priority: core
+        focus: daily_check_in
+      SW:
+        priority: recommended
+        focus: community_connections
+      NUR:
+        priority: optional
+        focus: remote_monitoring
+    care_guidelines:
+      - "Establish regular check-in schedule"
+      - "Set up emergency response system (PERS)"
+      - "Identify backup contacts for emergencies"
+      - "Connect with community programs for socialization"
+      - "Assess suitability for remote patient monitoring"
+      - "Consider Meals on Wheels or similar services"
+      - "Plan for contingencies if care needs increase"
+
+  - level: NOT_TRIGGERED
+    description: "Adequate informal support in place"
+    conditions:
+      default: true
+

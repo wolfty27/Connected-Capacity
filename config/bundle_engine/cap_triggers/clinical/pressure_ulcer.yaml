@@ -1,0 +1,96 @@
+name: Pressure Ulcer CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 15 - Pressure Ulcer"
+applicable_instruments: [HC, LTCF]
+category: clinical
+
+description: |
+  The Pressure Ulcer CAP identifies persons with pressure ulcers or at high
+  risk of developing pressure ulcers. Triggers intervention for treatment
+  and prevention.
+
+triggers:
+  - level: IMPROVE
+    description: "Pressure ulcer present or very high risk - treatment focus"
+    conditions:
+      any:
+        - field: has_pressure_ulcer_risk
+          operator: "=="
+          value: true
+      min_count:
+        count: 3
+        from:
+          - field: mobility_complexity
+            operator: ">="
+            value: 4
+          - field: adl_support_level
+            operator: ">="
+            value: 4
+          - field: health_instability
+            operator: ">="
+            value: 3
+          - field: cognitive_complexity
+            operator: ">="
+            value: 3
+          - field: has_recent_hospital_stay
+            operator: "=="
+            value: true
+    service_recommendations:
+      NUR:
+        priority: core
+        frequency_multiplier: 1.5
+        focus: wound_care
+      OT:
+        priority: core
+        focus: positioning_equipment
+      PSW:
+        priority: core
+        frequency_multiplier: 1.2
+        focus: repositioning
+    care_guidelines:
+      - "Complete comprehensive skin assessment"
+      - "Document wound characteristics (location, size, stage)"
+      - "Implement turning/repositioning schedule (q2h minimum)"
+      - "Assess pressure-relieving equipment needs (mattress, cushion)"
+      - "Ensure adequate nutrition and hydration"
+      - "Manage moisture and incontinence"
+      - "Educate caregivers on skin inspection and positioning"
+      - "Monitor wound healing progress weekly"
+
+  - level: PREVENT
+    description: "Moderate risk for pressure ulcer development"
+    conditions:
+      min_count:
+        count: 2
+        from:
+          - field: mobility_complexity
+            operator: ">="
+            value: 3
+          - field: adl_support_level
+            operator: ">="
+            value: 3
+          - field: health_instability
+            operator: ">="
+            value: 2
+    service_recommendations:
+      NUR:
+        priority: recommended
+        focus: skin_assessment
+      PSW:
+        priority: recommended
+        focus: positioning
+      OT:
+        priority: optional
+        focus: equipment_assessment
+    care_guidelines:
+      - "Complete regular skin inspections"
+      - "Encourage mobility and position changes"
+      - "Assess need for pressure-relieving equipment"
+      - "Ensure good nutrition and hydration"
+      - "Educate on early signs of skin breakdown"
+
+  - level: NOT_TRIGGERED
+    description: "Low risk for pressure ulcer"
+    conditions:
+      default: true
+

@@ -1,0 +1,82 @@
+name: Cognitive Loss CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 9 - Cognitive Loss"
+applicable_instruments: [HC, LTCF]
+category: cognition
+
+description: |
+  The Cognitive Loss CAP identifies persons with cognitive impairment
+  who may benefit from cognitive support strategies, environmental
+  modifications, caregiver education, or dementia care services.
+
+triggers:
+  - level: IMPROVE
+    description: "Cognitive impairment with potential for stabilization or slower decline"
+    conditions:
+      all:
+        - field: cognitive_complexity
+          operator: ">="
+          value: 2
+        - field: cognitive_complexity
+          operator: "<"
+          value: 5
+      any:
+        - field: has_delirium
+          operator: "=="
+          value: true
+        - field: episode_type
+          operator: "=="
+          value: "post_acute"
+    service_recommendations:
+      NUR:
+        priority: core
+        frequency_multiplier: 1.3
+        focus: delirium_management
+      OT:
+        priority: core
+        focus: cognitive_strategies
+      SW:
+        priority: recommended
+        focus: caregiver_support
+    care_guidelines:
+      - "Rule out delirium (check for infection, medication side effects)"
+      - "Complete cognitive assessment and document baseline"
+      - "Implement cognitive stimulation activities"
+      - "Establish consistent routines and environmental cues"
+      - "Ensure adequate lighting and reduce environmental hazards"
+      - "Educate caregivers on communication strategies"
+      - "Consider referral to memory clinic if new or worsening symptoms"
+
+  - level: FACILITATE
+    description: "Moderate-severe cognitive impairment requiring support strategies"
+    conditions:
+      all:
+        - field: cognitive_complexity
+          operator: ">="
+          value: 4
+    service_recommendations:
+      PSW:
+        priority: core
+        frequency_multiplier: 1.3
+        focus: supervision_cueing
+      SW:
+        priority: core
+        focus: caregiver_education
+      NUR:
+        priority: recommended
+        focus: safety_monitoring
+    care_guidelines:
+      - "Implement consistent daily routines"
+      - "Use simple, one-step instructions"
+      - "Provide visual cues and labels in environment"
+      - "Assess and address wandering risk"
+      - "Ensure PSW trained in dementia care techniques"
+      - "Support caregiver with respite and education"
+      - "Monitor for behavioural changes indicating unmet needs"
+      - "Consider adult day program for cognitive stimulation"
+
+  - level: NOT_TRIGGERED
+    description: "Cognition intact or minimal impairment"
+    conditions:
+      default: true
+

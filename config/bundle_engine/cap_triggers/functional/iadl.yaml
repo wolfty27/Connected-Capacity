@@ -1,0 +1,73 @@
+name: IADL (Instrumental Activities of Daily Living) CAP
+version: "1.0.0"
+source: "InterRAI CAPs Manual Section 2 - IADL Involvement"
+applicable_instruments: [HC, LTCF]
+category: functional
+
+description: |
+  The IADL CAP identifies persons with deficits in instrumental activities
+  (meal prep, housework, shopping, finances, medication management) who
+  may benefit from support services or skill-building interventions.
+
+triggers:
+  - level: IMPROVE
+    description: "IADL deficits with capacity for improvement"
+    conditions:
+      all:
+        - field: iadl_support_level
+          operator: ">="
+          value: 2
+        - field: iadl_support_level
+          operator: "<"
+          value: 5
+      any:
+        - field: cognitive_complexity
+          operator: "<"
+          value: 3
+        - field: rehabilitation_score
+          operator: ">="
+          value: 3
+    service_recommendations:
+      OT:
+        priority: core
+        frequency_multiplier: 1.2
+        focus: skill_building
+      PSW:
+        priority: recommended
+        focus: supervised_practice
+    care_guidelines:
+      - "Assess which IADLs are most important to the person"
+      - "Identify specific barriers to IADL performance"
+      - "Develop step-by-step task breakdown for complex activities"
+      - "Practice IADLs with supervision, gradually reducing support"
+      - "Consider technology aids for medication management, shopping"
+      - "Address safety concerns (stove use, financial management)"
+
+  - level: FACILITATE
+    description: "IADL deficits requiring substitution or ongoing support"
+    conditions:
+      all:
+        - field: iadl_support_level
+          operator: ">="
+          value: 4
+    service_recommendations:
+      PSW:
+        priority: core
+        frequency_multiplier: 1.0
+        focus: homemaking
+      SW:
+        priority: recommended
+        focus: community_resources
+    care_guidelines:
+      - "Ensure adequate homemaking support for essential IADLs"
+      - "Arrange meal delivery services if meal prep unsafe"
+      - "Set up medication management systems (blister packs, reminders)"
+      - "Assess need for financial management support"
+      - "Connect with community resources for shopping, transportation"
+      - "Involve family in oversight of critical IADLs"
+
+  - level: NOT_TRIGGERED
+    description: "IADL function adequate"
+    conditions:
+      default: true
+
