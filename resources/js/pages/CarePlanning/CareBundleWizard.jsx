@@ -714,7 +714,7 @@ const CareBundleWizard = () => {
                         <PatientSummaryCard patient={patient} />
 
                         {/* v2.2: Clinical Insights Panel - Algorithm Scores & CAPs */}
-                        {(bundleEngine.algorithmScores || bundleEngine.triggeredCAPs?.length > 0) && (
+                        {(bundleEngine.algorithmScores || (Array.isArray(bundleEngine.triggeredCAPs) && bundleEngine.triggeredCAPs.length > 0)) && (
                             <ClinicalInsightsPanel
                                 algorithmScores={bundleEngine.algorithmScores}
                                 triggeredCAPs={bundleEngine.triggeredCAPs}

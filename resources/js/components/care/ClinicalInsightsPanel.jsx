@@ -24,7 +24,10 @@ const ClinicalInsightsPanel = ({ algorithmScores, triggeredCAPs, profileSummary 
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTooltip, setShowTooltip] = useState(null);
 
-    if (!algorithmScores && (!triggeredCAPs || triggeredCAPs.length === 0)) {
+    // Ensure triggeredCAPs is always an array
+    const capsArray = Array.isArray(triggeredCAPs) ? triggeredCAPs : [];
+
+    if (!algorithmScores && capsArray.length === 0) {
         return null;
     }
 
@@ -202,7 +205,7 @@ const ClinicalInsightsPanel = ({ algorithmScores, triggeredCAPs, profileSummary 
         ([key, score]) => score !== null && score !== undefined && algorithmDefs[key]
     ).length : 0;
 
-    const activeCAPs = triggeredCAPs?.filter(cap => cap.level !== 'NOT_TRIGGERED').length || 0;
+    const activeCAPs = capsArray.filter(cap => cap.level !== 'NOT_TRIGGERED').length;
 
     return (
         <div className="mt-4 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 overflow-hidden">
@@ -259,14 +262,14 @@ const ClinicalInsightsPanel = ({ algorithmScores, triggeredCAPs, profileSummary 
                     )}
 
                     {/* Triggered CAPs */}
-                    {triggeredCAPs && triggeredCAPs.length > 0 && (
+                    {capsArray.length > 0 && (
                         <div>
                             <div className="flex items-center gap-2 mb-2">
                                 <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
                                 <span className="text-xs font-medium text-slate-600">Clinical Assessment Protocols</span>
                             </div>
                             <div className="space-y-2">
-                                {triggeredCAPs.map(cap => renderCAP(cap))}
+                                {capsArray.map(cap => renderCAP(cap))}
                             </div>
                         </div>
                     )}
