@@ -20,6 +20,7 @@ import ServiceCard from '../../components/care/ServiceCard';
 import BundleSummary from '../../components/care/BundleSummary';
 import useServiceTypes, { mapCategory } from '../../hooks/useServiceTypes';
 import careBundleBuilderApi from '../../services/careBundleBuilderApi';
+import useBundleEngine from '../../hooks/useBundleEngine';
 
 /**
  * CareBundleWizard - RUG-driven care bundle builder
@@ -43,10 +44,15 @@ const CareBundleWizard = () => {
     // Fetch service types from API (SC-003)
     const { serviceTypes: apiServiceTypes, loading: servicesLoading, error: servicesError } = useServiceTypes();
 
+    // AI Bundle Engine hook
+    const bundleEngine = useBundleEngine();
+
     // Step 1 State - Bundle Selection
     const [bundles, setBundles] = useState([]);
     const [selectedBundle, setSelectedBundle] = useState(null);
     const [recommendedBundle, setRecommendedBundle] = useState(null);
+    const [selectedAiScenario, setSelectedAiScenario] = useState(null);
+    const [aiScenariosLoaded, setAiScenariosLoaded] = useState(false);
 
     // Step 2 & 3 State - Service Configuration
     const [services, setServices] = useState([]);
@@ -139,6 +145,26 @@ const CareBundleWizard = () => {
     useEffect(() => {
         fetchData();
     }, [patientId]);
+
+    // Load AI scenarios on mount
+    useEffect(() => {
+        if (patientId && !aiScenariosLoaded && !bundleEngine.loading) {
+            bundleEngine.generateScenarios(patientId).then(() => {
+                setAiScenariosLoaded(true);
+            }).catch(err => {
+                console.error('Failed to load AI scenarios:', err);
+                setAiScenariosLoaded(true); // Mark as loaded even on error to prevent retries
+            });
+        }
+    }, [patientId, aiScenariosLoaded, bundleEngine.loading]);
+
+    // Auto-select first/recommended scenario AFTER both apiServiceTypes AND scenarios are loaded
+    useEffect(() => {
+        if (aiScenariosLoaded && apiServiceTypes.length > 0 && bundleEngine.scenarios.length > 0 && !selectedAiScenario) {
+            const recommended = bundleEngine.scenarios.find(s => s.meta?.is_recommended) || bundleEngine.scenarios[0];
+            handleAiScenarioSelect(recommended, false); // false = don't auto-advance
+        }
+    }, [aiScenariosLoaded, apiServiceTypes, bundleEngine.scenarios, selectedAiScenario]);
 
     const fetchData = async () => {
         try {
@@ -235,9 +261,69 @@ const CareBundleWizard = () => {
         }
     };
 
+    // Handle AI scenario selection
+    // autoAdvance: if false, won't move to step 2 (used for initial auto-selection)
+    const handleAiScenarioSelect = (scenario, autoAdvance = true) => {
+        setSelectedAiScenario(scenario);
+
+        // ALWAYS reset all services first, then apply AI scenario services
+        // This ensures we don't keep stale frequencies from previous selections
+        const scenarioServices = scenario.services || [];
+        
+        const servicesWithConfig = apiServiceTypes.map(s => {
+            // Find matching service in the AI scenario using multiple match strategies
+            const scenarioService = scenarioServices.find(ss =>
+                ss.service_module_id == s.id ||  // Use loose comparison for id
+                (ss.service_code && s.code && ss.service_code === s.code) ||
+                (ss.service_name && s.name && ss.service_name.toLowerCase().includes(s.name.toLowerCase().split(' ')[0]))
+            );
+            const isCore = !!scenarioService;
+
+            // Get frequency - handle nested structure from API (frequency.count) or flat (frequencyCount)
+            const freqCount = isCore ? (scenarioService.frequency?.count || scenarioService.frequencyCount || 1) : 0;
+            const durationMins = isCore ? (scenarioService.duration?.minutes || scenarioService.durationMinutes || 60) : 0;
+            const costPerVisit = isCore ? (scenarioService.cost?.per_visit || scenarioService.costPerVisit || s.costPerVisit || 0) : 0;
+
+            return {
+                ...s,
+                is_core: isCore,
+                currentFrequency: freqCount,
+                currentDuration: 12, // Default duration in weeks
+                defaultFrequency: freqCount, // Match currentFrequency so BundleSummary shows it
+                originalFrequency: 0,
+                originalDuration: 0,
+                originalCost: costPerVisit,
+                durationMinutes: durationMins,
+                costPerVisit: costPerVisit,
+            };
+        });
+        
+        setServices(servicesWithConfig);
+
+        // Create a synthetic bundle from the scenario for downstream compatibility
+        const scenarioTitle = scenario.label?.title || scenario.axis?.primary?.label || 'AI Scenario';
+        setSelectedBundle({
+            id: scenario.scenario_id,
+            name: scenarioTitle,
+            description: scenario.label?.description || '',
+            colorTheme: 'teal',
+            band: scenario.axis?.primary?.label || 'AI-Generated',
+            price: scenario.cost?.weekly_estimate || 0,
+            services: scenario.services || [],
+            isAiGenerated: true,
+        });
+
+        // Move to step 2 only if autoAdvance is true
+        if (autoAdvance) {
+            setStep(2);
+        }
+    };
+
     // When bundle selection changes, update services
     const handleBundleSelect = (bundle) => {
         setSelectedBundle(bundle);
+        // Clear AI scenario selection when selecting a traditional bundle
+        setSelectedAiScenario(null);
 
         // Merge bundle services with all available services
         // We need to map ALL available services, marking those in the bundle as isCore
@@ -487,29 +573,28 @@ const CareBundleWizard = () => {
     }
 
     return (
-        <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white">
-            <main className="flex-1 flex flex-col h-full overflow-hidden">
-                {/* Top Header */}
-                <header className="h-16 bg-white border-b border-slate-200 flex justify-between items-center px-8 shrink-0">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800">
-                            {isModifying ? 'Modify Care Delivery Plan' : 'Care Delivery Plan (Schedule 3)'}
-                        </h2>
-                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <span>Episode ID: #{patient?.id || '---'}</span>
-                            {isModifying && (
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                    Modifying: {existingPlan?.bundle || 'Current Plan'}
-                                </span>
-                            )}
-                            {patient?.is_in_queue && (
-                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
-                                    In Queue
-                                </span>
-                            )}
-                        </div>
+        <div className="min-h-screen bg-slate-50 pt-12">
+            {/* Page Header */}
+            <div className="bg-white border-b border-slate-200 px-6 py-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-lg font-bold text-slate-900">
+                            {isModifying ? 'Modify Care Plan' : 'Care Delivery Plan'}
+                        </h1>
+                        <span className="text-slate-300">|</span>
+                        <span className="text-sm text-slate-500">Patient ID: {patient?.id || '---'}</span>
+                        {patient?.is_in_queue && (
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                                In Queue
+                            </span>
+                        )}
+                        {isModifying && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                Modifying
+                            </span>
+                        )}
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                         {step === 1 && (
                             <>
                                 {isModifying && (
@@ -596,10 +681,11 @@ const CareBundleWizard = () => {
                             </>
                         )}
                     </div>
-                </header>
+                </div>
+            </div>
 
-                {/* Scrollable Content Container */}
-                <div className="flex-1 flex overflow-hidden">
+            {/* Main Content Area */}
+            <div className="flex h-[calc(100vh-8rem)]">
 
                     {/* Left Column: Patient Summary (Independent Scroll) */}
                     <div className="w-1/4 min-w-[300px] shrink-0 overflow-y-auto border-r border-slate-200 bg-slate-50/50 p-6">
@@ -688,94 +774,168 @@ const CareBundleWizard = () => {
                                     <p className="text-sm text-slate-600">
                                         {isModifying
                                             ? 'You can switch to a different bundle or skip to customize the existing services.'
-                                            : 'Based on the patient\'s InterRAI HC assessment and RUG classification, bundles have been recommended by the bundle engine.'
+                                            : 'Based on the patient\'s assessment, AI-generated care scenarios have been tailored to their needs.'
                                         }
                                     </p>
-                                    {recommendedBundle && !isModifying && (
-                                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
-                                            <Star className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                                            <div>
-                                                <span className="font-medium text-green-800">Recommended: {recommendedBundle.name}</span>
-                                                <p className="text-sm text-green-700 mt-0.5">{recommendedBundle.reason}</p>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {bundles.map(bundle => (
-                                        <div
-                                            key={bundle.id}
-                                            onClick={() => handleBundleSelect(bundle)}
-                                            className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === bundle.id
-                                                ? 'border-blue-600 bg-blue-50'
-                                                : 'border-slate-200 bg-white hover:border-slate-300'
-                                                }`}
-                                        >
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                        bundle.colorTheme === 'green' ? 'bg-green-100 text-green-700' :
-                                                        bundle.colorTheme === 'purple' ? 'bg-purple-100 text-purple-700' :
-                                                        bundle.colorTheme === 'amber' ? 'bg-amber-100 text-amber-700' :
-                                                        bundle.colorTheme === 'red' ? 'bg-red-100 text-red-700' :
-                                                        bundle.colorTheme === 'rose' ? 'bg-rose-100 text-rose-700' :
-                                                        bundle.colorTheme === 'orange' ? 'bg-orange-100 text-orange-700' :
-                                                        bundle.colorTheme === 'pink' ? 'bg-pink-100 text-pink-700' :
-                                                        bundle.colorTheme === 'teal' ? 'bg-teal-100 text-teal-700' :
-                                                        bundle.colorTheme === 'gray' ? 'bg-gray-100 text-gray-700' :
-                                                        'bg-blue-100 text-blue-700'
-                                                    }`}>
-                                                        {bundle.rug_category || bundle.band || bundle.rug_group}
-                                                    </span>
-                                                    {bundle.isRecommended && (
-                                                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                                                    )}
-                                                </div>
-                                                {selectedBundle?.id === bundle.id && <Check className="w-5 h-5 text-blue-600" />}
-                                            </div>
-                                            <h3 className="text-lg font-bold text-slate-900 mb-2">
-                                                {bundle.name}
-                                                {bundle.rug_group && (
-                                                    <span className="ml-2 text-sm font-medium text-slate-500">({bundle.rug_group})</span>
-                                                )}
-                                            </h3>
-                                            <p className="text-sm text-slate-600 mb-4 line-clamp-3">{bundle.description}</p>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                                    <DollarSign className="w-4 h-4 text-slate-400" />
-                                                    Est. ${bundle.estimatedMonthlyCost || bundle.price || 0}/mo
-                                                </div>
-                                                {bundle.serviceCount && (
-                                                    <span className="text-xs text-slate-500">{bundle.serviceCount} services</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {/* Custom Bundle Option */}
-                                    <div
-                                        onClick={() => handleBundleSelect({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.', services: apiServiceTypes.length > 0 ? apiServiceTypes : services })}
-                                        className={`cursor-pointer rounded-xl border-2 p-6 transition-all hover:shadow-md ${selectedBundle?.id === 'custom'
-                                            ? 'border-slate-600 bg-slate-50'
-                                            : 'border-slate-200 bg-white hover:border-slate-300'
-                                            }`}
-                                    >
-                                        <div className="flex justify-between items-start mb-4">
-                                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                                                Flexible
-                                            </span>
-                                            {selectedBundle?.id === 'custom' && <Check className="w-5 h-5 text-slate-600" />}
-                                        </div>
-                                        <h3 className="text-lg font-bold text-slate-900 mb-2">Build Custom Bundle</h3>
-                                        <p className="text-sm text-slate-600 mb-4">Build a fully customized care plan from scratch with all available services.</p>
-                                        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                            <DollarSign className="w-4 h-4 text-slate-400" />
-                                            Variable Cost
+                                {/* AI Scenarios Section */}
+                                {bundleEngine.loading && (
+                                    <div className="p-8 text-center">
+                                        <div className="inline-flex items-center gap-3">
+                                            <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
+                                            <span className="text-slate-600">Generating care scenarios...</span>
                                         </div>
                                     </div>
-                                </div>
-                                ```
+                                )}
+
+                                {bundleEngine.error && (
+                                    <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl mb-6">
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5" />
+                                            <div>
+                                                <h3 className="font-semibold text-amber-800">Unable to Generate AI Scenarios</h3>
+                                                <p className="text-sm text-amber-600 mt-1">{bundleEngine.error}</p>
+                                                <p className="text-sm text-amber-600 mt-2">You can still select a bundle below or build a custom plan.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Profile Summary */}
+                                {bundleEngine.profileSummary && (
+                                    <div className="p-4 bg-slate-50 rounded-xl mb-6">
+                                        <div className="flex items-center gap-4 flex-wrap">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-medium text-slate-500">Classification:</span>
+                                                <span className="px-2 py-1 bg-white rounded text-sm font-medium">
+                                                    {bundleEngine.profileSummary.primary_classification || 'N/A'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-medium text-slate-500">Episode Type:</span>
+                                                <span className="px-2 py-1 bg-white rounded text-sm font-medium capitalize">
+                                                    {bundleEngine.profileSummary.episode_type?.replace('_', ' ') || 'N/A'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-medium text-slate-500">Rehab Potential:</span>
+                                                <span className={`px-2 py-1 rounded text-sm font-medium ${
+                                                    bundleEngine.profileSummary.rehab_potential
+                                                        ? 'bg-emerald-100 text-emerald-700'
+                                                        : 'bg-slate-100 text-slate-700'
+                                                }`}>
+                                                    {bundleEngine.profileSummary.rehab_potential ? 'Yes' : 'No'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* AI Scenarios Grid + Custom Bundle */}
+                                {!bundleEngine.loading && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {/* AI Generated Scenarios */}
+                                        {bundleEngine.scenarios.map((scenario, idx) => {
+                                            const isRecommended = idx === 0 || scenario.meta?.is_recommended;
+                                            const weeklyCost = scenario.cost?.weekly_estimate || 0;
+                                            const weeklyHours = scenario.operations?.weekly_hours || 0;
+                                            const serviceCount = scenario.services?.length || 0;
+                                            const disciplineCount = scenario.operations?.discipline_count || 0;
+                                            const description = scenario.label?.description || scenario.axis?.primary?.description || '';
+                                            const icon = scenario.label?.icon || scenario.axis?.primary?.emoji || '📋';
+                                            const axisLabel = scenario.axis?.primary?.label || 'AI Scenario';
+
+                                            return (
+                                                <div
+                                                    key={scenario.scenario_id || idx}
+                                                    onClick={() => handleAiScenarioSelect(scenario, false)}
+                                                    className={`cursor-pointer rounded-xl border-2 p-3 transition-all hover:shadow-md relative flex flex-col ${
+                                                        selectedAiScenario?.scenario_id === scenario.scenario_id
+                                                            ? 'border-teal-600 bg-teal-50 shadow-md ring-2 ring-teal-200'
+                                                            : 'border-slate-200 bg-white hover:border-teal-300'
+                                                    }`}
+                                                >
+                                                    {/* Recommended Badge */}
+                                                    {isRecommended && (
+                                                        <div className="absolute -top-2 left-3 px-2 py-0.5 bg-teal-600 text-white text-[10px] font-semibold rounded-full">
+                                                            Recommended
+                                                        </div>
+                                                    )}
+
+                                                    {/* Header - Icon + Title Badge + Check */}
+                                                    <div className="flex items-center justify-between mb-2 mt-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xl">{icon}</span>
+                                                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-100 text-teal-700 whitespace-nowrap">
+                                                                {axisLabel}
+                                                            </span>
+                                                        </div>
+                                                        {selectedAiScenario?.scenario_id === scenario.scenario_id && (
+                                                            <Check className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Description - full text, smaller font */}
+                                                    <p className="text-xs text-slate-600 mb-3 flex-grow leading-relaxed">
+                                                        {description}
+                                                    </p>
+
+                                                    {/* Cost & Hours - auto-sized inline badges */}
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className={`inline-flex items-center justify-center px-2 py-1 rounded-md text-xs font-semibold whitespace-nowrap ${
+                                                            scenario.cost?.status === 'within_cap' ? 'bg-emerald-100 text-emerald-700' :
+                                                            scenario.cost?.status === 'near_cap' ? 'bg-amber-100 text-amber-700' :
+                                                            'bg-slate-100 text-slate-700'
+                                                        }`}>
+                                                            ${Math.round(weeklyCost).toLocaleString()}/wk
+                                                        </span>
+                                                        <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold whitespace-nowrap">
+                                                            {weeklyHours.toFixed(1)}h/wk
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Footer stats - always at bottom */}
+                                                    <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-auto pt-2 border-t border-slate-100">
+                                                        <span>{serviceCount} services</span>
+                                                        <span>{disciplineCount} disciplines</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* Custom Bundle Option */}
+                                        <div
+                                            onClick={() => handleBundleSelect({ id: 'custom', name: 'Custom Bundle', code: 'CUSTOM', colorTheme: 'slate', band: 'Flexible', price: 0, description: 'Build a fully customized care plan from scratch with all available services.', services: apiServiceTypes.length > 0 ? apiServiceTypes : services })}
+                                            className={`cursor-pointer rounded-xl border-2 border-dashed p-3 transition-all hover:shadow-md flex flex-col ${selectedBundle?.id === 'custom'
+                                                ? 'border-slate-600 bg-slate-100 shadow-md'
+                                                : 'border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-white'
+                                                }`}
+                                        >
+                                            {/* Header */}
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xl">🛠️</span>
+                                                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-600 whitespace-nowrap">
+                                                        Custom
+                                                    </span>
+                                                </div>
+                                                {selectedBundle?.id === 'custom' && <Check className="w-4 h-4 text-slate-600 flex-shrink-0" />}
+                                            </div>
+                                            
+                                            {/* Description */}
+                                            <p className="text-xs text-slate-600 mb-3 flex-grow leading-relaxed">
+                                                Build a fully customized care plan from scratch with complete control over all services and frequencies.
+                                            </p>
+                                            
+                                            {/* Footer - matches other cards */}
+                                            <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-auto pt-2 border-t border-slate-100">
+                                                <span>Variable Cost</span>
+                                                <span>Full Flexibility</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -1031,12 +1191,17 @@ const CareBundleWizard = () => {
                                 isGeneratingAi={isGeneratingAi}
                                 aiRecommendation={aiRecommendation}
                                 onGenerateAi={generateRecommendation}
-                                bundleName={`${selectedBundle?.name || 'Bundle'} ${services.some(s => s.defaultFrequency === 0 && s.currentFrequency > 0) ? '(Customized)' : '(Base)'}`}
+                                bundleName={
+                                    selectedAiScenario
+                                        ? `${selectedAiScenario.label?.title || selectedAiScenario.axis?.primary?.label || 'AI Scenario'} (AI)`
+                                        : selectedBundle?.name
+                                            ? `${selectedBundle.name} ${services.some(s => s.defaultFrequency === 0 && s.currentFrequency > 0) ? '(Customized)' : '(Base)'}`
+                                            : 'Select a Bundle'
+                                }
                             />
                         </div>
                     )}
-                </div>
-            </main>
+            </div>
         </div>
     );
 };

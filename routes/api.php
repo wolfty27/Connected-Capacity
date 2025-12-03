@@ -429,3 +429,31 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Accept multiple suggestions in batch
         Route::post('/suggestions/accept-batch', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'acceptBatch']);
     });
+
+    // ====================================================
+    // AI-ASSISTED BUNDLE ENGINE ROUTES
+    // ====================================================
+    Route::prefix('v2/bundle-engine')->middleware(['auth:sanctum'])->group(function () {
+        // Build patient needs profile
+        Route::get('/profile/{patient}', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'getProfile'])
+            ->where(['patient' => '[0-9]+']);
+        
+        // Get applicable scenario axes
+        Route::get('/axes/{patient}', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'getAxes'])
+            ->where(['patient' => '[0-9]+']);
+        
+        // Generate scenario bundles
+        Route::get('/scenarios/{patient}', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'getScenarios'])
+            ->where(['patient' => '[0-9]+']);
+        
+        // Get available data sources
+        Route::get('/data-sources/{patient}', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'getDataSources'])
+            ->where(['patient' => '[0-9]+']);
+        
+        // Compare two scenarios
+        Route::post('/compare', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'compareScenarios']);
+        
+        // Invalidate cached profile
+        Route::post('/invalidate-cache/{patient}', [\App\Http\Controllers\Api\V2\BundleEngineController::class, 'invalidateCache'])
+            ->where(['patient' => '[0-9]+']);
+    });

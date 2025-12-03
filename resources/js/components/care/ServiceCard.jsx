@@ -1,14 +1,6 @@
 import React from 'react';
 import { Minus, Plus, Info } from 'lucide-react';
 
-const PROVIDERS = [
-    'Assign...',
-    'CarePartners',
-    'VHA Home HealthCare',
-    'Paramed',
-    'SE Health'
-];
-
 const ServiceCard = ({ service, onUpdate }) => {
     const handleFreqChange = (delta) => {
         const newVal = Math.max(0, service.currentFrequency + delta);
@@ -17,10 +9,6 @@ const ServiceCard = ({ service, onUpdate }) => {
 
     const handleDurationChange = (e) => {
         onUpdate(service.id, 'currentDuration', parseInt(e.target.value, 10));
-    };
-
-    const handleProviderChange = (e) => {
-        onUpdate(service.id, 'provider', e.target.value);
     };
 
     return (
@@ -54,64 +42,48 @@ const ServiceCard = ({ service, onUpdate }) => {
 
                     {/* Frequency Control */}
                     <div>
-                        <div className="flex justify-between items-center mb-1">
-                            <label className="text-xs font-semibold text-slate-700">
-                                Frequency ({service.code === 'PSW' ? 'hours/week' : 'visits/week'}): <span className="text-slate-900 font-bold">{service.currentFrequency}</span>
-                            </label>
-                        </div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-2">
+                            Frequency ({service.code === 'PSW' ? 'hours/week' : 'visits/week'})
+                        </label>
                         <div className="flex items-center">
                             <button
                                 onClick={() => handleFreqChange(-1)}
-                                className="p-1 rounded-l-md border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600"
+                                className="p-2 rounded-l-md border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600"
                             >
                                 <Minus className="w-4 h-4" />
                             </button>
-                            <div className="w-10 text-center border-t border-b border-slate-300 py-1 text-sm bg-white font-medium">
+                            <div className="w-14 text-center border-t border-b border-slate-300 py-2 text-sm bg-white font-bold text-slate-900">
                                 {service.currentFrequency}
                             </div>
                             <button
                                 onClick={() => handleFreqChange(1)}
-                                className="p-1 rounded-r-md border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600"
+                                className="p-2 rounded-r-md border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600"
                             >
                                 <Plus className="w-4 h-4" />
                             </button>
                         </div>
                     </div>
 
-                    {/* Duration Slider */}
+                    {/* Duration Control */}
                     <div>
-                        <div className="flex justify-between items-center mb-1">
-                            <label className="text-xs font-semibold text-slate-700">Duration (weeks): <span className="text-slate-900 font-bold">{service.currentDuration}</span></label>
-                        </div>
-                        <div className="flex items-center gap-4">
+                        <label className="text-xs font-semibold text-slate-700 block mb-2">
+                            Duration (weeks)
+                        </label>
+                        <div className="flex items-center gap-3">
                             <input
                                 type="range"
                                 min="1"
                                 max="24"
                                 value={service.currentDuration}
                                 onChange={handleDurationChange}
-                                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                                className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                                 style={{
                                     background: `linear-gradient(to right, #2563eb 0%, #2563eb ${(service.currentDuration / 24) * 100}%, #bfdbfe ${(service.currentDuration / 24) * 100}%, #bfdbfe 100%)`
                                 }}
                             />
-                            <span className="text-sm text-slate-500 w-8">{service.currentDuration}</span>
+                            <span className="text-sm font-bold text-slate-900 w-8 text-center">{service.currentDuration}</span>
                         </div>
                     </div>
-                </div>
-
-                {/* Row 3: Provider (Full Width) */}
-                <div className="w-full pt-2 border-t border-gray-100">
-                    <label className="text-xs font-semibold text-slate-700 mb-1">Provider:</label>
-                    <select
-                        value={service.provider}
-                        onChange={handleProviderChange}
-                        className="block w-full rounded-md border-slate-300 border shadow-sm focus:border-teal-500 focus:ring-teal-500 sm:text-sm py-1.5 px-3"
-                    >
-                        {PROVIDERS.map(p => (
-                            <option key={p} value={p}>{p}</option>
-                        ))}
-                    </select>
                 </div>
 
             </div>

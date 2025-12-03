@@ -181,7 +181,7 @@ const ExplanationModal = ({ isOpen, onClose, suggestion, getExplanation }) => {
                                 )}
 
                                 {/* Response Time */}
-                                {explanation.response_time_ms && (
+                                {explanation.response_time_ms > 0 && (
                                     <div className="text-xs text-slate-400 text-right">
                                         Generated in {explanation.response_time_ms}ms
                                     </div>

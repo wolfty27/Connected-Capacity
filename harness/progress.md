@@ -1098,3 +1098,287 @@ All 5 phases implemented:
 3. ✅ Auto Assign Engine (scoring, continuity, suggestions)
 4. ✅ API Endpoints (suggestions, explain, accept)
 5. ✅ UI Integration (button, suggestions, modal)
+
+---
+
+## AI-Assisted Bundle Engine Implementation Phase 1 (2025-12-03)
+
+### Status: PHASE 1 COMPLETE ✅
+
+### Implementation Progress
+
+| Ticket | Status | Description |
+|--------|--------|-------------|
+| 1.1 PatientNeedsProfile DTO | ✅ Done | Pure data container with all 50+ fields |
+| 1.2 NeedsCluster Enum | ✅ Done | 9 cluster types for CA-only path |
+| 1.3 AssessmentIngestionService Interface | ✅ Done | Contract for profile building |
+| 1.4 AssessmentMapperInterface | ✅ Done | Contract for assessment mapping |
+| 1.5 HcAssessmentMapper | ✅ Done | Full HC assessment field extraction |
+| 1.6 CaAssessmentMapper | ✅ Done | CA assessment field extraction + NeedsCluster derivation |
+| 1.7 EpisodeTypeDeriver | ✅ Done | Priority-based episode type derivation rules |
+| 1.8 RehabPotentialDeriver | ✅ Done | 0-100 point scoring system |
+| 1.9 AssessmentIngestionService | ✅ Done | Full implementation with caching |
+| 2.1 ScenarioAxis Enum | ✅ Done | 8 axes with labels, descriptions, modifiers |
+| 2.2 ScenarioServiceLine DTO | ✅ Done | Service details with cost and delivery mode |
+| 2.3 ScenarioBundleDTO | ✅ Done | Full scenario representation |
+| 2.4 ScenarioAxisSelector | ✅ Done | Threshold-based axis selection policy |
+| 2.5 ScenarioGeneratorInterface | ✅ Done | Contract for scenario generation |
+| 2.6 CostAnnotationServiceInterface | ✅ Done | Contract for cost annotation |
+| 2.7 CostAnnotationService | ✅ Done | Implementation with patient-centered notes |
+| 3.1 BundleEngineServiceProvider | ✅ Done | DI container registration |
+| 4.1 ScenarioGenerator | ✅ Done | Full implementation with template-based generation |
+| 4.2 BundleEngineController | ✅ Done | API endpoints for profile, axes, scenarios |
+| 4.3 API Routes | ✅ Done | `/v2/bundle-engine/*` routes registered |
+| 5.1 useBundleEngine hook | ✅ Done | React hook for API calls and state management |
+| 5.2 ScenarioCard | ✅ Done | Individual scenario display component |
+| 5.3 ScenarioSelector | ✅ Done | Multi-scenario selection interface |
+| 5.4 ScenarioDetailModal | ✅ Done | Detailed scenario view with services |
+| 5.5 CareBundleWizard Integration | ✅ Done | "Try AI Scenarios" toggle on Step 1 |
+
+### New Files Created (Session 2)
+
+```
+app/Services/BundleEngine/ScenarioGenerator.php          # Full scenario generation implementation
+app/Http/Controllers/Api/V2/BundleEngineController.php  # API endpoints
+routes/api.php                                          # Added /v2/bundle-engine/* routes
+resources/js/hooks/useBundleEngine.js                   # React API hook
+resources/js/components/bundleEngine/
+├── index.js                                            # Component exports
+├── ScenarioCard.jsx                                    # Card component
+├── ScenarioSelector.jsx                                # Multi-scenario selector
+└── ScenarioDetailModal.jsx                             # Detail modal
+```
+
+### Files Modified (Session 2)
+
+```
+app/Providers/BundleEngineServiceProvider.php           # Added ScenarioGenerator binding
+resources/js/pages/CarePlanning/CareBundleWizard.jsx   # Added AI Scenarios toggle
+```
+
+### Files Created (Session 1)
+
+```
+app/Services/BundleEngine/
+├── Contracts/
+│   ├── AssessmentIngestionServiceInterface.php
+│   ├── AssessmentMapperInterface.php
+│   ├── CostAnnotationServiceInterface.php
+│   └── ScenarioGeneratorInterface.php
+├── DTOs/
+│   ├── PatientNeedsProfile.php
+│   ├── ScenarioBundleDTO.php
+│   └── ScenarioServiceLine.php
+├── Enums/
+│   ├── NeedsCluster.php
+│   └── ScenarioAxis.php
+├── Mappers/
+│   ├── HcAssessmentMapper.php
+│   └── CaAssessmentMapper.php
+├── Derivers/
+│   ├── EpisodeTypeDeriver.php
+│   └── RehabPotentialDeriver.php
+├── AssessmentIngestionService.php
+├── ScenarioAxisSelector.php
+└── CostAnnotationService.php
+
+app/Providers/
+└── BundleEngineServiceProvider.php (registered in config/app.php)
+```
+
+### Key Implementation Details
+
+1. **PatientNeedsProfile DTO** (50+ fields)
+   - Data source tracking (HC/CA/BMHS/referral flags)
+   - Case classification (RUG group/category, needs cluster, episode type)
+   - Functional needs (ADL, IADL, mobility on 0-6 scales)
+   - Cognitive & behavioural (CPS-derived, flags for wandering/aggression)
+   - Clinical risks (falls, skin, pain, CHESS-derived instability)
+   - Treatment context (rehab potential, extensive services)
+   - Support context (caregiver availability, stress, social support)
+   - Technology readiness (internet, PERS, RPM suitability)
+   - Environment (region, travel complexity, rural flag)
+   - Confidence tracking (level, missing fields, quality notes)
+
+2. **Assessment Mappers**
+   - HC mapper: Full RUG classification, all clinical scales
+   - CA mapper: Derives NeedsCluster when RUG unavailable
+   - Both include VERIFY comments for exact field name validation
+
+3. **Episode Type Derivation** (Priority Order)
+   - Explicit referral type (highest)
+   - Hospital discharge indicators
+   - InterRAI assessment patterns
+   - Default based on profile characteristics (lowest)
+
+4. **Rehab Potential Scoring** (0-100 points)
+   - Episode type indicators (+20-30 points)
+   - Therapy recommendations (+15-20 points)
+   - Functional improvement potential (+10-20 points)
+   - ADL/mobility status (+15 points)
+   - Cognitive capacity (+10 points)
+   - Referral indicators (+15 points)
+   - Negative modifiers (cognitive, instability, prognosis)
+   - Threshold: score >= 40 → hasRehabPotential = true
+
+5. **ScenarioAxisSelector** (Threshold-Based Policy)
+   - Each axis has evaluation function with weighted scoring
+   - Candidates sorted by score, top N returned
+   - BALANCED always included as default option
+   - Configurable thresholds via constants
+
+6. **CostAnnotationService**
+   - Reference cap (default $5,000/week), NOT hard constraint
+   - Status: within_cap (<85%), near_cap (85-100%), over_cap (>100%)
+   - Patient-centered cost notes (not "budget vs clinical")
+   - Operational metrics (hours, visits, disciplines)
+
+### Next Steps
+
+- [ ] ScenarioGenerator concrete implementation
+- [ ] API endpoints for profile building and scenario generation
+- [ ] React scenario selection UI components
+- [ ] Integration with existing CareBundleBuilderService
+
+---
+
+## AI-Assisted Bundle Engine Design (2025-12-02)
+
+### Status: DESIGN COMPLETE (v1.1)
+
+### Design Document Created
+`docs/CC21_AI_Bundle_Engine_Design.md` - Comprehensive design specification for extending Bundle Engine with AI assistance.
+
+### Core Concept
+Unlike the AI-Assisted Scheduling Engine (which answers "who should deliver care"), the AI-Assisted Bundle Engine answers:
+> "Given this patient's needs and our service portfolio, what *shape* should their bundle take?"
+
+### Key Design Principles
+1. **100% Acceptance Model** – Accept all referrals; NOT using AI to decide who gets care
+2. **Patient-Experience Framing** – Scenarios framed around recovery, safety, tech, caregiver support - NOT "budget vs clinical"
+3. **Assessment Flexibility** – Works with HC, CA, or CA+BMHS; never blocked by missing data
+4. **Cost as Reference** – $5,000/week is a reference point, not a hard cap
+5. **Human-in-the-Loop** – AI generates options; coordinators make decisions
+
+### Design Components
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| PatientNeedsProfile DTO | ✅ Designed | Normalized, assessment-agnostic patient profile |
+| AssessmentIngestionService | ✅ Designed | Builds profile from HC/CA/BMHS/referral data |
+| Assessment Field Mapping | ✅ Designed | HC/CA/BMHS → Profile field mappings with verification notes |
+| Episode Type Derivation | ✅ Designed | Rules for post_acute, complex_continuing, chronic, etc. |
+| Rehab Potential Score | ✅ Designed | 0-100 point scoring system with explicit factors |
+| Needs Cluster (CA-only) | ✅ Designed | Simplified groupings when RUG unavailable |
+| ScenarioAxis Enum | ✅ Designed | recovery_rehab, safety_stability, tech_enabled, caregiver_relief, etc. |
+| ScenarioBundleDTO | ✅ Designed | Scenario with services, costs, metadata |
+| ScenarioGenerator | ✅ Designed | Generates 3-5 scenarios per patient |
+| ScenarioAxisSelector | ✅ Designed | Policy logic for axis selection (separated from DTO) |
+| Cost Annotation | ✅ Designed | Reference cap, not constraint; patient-centered framing |
+| UI/UX Wireframes | ✅ Designed | Scenario cards, detail views, selection interface |
+| Vertex AI Explanation | ✅ Designed | De-identified prompts for scenario explanation |
+| Vertex AI Generation | ✅ Designed | Future: AI-proposed scenarios with human review |
+
+### Design Refinements (v1.1)
+
+Based on technical review, three refinements were made:
+
+1. **Field Naming Verification**
+   - Added "⚠️ Verify" column to mapping tables
+   - Confirmed field names against `InterraiAssessment` model
+   - Implementation must verify exact `raw_items` keys
+
+2. **Episode Type & Rehab Potential Derivation**
+   - Added explicit derivation rules (not guessed)
+   - Episode type: priority-based rule evaluation
+   - Rehab potential: point-based scoring (threshold ≥40)
+   - Safe defaults for missing data defined
+
+3. **Separation of Concerns (DTO vs Policy)**
+   - Removed `getApplicableScenarioAxes()` from PatientNeedsProfile
+   - Moved to ScenarioAxisSelector service
+   - DTO is now pure data container
+   - Policy decisions centralized in services
+
+### Architecture Summary
+
+```
+Assessment Sources (HC/CA/BMHS/Referral)
+           ↓
+AssessmentIngestionService
+           ↓
+PatientNeedsProfile (Pure Data DTO)
+           ↓
+ScenarioAxisSelector (Policy Service)
+           ↓
+ScenarioGenerator → 3-5 ScenarioBundleDTOs
+           ↓
+UI (Scenario Selection)
+           ↓
+Coordinator Selection
+           ↓
+Existing CareBundleBuilderService → Care Plan
+```
+
+### Files Created
+- `docs/CC21_AI_Bundle_Engine_Design.md` - Full design specification
+
+### Next Steps
+1. Technical review of design document
+2. Implementation planning (5 phases)
+3. Phase 1: Core Infrastructure (DTOs, services)
+4. Phase 2: Scenario Generator
+5. Phase 3: API & UI
+6. Phase 4: AI Explanation (Vertex AI)
+7. Phase 5: AI Generation (Future)
+
+---
+
+## AI-Assisted Bundle Engine - UI Refinements (2025-12-03)
+
+### Status: DONE ✅
+
+### Session Summary
+Completed UI integration and refinements for the AI-Assisted Bundle Engine.
+
+### Key Fixes & Improvements
+
+1. **RUG Classification Display Fixed**
+   - Issue: Classification showed "N/A" despite patient having CC0 classification
+   - Root Cause: HcAssessmentMapper was looking for `rug_group` directly on InterraiAssessment, but it's stored in the `latestRugClassification` relationship
+   - Fix: Updated mapper to query `$assessment->latestRugClassification->rug_group`
+   - Added fallback to use `Patient::latestRugClassification` if assessment-based extraction fails
+   - Added eager loading of `latestRugClassification` in `getLatestAssessment()`
+
+2. **Header Display Updated**
+   - Changed "Episode #1" to "Patient ID: 1" for clarity
+   - Standardized header layout to match other pages (pt-12 pattern)
+
+3. **Bundle Card Click Behavior Fixed**
+   - Issue: Clicking a scenario card was auto-advancing to Step 2
+   - Fix: Changed `handleAiScenarioSelect(scenario)` to `handleAiScenarioSelect(scenario, false)`
+   - Now clicking a card only updates the Bundle Summary, not advancing steps
+   - User must click "Next: Customize Bundle" to proceed
+
+4. **Provider Section Removed**
+   - Removed "Provider: Assign..." dropdown from ServiceCard component
+   - Rationale: Scheduler handles provider assignment, not bundle builder
+   - Files modified: `resources/js/components/care/ServiceCard.jsx`
+
+5. **Duplicate Display Fixed**
+   - Issue: Frequency showed both in label AND in +/- control
+   - Fix: Removed duplicate from label, kept only in control
+   - Same fix applied to Duration display
+
+### Files Modified
+- `app/Services/BundleEngine/Mappers/HcAssessmentMapper.php` - RUG relationship fix
+- `app/Services/BundleEngine/AssessmentIngestionService.php` - Eager loading + fallback
+- `resources/js/pages/CarePlanning/CareBundleWizard.jsx` - Header + click behavior
+- `resources/js/components/care/ServiceCard.jsx` - Provider removal + display fix
+
+### Testing Verified
+- ✅ Classification shows CC0 correctly
+- ✅ Patient ID displays in header
+- ✅ Bundle card clicks don't auto-advance
+- ✅ No Provider dropdown in service customization
+- ✅ Single frequency/duration display in controls
