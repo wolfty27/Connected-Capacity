@@ -258,6 +258,59 @@
     "service_type": "SW",
     "escalation_threshold": 4,
     "escalation_note": "DMS >= 4 should trigger mental health service consultation"
+  },
+
+  "cap_floor_adjustments": {
+    "_comment": "CAP triggers add to category floors beyond algorithm-derived minimums",
+    "falls": {
+      "personal_support": { "floor_add": 2, "recommended_add": 3 },
+      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 4 }
+    },
+    "pain": {
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 1 },
+      "risk_mgmt_and_complexity": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "pressure_ulcer": {
+      "clinical_monitoring": { "floor_add": 2, "recommended_add": 3 },
+      "personal_support": { "floor_add": 2, "recommended_add": 3 }
+    },
+    "undernutrition": {
+      "nutrition_support": { "floor_add": 5, "recommended_add": 7 },
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 1 }
+    },
+    "dehydration": {
+      "nutrition_support": { "floor_add": 3, "recommended_add": 5 },
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "medications": {
+      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 3 },
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 1 }
+    },
+    "mood": {
+      "social_support": { "floor_add": 1, "recommended_add": 2 },
+      "risk_mgmt_and_complexity": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "informal_support": {
+      "social_support": { "floor_add": 2, "recommended_add": 4 },
+      "personal_support": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "cognitive_loss": {
+      "personal_support": { "floor_add": 3, "recommended_add": 5 },
+      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 3 },
+      "social_support": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "cardiorespiratory": {
+      "clinical_monitoring": { "floor_add": 2, "recommended_add": 3 },
+      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 3 }
+    },
+    "adl": {
+      "personal_support": { "floor_add": 2, "recommended_add": 4 },
+      "rehab_support": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "iadl": {
+      "personal_support": { "floor_add": 1, "recommended_add": 2 },
+      "rehab_support": { "floor_add": 1, "recommended_add": 1 }
+    }
   }
 }
 

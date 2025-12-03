@@ -1,0 +1,350 @@
+{
+  "$schema": "bundle_engine/schemas/substitution_rules.schema.json",
+  "version": "1.0.0",
+  "last_updated": "2025-12-03",
+  "description": "Rules for substituting services within categories while respecting clinical floors",
+  
+  "within_category_substitutions": {
+    "clinical_monitoring": {
+      "description": "Remote monitoring can partially substitute for in-person nursing",
+      "hard_floor_service": "NUR",
+      "hard_floor_ratio": 0.5,
+      "rules": [
+        {
+          "substitute": "RPM",
+          "for": "NUR",
+          "max_ratio": 0.5,
+          "conditions": ["tech_readiness >= 2", "health_instability <= 3"],
+          "conversion": {
+            "input": "1 visit NUR",
+            "output": "7 units RPM",
+            "rationale": "Daily remote monitoring replaces one nursing visit"
+          }
+        },
+        {
+          "substitute": "TELE",
+          "for": "NUR",
+          "max_ratio": 0.3,
+          "conditions": ["tech_readiness >= 2"],
+          "conversion": {
+            "input": "1 visit NUR",
+            "output": "2 visits TELE",
+            "rationale": "Two telehealth check-ins replace one in-person visit"
+          }
+        },
+        {
+          "substitute": "CDM",
+          "for": "NUR",
+          "max_ratio": 0.3,
+          "conditions": ["cap_triggered:cardiorespiratory"],
+          "conversion": {
+            "input": "1 visit NUR",
+            "output": "7 units CDM",
+            "rationale": "Chronic disease monitoring supplements nursing"
+          }
+        },
+        {
+          "substitute": "LAB",
+          "for": "NUR",
+          "max_ratio": 0.2,
+          "conditions": ["cap_triggered:medications OR cap_triggered:cardiorespiratory"],
+          "conversion": {
+            "input": "1 visit NUR",
+            "output": "1 visit LAB",
+            "rationale": "Lab visit can replace routine nursing for stable patients"
+          }
+        }
+      ]
+    },
+    
+    "personal_support": {
+      "description": "Various services can express personal support hours",
+      "hard_floor_service": "PSW",
+      "hard_floor_ratio": 0.4,
+      "rules": [
+        {
+          "substitute": "HMK",
+          "for": "PSW",
+          "max_ratio": 0.3,
+          "conditions": ["iadl_support_level >= 2"],
+          "conversion": {
+            "input": "1 hour PSW",
+            "output": "1 hour HMK",
+            "rationale": "Homemaking addresses IADL needs without full PSW"
+          }
+        },
+        {
+          "substitute": "SEC",
+          "for": "PSW",
+          "max_ratio": 0.2,
+          "conditions": ["lives_alone == true"],
+          "conversion": {
+            "input": "1 hour PSW",
+            "output": "2 visits SEC",
+            "rationale": "Security checks provide supervision for isolated patients"
+          }
+        },
+        {
+          "substitute": "ADP",
+          "for": "PSW",
+          "max_ratio": 0.4,
+          "conditions": ["cognitive_complexity <= 3"],
+          "conversion": {
+            "input": "4 hours PSW",
+            "output": "1 day ADP",
+            "rationale": "Day program provides supervised care with social benefit"
+          }
+        },
+        {
+          "substitute": "DEM",
+          "for": "PSW",
+          "max_ratio": 0.5,
+          "conditions": ["cap_triggered:cognitive_loss"],
+          "conversion": {
+            "input": "1 hour PSW",
+            "output": "1 hour DEM",
+            "rationale": "Specialized dementia care replaces generic PSW"
+          }
+        },
+        {
+          "substitute": "RES",
+          "for": "PSW",
+          "max_ratio": 0.3,
+          "conditions": ["cap_triggered:informal_support"],
+          "conversion": {
+            "input": "4 hours PSW",
+            "output": "4 hours RES",
+            "rationale": "Respite provides caregiver relief while supporting patient"
+          }
+        }
+      ]
+    },
+    
+    "rehab_support": {
+      "description": "Therapy services are generally not substitutable but can be split",
+      "hard_floor_service": null,
+      "hard_floor_ratio": 0,
+      "rules": [
+        {
+          "substitute": "SLP",
+          "for": "OT",
+          "max_ratio": 0.3,
+          "conditions": ["cap_triggered:cognitive_loss"],
+          "conversion": {
+            "input": "1 visit OT",
+            "output": "1 visit SLP",
+            "rationale": "Speech therapy for cognitive-communication needs"
+          }
+        },
+        {
+          "substitute": "RT",
+          "for": "PT",
+          "max_ratio": 0.3,
+          "conditions": ["cap_triggered:cardiorespiratory"],
+          "conversion": {
+            "input": "1 visit PT",
+            "output": "1 visit RT",
+            "rationale": "Respiratory therapy for cardiopulmonary patients"
+          }
+        }
+      ]
+    },
+    
+    "social_support": {
+      "description": "Social support services are highly substitutable",
+      "hard_floor_service": null,
+      "hard_floor_ratio": 0,
+      "rules": [
+        {
+          "substitute": "RES",
+          "for": "SW",
+          "max_ratio": 0.6,
+          "conditions": ["cap_triggered:informal_support"],
+          "conversion": {
+            "input": "1 visit SW",
+            "output": "4 hours RES",
+            "rationale": "Respite provides tangible caregiver support"
+          }
+        },
+        {
+          "substitute": "ADP",
+          "for": "SW",
+          "max_ratio": 0.5,
+          "conditions": ["cognitive_complexity <= 3"],
+          "conversion": {
+            "input": "1 visit SW",
+            "output": "1 day ADP",
+            "rationale": "Day program addresses social isolation"
+          }
+        },
+        {
+          "substitute": "CGC",
+          "for": "SW",
+          "max_ratio": 0.4,
+          "conditions": ["caregiver_stress_level >= 2"],
+          "conversion": {
+            "input": "1 visit SW",
+            "output": "1 visit CGC",
+            "rationale": "Caregiver coaching supports family system"
+          }
+        },
+        {
+          "substitute": "REC",
+          "for": "SW",
+          "max_ratio": 0.3,
+          "conditions": [],
+          "conversion": {
+            "input": "1 visit SW",
+            "output": "2 hours REC",
+            "rationale": "Social recreation addresses isolation"
+          }
+        }
+      ]
+    },
+    
+    "risk_mgmt_and_complexity": {
+      "description": "Risk management services based on CAP triggers",
+      "hard_floor_service": null,
+      "hard_floor_ratio": 0,
+      "rules": [
+        {
+          "substitute": "PERS-ADV",
+          "for": "PERS",
+          "max_ratio": 1.0,
+          "conditions": ["falls_risk_level >= 2"],
+          "conversion": {
+            "input": "1 unit PERS",
+            "output": "1 unit PERS-ADV",
+            "rationale": "Advanced PERS for high fall risk"
+          }
+        },
+        {
+          "substitute": "FALL-MON",
+          "for": "SEC",
+          "max_ratio": 0.5,
+          "conditions": ["cap_triggered:falls"],
+          "conversion": {
+            "input": "2 visits SEC",
+            "output": "7 units FALL-MON",
+            "rationale": "Falls monitoring supplements security checks"
+          }
+        }
+      ]
+    },
+    
+    "nutrition_support": {
+      "description": "Nutrition services are generally not substitutable",
+      "hard_floor_service": null,
+      "hard_floor_ratio": 0,
+      "rules": [
+        {
+          "substitute": "MOW",
+          "for": "MEAL",
+          "max_ratio": 1.0,
+          "conditions": [],
+          "conversion": {
+            "input": "1 delivery MEAL",
+            "output": "1 delivery MOW",
+            "rationale": "Meals on Wheels equivalent to meal delivery"
+          }
+        }
+      ]
+    }
+  },
+  
+  "cross_category_packages": {
+    "falls_prevention_package": {
+      "trigger_condition": "cap_triggered:falls AND cap_level IN ['IMPROVE', 'PREVENT']",
+      "adds": {
+        "risk_mgmt_and_complexity": {
+          "FALL-MON": { "frequency": 7, "unit": "day" },
+          "PERS": { "frequency": 7, "unit": "day" }
+        },
+        "personal_support": {
+          "PSW_supervision_boost": { "hours_add": 2 }
+        }
+      },
+      "rationale": "Falls CAP triggers comprehensive fall prevention services"
+    },
+    
+    "medications_management_package": {
+      "trigger_condition": "cap_triggered:medications",
+      "adds": {
+        "risk_mgmt_and_complexity": {
+          "MED-DISP": { "frequency": 7, "unit": "day" },
+          "PHAR": { "frequency": 1, "unit": "week" }
+        }
+      },
+      "rationale": "Medications CAP triggers pharmacy and dispensing support"
+    },
+    
+    "behavioural_support_package": {
+      "trigger_condition": "cap_triggered:mood OR cap_triggered:cognitive_loss",
+      "adds": {
+        "risk_mgmt_and_complexity": {
+          "BEH": { "frequency": 2, "unit": "week" }
+        },
+        "social_support": {
+          "SW": { "frequency": 1, "unit": "week" }
+        }
+      },
+      "rationale": "Mood/cognitive CAPs trigger behavioural support services"
+    },
+    
+    "cardiorespiratory_package": {
+      "trigger_condition": "cap_triggered:cardiorespiratory",
+      "adds": {
+        "risk_mgmt_and_complexity": {
+          "CDM": { "frequency": 7, "unit": "day" },
+          "RPM": { "frequency": 7, "unit": "day" }
+        },
+        "clinical_monitoring": {
+          "NUR_boost": { "visits_add": 1 }
+        },
+        "rehab_support": {
+          "RT": { "frequency": 1, "unit": "week" }
+        }
+      },
+      "rationale": "Cardiorespiratory CAP triggers monitoring and respiratory support"
+    },
+    
+    "pressure_ulcer_package": {
+      "trigger_condition": "cap_triggered:pressure_ulcer",
+      "adds": {
+        "clinical_monitoring": {
+          "NUR_wound_care_boost": { "visits_add": 2 }
+        },
+        "personal_support": {
+          "PSW_positioning_boost": { "hours_add": 3 }
+        }
+      },
+      "rationale": "Pressure ulcer CAP triggers wound care and repositioning"
+    },
+    
+    "nutrition_risk_package": {
+      "trigger_condition": "cap_triggered:undernutrition OR cap_triggered:dehydration",
+      "adds": {
+        "nutrition_support": {
+          "MEAL": { "frequency": 7, "unit": "day" },
+          "RD": { "frequency": 1, "unit": "week" }
+        },
+        "clinical_monitoring": {
+          "NUR_nutrition_monitoring": { "visits_add": 1 }
+        }
+      },
+      "rationale": "Nutrition CAPs trigger meal delivery and dietitian consult"
+    },
+    
+    "caregiver_distress_package": {
+      "trigger_condition": "cap_triggered:informal_support AND cap_level IN ['IMPROVE']",
+      "adds": {
+        "social_support": {
+          "RES": { "frequency": 2, "unit": "week", "hours": 4 },
+          "CGC": { "frequency": 1, "unit": "week" }
+        }
+      },
+      "rationale": "Informal support CAP at IMPROVE level triggers respite and coaching"
+    }
+  }
+}
+

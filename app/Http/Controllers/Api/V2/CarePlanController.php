@@ -76,8 +76,11 @@ class CarePlanController extends Controller
                 'id' => $plan->id,
                 'patient_id' => $plan->patient_id,
                 'patient' => $plan->patient->user->name ?? 'Unknown',
-                'bundle' => $plan->careBundle->name ?? 'Custom',
+                'bundle' => $plan->display_name, // v2.3: Uses scenario_title when available
                 'bundle_code' => $plan->careBundle->code ?? null,
+                // v2.3: Scenario metadata for AI-generated plans
+                'scenario_title' => $plan->scenario_title,
+                'scenario_axis' => $plan->scenario_axis,
                 'status' => $plan->status, // Keep lowercase for frontend filtering
                 'start_date' => $plan->created_at->format('Y-m-d'),
                 'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),
@@ -144,8 +147,11 @@ class CarePlanController extends Controller
                 'id' => $plan->id,
                 'patient_id' => $plan->patient_id,
                 'patient' => $plan->patient->user->name ?? 'Unknown',
-                'bundle' => $plan->careBundle->name ?? 'Custom',
+                'bundle' => $plan->display_name, // v2.3: Uses scenario_title when available
                 'bundle_code' => $plan->careBundle->code ?? null,
+                // v2.3: Scenario metadata for AI-generated plans
+                'scenario_title' => $plan->scenario_title,
+                'scenario_axis' => $plan->scenario_axis,
                 'status' => $plan->status,
                 'start_date' => $plan->created_at->format('Y-m-d'),
                 'approved_at' => $plan->approved_at?->format('Y-m-d H:i'),

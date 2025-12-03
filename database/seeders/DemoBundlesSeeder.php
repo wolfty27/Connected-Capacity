@@ -80,6 +80,9 @@ class DemoBundlesSeeder extends Seeder
                 $this->command->info("  {$patient->user->name}: Extracted {$servicesCount} service requirements");
             }
 
+            // v2.3: Generate scenario metadata based on patient profile
+            $scenarioData = $this->generateScenarioMetadata($rug, $patient);
+
             // Create active care plan with service requirements
             // NOTE: ServiceAssignments are NOT created here - they are created by WorkforceSeeder
             // with proper scheduled dates. This maintains plan vs schedule separation.
@@ -87,6 +90,10 @@ class DemoBundlesSeeder extends Seeder
                 'patient_id' => $patient->id,
                 'care_bundle_id' => $careBundle->id,
                 'care_bundle_template_id' => $template->id,
+                // v2.3: AI Bundle Engine scenario fields
+                'scenario_metadata' => $scenarioData['metadata'],
+                'scenario_title' => $scenarioData['title'],
+                'scenario_axis' => $scenarioData['axis'],
                 'version' => 1,
                 'status' => 'active',
                 'goals' => $this->generateGoals($rug),
@@ -94,10 +101,10 @@ class DemoBundlesSeeder extends Seeder
                 'interventions' => [],
                 'service_requirements' => $serviceRequirements,
                 'approved_at' => now()->subDays(rand(7, 30)),
-                'notes' => "Created from RUG template: {$template->name} ({$template->code})",
+                'notes' => "Created from AI scenario: {$scenarioData['title']}",
             ]);
 
-            $this->command->info("  {$patient->user->name}: CarePlan from {$template->code} (RUG: {$rug->rug_group})");
+            $this->command->info("  {$patient->user->name}: CarePlan from {$template->code} (RUG: {$rug->rug_group}) → \"{$scenarioData['title']}\"");
         }
 
         // Diagnostic summary
@@ -201,5 +208,132 @@ class DemoBundlesSeeder extends Seeder
         }
 
         return $risks;
+    }
+
+    /**
+     * v2.3: Generate scenario metadata based on RUG classification and patient profile.
+     *
+     * This simulates what the AI Bundle Engine would produce, selecting an appropriate
+     * scenario axis based on the patient's clinical profile.
+     */
+    protected function generateScenarioMetadata(RUGClassification $rug, Patient $patient): array
+    {
+        // Determine best-fit scenario axis based on patient profile
+        $axis = $this->selectScenarioAxis($rug);
+        $title = $this->getScenarioTitle($axis);
+
+        return [
+            'title' => $title,
+            'axis' => $axis,
+            'metadata' => [
+                'scenario_id' => 'demo-' . $patient->id . '-' . $axis,
+                'title' => $title,
+                'axis' => $axis,
+                'source' => 'category_composition_v2.3',
+                'generated_at' => now()->subDays(rand(7, 30))->toIso8601String(),
+                'rug_group' => $rug->rug_group,
+                'rug_category' => $rug->rug_category,
+                'algorithm_scores' => [
+                    'personal_support' => rand(2, 5),
+                    'rehabilitation' => $rug->rug_category === RUGClassification::CATEGORY_SPECIAL_REHABILITATION ? rand(3, 5) : rand(0, 2),
+                    'chess_ca' => rand(1, 4),
+                ],
+                'triggered_caps' => $this->generateTriggeredCaps($rug),
+            ],
+        ];
+    }
+
+    /**
+     * Select the most appropriate scenario axis based on RUG classification.
+     */
+    protected function selectScenarioAxis(RUGClassification $rug): string
+    {
+        // Priority-based selection based on RUG category and flags
+        if ($rug->rug_category === RUGClassification::CATEGORY_SPECIAL_REHABILITATION) {
+            return 'recovery_rehab';
+        }
+
+        if ($rug->rug_category === RUGClassification::CATEGORY_EXTENSIVE_SERVICES ||
+            $rug->rug_category === RUGClassification::CATEGORY_SPECIAL_CARE) {
+            return 'medical_intensive';
+        }
+
+        if ($rug->rug_category === RUGClassification::CATEGORY_CLINICALLY_COMPLEX) {
+            // Clinically complex could be various axes
+            $options = ['safety_stability', 'medical_intensive', 'tech_enabled'];
+            return $options[array_rand($options)];
+        }
+
+        if ($rug->rug_category === RUGClassification::CATEGORY_IMPAIRED_COGNITION) {
+            return 'cognitive_support';
+        }
+
+        if ($rug->rug_category === RUGClassification::CATEGORY_BEHAVIOUR_PROBLEMS) {
+            // Behaviour problems could benefit from various approaches
+            $options = ['cognitive_support', 'caregiver_relief', 'safety_stability'];
+            return $options[array_rand($options)];
+        }
+
+        if ($rug->hasFlag('fall_risk') || $rug->hasFlag('high_fall_risk')) {
+            return 'safety_stability';
+        }
+
+        if ($rug->hasFlag('caregiver_burden_high')) {
+            return 'caregiver_relief';
+        }
+
+        // Default: balanced or safety-focused
+        $defaults = ['balanced', 'safety_stability', 'community_integrated'];
+        return $defaults[array_rand($defaults)];
+    }
+
+    /**
+     * Get human-readable title for a scenario axis.
+     */
+    protected function getScenarioTitle(string $axis): string
+    {
+        return match ($axis) {
+            'safety_stability' => 'Safety & Stability Focus',
+            'tech_enabled' => 'Tech-Enabled Care',
+            'caregiver_relief' => 'Caregiver Relief Package',
+            'community_integrated' => 'Community-Integrated Care',
+            'cognitive_support' => 'Cognitive Support Plan',
+            'medical_intensive' => 'Medical-Intensive Care',
+            'recovery_rehab' => 'Recovery & Rehabilitation',
+            'balanced' => 'Balanced Care Approach',
+            default => 'Personalized Care Plan',
+        };
+    }
+
+    /**
+     * Generate realistic triggered CAPs based on RUG profile.
+     */
+    protected function generateTriggeredCaps(RUGClassification $rug): array
+    {
+        $caps = [];
+
+        if ($rug->hasFlag('fall_risk') || $rug->hasFlag('high_fall_risk')) {
+            $caps[] = ['id' => 'falls', 'name' => 'Falls', 'level' => 'triggered'];
+        }
+        if ($rug->adl_sum >= 10) {
+            $caps[] = ['id' => 'adl', 'name' => 'ADL/Rehabilitation', 'level' => 'triggered'];
+        }
+        if ($rug->cps_score >= 2) {
+            $caps[] = ['id' => 'cognitive_loss', 'name' => 'Cognitive Loss', 'level' => 'triggered'];
+        }
+        if ($rug->hasFlag('pain_daily') || $rug->pain_score >= 2) {
+            $caps[] = ['id' => 'pain', 'name' => 'Pain', 'level' => 'triggered'];
+        }
+        if ($rug->hasFlag('caregiver_burden_high')) {
+            $caps[] = ['id' => 'informal_support', 'name' => 'Informal Support', 'level' => 'triggered'];
+        }
+        if ($rug->hasFlag('urinary_incontinence')) {
+            $caps[] = ['id' => 'urinary_incontinence', 'name' => 'Urinary Incontinence', 'level' => 'triggered'];
+        }
+        if ($rug->rug_category === RUGClassification::CATEGORY_CLINICALLY_COMPLEX) {
+            $caps[] = ['id' => 'cardiorespiratory', 'name' => 'Cardiorespiratory', 'level' => 'triggered'];
+        }
+
+        return $caps;
     }
 }

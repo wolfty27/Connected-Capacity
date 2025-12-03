@@ -1,0 +1,330 @@
+{
+  "$schema": "bundle_engine/schemas/scenario_templates.schema.json",
+  "version": "1.0.0",
+  "last_updated": "2025-12-03",
+  "description": "Axis templates defining target service mix, priorities, and substitution preferences",
+  
+  "axes": {
+    "safety_stability": {
+      "label": "Safety & Stability",
+      "description": "Maximizes fall prevention, monitoring, and crisis avoidance with in-person oversight",
+      "emoji": "🛡️",
+      
+      "target_mix": {
+        "personal_support": 0.30,
+        "clinical_monitoring": 0.25,
+        "rehab_support": 0.10,
+        "risk_mgmt_and_complexity": 0.30,
+        "nutrition_support": 0.05,
+        "social_support": 0.00
+      },
+      
+      "primary_services": ["NUR", "PSW", "PERS", "SEC", "FALL-MON"],
+      "secondary_services": ["RPM", "PT", "OT", "MEAL"],
+      "excluded_services": ["ADP", "REC", "TELE"],
+      
+      "cap_priorities": ["falls", "pressure_ulcer", "cardiorespiratory", "pain", "medications"],
+      
+      "substitution_preferences": {
+        "clinical_monitoring": {
+          "prefer_in_person": true,
+          "max_remote_ratio": 0.3
+        },
+        "personal_support": {
+          "include_safety_checks": true,
+          "safety_check_ratio": 0.15
+        },
+        "risk_mgmt_and_complexity": {
+          "prefer_monitoring": true,
+          "include_pers": true
+        }
+      },
+      
+      "trade_offs": [
+        "Higher in-person contact hours",
+        "More monitoring equipment",
+        "Less community integration"
+      ]
+    },
+    
+    "tech_enabled": {
+      "label": "Tech-Enabled Care",
+      "description": "Remote monitoring with strategic in-person visits for tech-ready patients",
+      "emoji": "📱",
+      
+      "target_mix": {
+        "personal_support": 0.20,
+        "clinical_monitoring": 0.15,
+        "rehab_support": 0.10,
+        "risk_mgmt_and_complexity": 0.45,
+        "nutrition_support": 0.05,
+        "social_support": 0.05
+      },
+      
+      "primary_services": ["RPM", "PERS", "CDM", "MED-DISP", "TELE", "SEC"],
+      "secondary_services": ["NUR", "PSW", "MEAL"],
+      "excluded_services": ["ADP", "REC", "LAB"],
+      
+      "cap_priorities": ["cardiorespiratory", "falls", "medications", "pain"],
+      
+      "substitution_preferences": {
+        "clinical_monitoring": {
+          "prefer_in_person": false,
+          "max_remote_ratio": 0.6,
+          "remote_services": ["RPM", "CDM", "TELE"]
+        },
+        "personal_support": {
+          "reduce_ratio": 0.8
+        },
+        "risk_mgmt_and_complexity": {
+          "maximize_tech": true
+        }
+      },
+      
+      "requirements": {
+        "tech_readiness_min": 2,
+        "has_internet": true
+      },
+      
+      "trade_offs": [
+        "Fewer in-person visits",
+        "Requires technology comfort",
+        "May feel less personal"
+      ]
+    },
+    
+    "caregiver_relief": {
+      "label": "Caregiver Relief",
+      "description": "Support for informal caregivers with respite, day programs, and practical assistance",
+      "emoji": "🤝",
+      
+      "target_mix": {
+        "personal_support": 0.30,
+        "clinical_monitoring": 0.10,
+        "rehab_support": 0.05,
+        "risk_mgmt_and_complexity": 0.10,
+        "nutrition_support": 0.15,
+        "social_support": 0.30
+      },
+      
+      "primary_services": ["PSW", "RES", "ADP", "HMK", "MEAL", "CGC"],
+      "secondary_services": ["NUR", "SEC", "SW"],
+      "excluded_services": ["RPM", "CDM", "TELE"],
+      
+      "cap_priorities": ["informal_support", "adl", "iadl", "mood", "cognitive_loss"],
+      
+      "substitution_preferences": {
+        "personal_support": {
+          "include_respite_ratio": 0.25,
+          "include_day_program_ratio": 0.20,
+          "include_homemaking_ratio": 0.15
+        },
+        "social_support": {
+          "prioritize_respite": true,
+          "include_caregiver_coaching": true
+        }
+      },
+      
+      "trade_offs": [
+        "Less clinical monitoring",
+        "Requires caregiver involvement",
+        "Focus on sustainability over intensity"
+      ]
+    },
+    
+    "community_integrated": {
+      "label": "Community Integrated",
+      "description": "Social engagement and community participation for isolated patients",
+      "emoji": "🏘️",
+      
+      "target_mix": {
+        "personal_support": 0.20,
+        "clinical_monitoring": 0.10,
+        "rehab_support": 0.10,
+        "risk_mgmt_and_complexity": 0.05,
+        "nutrition_support": 0.20,
+        "social_support": 0.35
+      },
+      
+      "primary_services": ["ADP", "REC", "SW", "MEAL", "PSW"],
+      "secondary_services": ["NUR", "PT", "OT", "HMK"],
+      "excluded_services": ["RPM", "CDM", "PERS", "TELE"],
+      
+      "cap_priorities": ["mood", "informal_support", "cognitive_loss"],
+      
+      "substitution_preferences": {
+        "personal_support": {
+          "express_as_day_program_ratio": 0.35
+        },
+        "social_support": {
+          "prioritize_day_program": true,
+          "include_social_work": true
+        },
+        "nutrition_support": {
+          "prioritize_meals": true
+        }
+      },
+      
+      "requirements": {
+        "cognitive_complexity_max": 3
+      },
+      
+      "trade_offs": [
+        "Less monitoring and safety tech",
+        "Requires community program availability",
+        "Best for socially isolated but stable patients"
+      ]
+    },
+    
+    "cognitive_support": {
+      "label": "Cognitive Support",
+      "description": "Specialized support for cognitive impairment and behavioural needs",
+      "emoji": "🧠",
+      
+      "target_mix": {
+        "personal_support": 0.35,
+        "clinical_monitoring": 0.10,
+        "rehab_support": 0.05,
+        "risk_mgmt_and_complexity": 0.25,
+        "nutrition_support": 0.05,
+        "social_support": 0.20
+      },
+      
+      "primary_services": ["DEM", "BEH", "PSW", "ADP", "SEC"],
+      "secondary_services": ["NUR", "SW", "MEAL", "PERS"],
+      "excluded_services": ["RPM", "TELE", "CDM"],
+      
+      "cap_priorities": ["cognitive_loss", "mood", "falls"],
+      
+      "substitution_preferences": {
+        "personal_support": {
+          "prefer_specialized": true,
+          "specialized_services": ["DEM"],
+          "specialized_ratio": 0.4
+        },
+        "risk_mgmt_and_complexity": {
+          "prefer_behavioural": true,
+          "include_safety_checks": true
+        },
+        "social_support": {
+          "include_structured_day_program": true
+        }
+      },
+      
+      "trade_offs": [
+        "Higher specialized worker costs",
+        "Less technology reliance",
+        "Focused on structure and routine"
+      ]
+    },
+    
+    "medical_intensive": {
+      "label": "Medical Intensive",
+      "description": "Complex medical management with high clinical oversight",
+      "emoji": "🏥",
+      
+      "target_mix": {
+        "personal_support": 0.20,
+        "clinical_monitoring": 0.40,
+        "rehab_support": 0.10,
+        "risk_mgmt_and_complexity": 0.20,
+        "nutrition_support": 0.05,
+        "social_support": 0.05
+      },
+      
+      "primary_services": ["NUR", "NP", "LAB", "PHAR", "DEL-ACTS", "RPM"],
+      "secondary_services": ["PSW", "PT", "OT", "MEAL", "CDM"],
+      "excluded_services": ["ADP", "REC", "RES"],
+      
+      "cap_priorities": ["cardiorespiratory", "pain", "pressure_ulcer", "medications"],
+      
+      "substitution_preferences": {
+        "clinical_monitoring": {
+          "prefer_in_person": true,
+          "include_lab": true,
+          "include_np": true
+        },
+        "personal_support": {
+          "include_delegated_acts": true
+        },
+        "risk_mgmt_and_complexity": {
+          "include_pharmacy": true,
+          "include_monitoring": true
+        }
+      },
+      
+      "trade_offs": [
+        "Highest clinical cost",
+        "Most intensive oversight",
+        "Less social/community focus"
+      ]
+    },
+    
+    "recovery_rehab": {
+      "label": "Recovery-Focused",
+      "description": "Intensive rehabilitation and functional restoration",
+      "emoji": "💪",
+      
+      "target_mix": {
+        "personal_support": 0.20,
+        "clinical_monitoring": 0.10,
+        "rehab_support": 0.50,
+        "risk_mgmt_and_complexity": 0.10,
+        "nutrition_support": 0.05,
+        "social_support": 0.05
+      },
+      
+      "primary_services": ["PT", "OT", "SLP", "PSW"],
+      "secondary_services": ["NUR", "MEAL", "SW"],
+      "excluded_services": ["ADP", "RES", "RPM"],
+      
+      "cap_priorities": ["adl", "iadl", "falls"],
+      
+      "substitution_preferences": {
+        "rehab_support": {
+          "boost_ratio": 1.3,
+          "include_speech_if_needed": true
+        },
+        "personal_support": {
+          "reduce_ratio": 0.85
+        }
+      },
+      
+      "trade_offs": [
+        "Heavy therapy commitment",
+        "Requires patient motivation",
+        "Time-limited intensive phase"
+      ]
+    },
+    
+    "balanced": {
+      "label": "Balanced Care",
+      "description": "Even distribution across all care domains based on clinical algorithms",
+      "emoji": "⚖️",
+      
+      "target_mix": {
+        "personal_support": 0.30,
+        "clinical_monitoring": 0.20,
+        "rehab_support": 0.15,
+        "risk_mgmt_and_complexity": 0.15,
+        "nutrition_support": 0.10,
+        "social_support": 0.10
+      },
+      
+      "primary_services": ["PSW", "NUR", "PT", "OT"],
+      "secondary_services": ["MEAL", "SW", "SEC", "HMK"],
+      "excluded_services": [],
+      
+      "cap_priorities": [],
+      
+      "substitution_preferences": {},
+      
+      "trade_offs": [
+        "No particular emphasis",
+        "Good general coverage",
+        "May not maximize any single goal"
+      ]
+    }
+  }
+}
+

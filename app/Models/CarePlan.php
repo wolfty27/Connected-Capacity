@@ -23,6 +23,10 @@ class CarePlan extends Model
         'patient_id',
         'care_bundle_id',
         'care_bundle_template_id',
+        // v2.3 AI Bundle Engine scenario fields
+        'scenario_metadata',
+        'scenario_title',
+        'scenario_axis',
         'version',
         'status',
         'goals',
@@ -41,6 +45,7 @@ class CarePlan extends Model
         'risks' => 'array',
         'interventions' => 'array',
         'service_requirements' => 'array',
+        'scenario_metadata' => 'array', // v2.3 AI Bundle Engine metadata
         'approved_at' => 'datetime',
         'first_service_delivered_at' => 'datetime',
     ];
@@ -61,6 +66,34 @@ class CarePlan extends Model
     public function careBundleTemplate()
     {
         return $this->belongsTo(CareBundleTemplate::class);
+    }
+
+    /**
+     * Get the display name for this care plan.
+     *
+     * v2.3: Returns scenario title if available, otherwise falls back to
+     * care bundle name, template name, or 'Custom Bundle'.
+     *
+     * @return string
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        // v2.3: Prefer scenario title
+        if ($this->scenario_title) {
+            return $this->scenario_title;
+        }
+
+        // Fall back to care bundle name
+        if ($this->careBundle?->name) {
+            return $this->careBundle->name;
+        }
+
+        // Fall back to template name
+        if ($this->careBundleTemplate?->name) {
+            return $this->careBundleTemplate->name;
+        }
+
+        return 'Custom Bundle';
     }
 
     public function approver()

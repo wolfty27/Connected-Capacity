@@ -2466,3 +2466,155 @@ php artisan bundle-engine:export-events --dry-run
 2. **Analytics Dashboard** - Build visualizations for scenario effectiveness
 3. **Learning Pipeline** - Implement pattern mining and model training
 4. **Rule Proposals** - Auto-generate configuration refinements
+
+---
+
+## Phase 9: Category-Based Composition (v2.3)
+
+**Status:** DONE  
+**Date:** 2025-12-03
+
+### Summary
+
+Implemented category-based service composition to create genuinely differentiated bundles that vary in SERVICE MIX, not just intensity. This addresses the user feedback that bundles were too similar (same services, just different hours).
+
+### Key Architectural Changes
+
+#### 1. Service Category System
+
+Instead of mapping algorithms directly to fixed services (PSA → PSW, CHESS → NUR, Rehab → PT/OT), we now:
+
+1. **Algorithms define CATEGORY FLOORS** (minimums), not service SKUs
+2. **Axes define TARGET MIX** across categories
+3. **CAPs drive SERVICE INCLUSION** and substitution
+4. **Substitution rules** enable different services within a category
+
+#### 2. New Service Categories
+
+```
+- personal_support      (PSW, HMK, DEM, DEL-ACTS)
+- clinical_monitoring   (NUR, NP, LAB, LAB-MOBILE)
+- rehab_support         (PT, OT, SLP, RT)
+- risk_mgmt_and_complexity (RPM, PERS, SEC, FALL-MON, CDM, MED-DISP, BEH, PHAR)
+- nutrition_support     (MEAL, MOW, RD)
+- social_support        (SW, ADP, REC, RES, CGC)
+```
+
+#### 3. Algorithm → Category Floor Mapping
+
+| Algorithm | Maps To | Example |
+|-----------|---------|---------|
+| PSA (Personal Support) | personal_support floor | PSA=4 → 14 hrs floor |
+| CHESS-CA | clinical_monitoring floor | CHESS=3 → 2 visits floor |
+| Rehabilitation | rehab_support floor | Rehab=4 → 3 visits floor |
+| CAP triggers | Category boosts | Falls CAP → +2 personal_support, +2 risk_mgmt |
+
+#### 4. Axis Templates with Target Mix
+
+Each ScenarioAxis defines a target allocation across categories:
+
+```json
+{
+  "safety_stability": {
+    "target_mix": {
+      "personal_support": 0.30,
+      "clinical_monitoring": 0.25,
+      "rehab_support": 0.10,
+      "risk_mgmt_and_complexity": 0.30,
+      "nutrition_support": 0.05,
+      "social_support": 0.00
+    },
+    "primary_services": ["NUR", "PSW", "PERS", "SEC", "FALL-MON"],
+    "cap_priorities": ["falls", "pressure_ulcer", "cardiorespiratory", "pain"]
+  }
+}
+```
+
+#### 5. Substitution Rules
+
+Services can substitute within a category while respecting floors:
+
+- **clinical_monitoring**: RPM can substitute up to 50% of NUR visits (if tech-ready)
+- **personal_support**: ADP can substitute up to 40% of PSW hours (if cognitive complexity allows)
+- **social_support**: RES can substitute up to 60% of SW visits (if caregiver stress)
+
+### Files Created
+
+- `config/bundle_engine/service_categories.json` - Service category definitions
+- `config/bundle_engine/scenario_templates.json` - Axis target mix templates
+- `config/bundle_engine/substitution_rules.json` - Within-category substitution rules
+- `app/Services/BundleEngine/Engines/CategoryIntensityResolver.php` - Resolves algorithms → category floors
+- `app/Services/BundleEngine/Engines/ScenarioCompositionEngine.php` - Composes service mix per axis
+
+### Files Modified
+
+- `app/Services/BundleEngine/ScenarioGenerator.php` - Uses new composition pipeline
+- `app/Providers/BundleEngineServiceProvider.php` - Registers new engines
+- `config/bundle_engine/service_intensity_matrix.json` - Added CAP floor adjustments
+
+### Expected Outcomes
+
+Three scenarios for the same patient will now have genuinely different service mixes:
+
+| Bundle | Safety & Stability | Tech-Enabled | Caregiver Relief |
+|--------|-------------------|--------------|------------------|
+| Primary Services | NUR, PSW, PERS, SEC | RPM, PERS, CDM, TELE | PSW, RES, ADP, CGC |
+| Personal Support | 12 hrs PSW + SEC checks | 6 hrs PSW (reduced) | 6 hrs PSW + ADP days |
+| Clinical | 2 visits NUR (in-person) | 1 visit NUR + RPM daily | 1 visit NUR |
+| Risk Mgmt | PERS + FALL-MON | RPM + CDM + TELE | SEC + MEAL |
+| Social | None | None | RES 2x/week + CGC |
+
+### Architecture Diagram
+
+```
+┌────────────────────┐     ┌─────────────────────┐
+│  Algorithm Scores  │────▶│ CategoryIntensity-  │
+│  (PSA, CHESS, etc) │     │ Resolver            │
+└────────────────────┘     │                     │
+         +                 │ Returns FLOORS per  │
+┌────────────────────┐     │ category, not SKUs  │
+│  Triggered CAPs    │────▶│                     │
+│  (Falls, Pain...)  │     └─────────┬───────────┘
+└────────────────────┘               │
+                                     ▼
+                        ┌────────────────────────┐
+                        │   Category Floors      │
+                        │ personal_support: 12h  │
+                        │ clinical_monitor: 2v   │
+                        │ rehab_support: 2v      │
+                        │ risk_mgmt: 4u          │
+                        └────────────┬───────────┘
+                                     │
+                                     ▼
+┌────────────────────┐   ┌────────────────────────┐
+│   Axis Template    │──▶│ ScenarioComposition-   │
+│   (target_mix,     │   │ Engine                 │
+│    primary_svcs,   │   │                        │
+│    cap_priorities) │   │ Allocates services     │
+└────────────────────┘   │ using substitution     │
+         +               │ rules per axis         │
+┌────────────────────┐   │                        │
+│  Substitution      │──▶│                        │
+│  Rules             │   └────────────┬───────────┘
+└────────────────────┘                │
+                                      ▼
+                         ┌────────────────────────┐
+                         │   Service Mix          │
+                         │   (Genuinely different │
+                         │    per axis!)          │
+                         └────────────────────────┘
+```
+
+### Verification
+
+Category floor resolution tested with:
+- PSA=4, CHESS=2, Rehab=3
+- Falls CAP (IMPROVE), Mood CAP (PREVENT)
+- Lives alone, tech-ready
+
+Results:
+- personal_support: floor=16 hrs (14 from PSA=4 + 2 from Falls CAP)
+- clinical_monitoring: floor=1 visit (from CHESS=2)
+- rehab_support: floor=3 visits (2 from Rehab=3 + 1 from Falls CAP)
+- risk_mgmt_and_complexity: floor=6.7 units (Falls + Mood + lives_alone)
+- social_support: floor=1.7 units (Mood CAP)

@@ -462,10 +462,21 @@ const CareBundleWizard = () => {
                 setPublishing(true);
 
                 const formattedServices = careBundleBuilderApi.formatServicesForApi(services);
+
+                // v2.3: Build scenario metadata object if an AI scenario was selected
+                const scenarioMetadata = selectedAiScenario ? {
+                    scenario_id: selectedAiScenario.scenario_id,
+                    title: selectedAiScenario.label?.title || selectedAiScenario.axis?.primary?.label || 'AI Bundle',
+                    axis: selectedAiScenario.axis?.primary?.value || selectedAiScenario.primary_axis,
+                    source: selectedAiScenario.source || 'bundle_engine_v2.3',
+                } : null;
+
                 const buildResponse = await careBundleBuilderApi.buildPlan(
                     patientId,
                     selectedBundle.id,
-                    formattedServices
+                    formattedServices,
+                    null, // notes
+                    scenarioMetadata
                 );
 
                 const publishResponse = await careBundleBuilderApi.publishPlan(

@@ -701,10 +701,11 @@
       "name": "AI-Assisted Bundle Engine",
       "description": "Intelligent, patient-experience-oriented bundle scenario generation using PatientNeedsProfile abstraction, InterRAI CA algorithms, CAP triggers, and dynamic scenario axes. Three-tier architecture: Basic Bundle → Standardized Clinical Logic → AI-Augmented.",
       "status": "in_progress",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "architecture": {
         "tier_1": "Basic Bundle Generation (PatientNeedsProfile, Scenario Generator, Templates)",
         "tier_2": "Standardized Clinical Logic (InterRAI CA Algorithms, CAP Triggers, Service Intensity Matrix)",
+        "tier_2_5": "Category-Based Composition (Category Floors, Axis Templates, Substitution Rules)",
         "tier_3": "AI-Augmented (Vertex AI Explanation, Learning Loop, Rule Refinement)"
       },
       "acceptance_criteria": [
@@ -815,13 +816,24 @@
         "✅ 8.5 Document in docs/plans/Learning_Infrastructure_Design.md",
         "Note: Ready for GCP BigQuery integration when credentials available",
         "",
-        "=== PHASE 9: LEARNING LOOP ===",
-        "⬜ 9.1 Create ScenarioEffectivenessAnalyzer",
-        "⬜ 9.2 Design scenario ranking model",
-        "⬜ 9.3 Create RuleRefinementProposer (Vertex AI)",
-        "⬜ 9.4 Design human review workflow for AI-proposed rule changes",
-        "⬜ 9.5 Create admin UI for reviewing/accepting rule proposals",
-        "⬜ 9.6 Document feedback loop process"
+        "=== PHASE 9: CATEGORY-BASED COMPOSITION v2.3 (COMPLETE) ===",
+        "✅ 9.1 Create service_categories.json - Map services to categories",
+        "✅ 9.2 Create scenario_templates.json - Axis target mix definitions",
+        "✅ 9.3 Create substitution_rules.json - Within-category substitution",
+        "✅ 9.4 Implement CategoryIntensityResolver (algorithm→category floors)",
+        "✅ 9.5 Implement ScenarioCompositionEngine (axis composition)",
+        "✅ 9.6 Refactor ScenarioGenerator to use category pipeline",
+        "✅ 9.7 Add CAP floor adjustments to service_intensity_matrix.json",
+        "✅ 9.8 Update BundleEngineServiceProvider bindings",
+        "Note: Bundles now differ in SERVICE MIX, not just intensity",
+        "",
+        "=== PHASE 10: LEARNING LOOP (FUTURE) ===",
+        "⬜ 10.1 Create ScenarioEffectivenessAnalyzer",
+        "⬜ 10.2 Design scenario ranking model",
+        "⬜ 10.3 Create RuleRefinementProposer (Vertex AI)",
+        "⬜ 10.4 Design human review workflow for AI-proposed rule changes",
+        "⬜ 10.5 Create admin UI for reviewing/accepting rule proposals",
+        "⬜ 10.6 Document feedback loop process"
       ],
       "files": [
         "docs/CC21_AI_Bundle_Engine_Design.md",
@@ -831,9 +843,14 @@
         "config/bundle_engine/algorithms/*.json",
         "config/bundle_engine/cap_triggers/**/*.yaml",
         "config/bundle_engine/service_intensity_matrix.json",
+        "config/bundle_engine/service_categories.json",
+        "config/bundle_engine/scenario_templates.json",
+        "config/bundle_engine/substitution_rules.json",
         "app/Services/BundleEngine/Engines/DecisionTreeEngine.php",
         "app/Services/BundleEngine/Engines/CAPTriggerEngine.php",
         "app/Services/BundleEngine/Engines/ServiceIntensityResolver.php",
+        "app/Services/BundleEngine/Engines/CategoryIntensityResolver.php",
+        "app/Services/BundleEngine/Engines/ScenarioCompositionEngine.php",
         "app/Services/BundleEngine/DTOs/PatientNeedsProfile.php",
         "app/Services/BundleEngine/DTOs/ScenarioBundleDTO.php",
         "app/Services/BundleEngine/DTOs/ScenarioServiceLine.php",
@@ -857,6 +874,6 @@
   "metadata": {
     "project": "Connected Capacity 2.1",
     "last_updated": "2025-12-03",
-    "version": "2.0.0"
+    "version": "2.3.0"
   }
 }

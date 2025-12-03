@@ -13,27 +13,32 @@ use App\Services\BundleEngine\DTOs\ScenarioServiceLine;
 use App\Services\BundleEngine\Enums\NeedsCluster;
 use App\Services\BundleEngine\Enums\ScenarioAxis;
 use App\Services\BundleEngine\Engines\ServiceIntensityResolver;
+use App\Services\BundleEngine\Engines\CategoryIntensityResolver;
+use App\Services\BundleEngine\Engines\ScenarioCompositionEngine;
 use App\Services\BundleEngine\Engines\CAPTriggerEngine;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 /**
- * ScenarioGenerator
+ * ScenarioGenerator v2.3
  *
  * Generates 3-5 scenario bundles for a patient based on their needs profile.
  *
- * Generation Process:
+ * v2.3 Generation Pipeline:
  * 1. Get applicable scenario axes from ScenarioAxisSelector
- * 2. Find base template (by RUG group or NeedsCluster)
- * 3. For each applicable axis, generate a scenario variant
- * 4. Apply axis-specific modifiers to service frequencies
- * 5. Annotate with costs and validate safety
+ * 2. Extract algorithm scores from profile (PSA, Rehab, CHESS)
+ * 3. Evaluate CAP triggers for the profile
+ * 4. CategoryIntensityResolver → category floors (personal_support, clinical_monitoring, etc.)
+ * 5. ScenarioCompositionEngine → compose service mix per axis + CAPs + substitution rules
+ * 6. Build service lines and annotate with costs
+ * 7. Validate safety requirements
  *
- * Key Design Principles:
- * - Patient-experience framing, NOT "budget vs clinical"
- * - Cost is a reference, not a hard constraint
- * - All scenarios must meet minimum safety requirements
- * - Scenarios vary in emphasis, not just cost
+ * Key v2.3 Improvements:
+ * - Algorithms define FLOORS (minimums), not fixed SKUs
+ * - Axes define TARGET MIX across categories, not just multipliers
+ * - CAPs drive SERVICE INCLUSION, not just labels
+ * - Substitution rules enable genuinely DIFFERENT service mixes
+ * - Scenarios differ in COMPOSITION, not just intensity
  *
  * @see docs/CC21_AI_Bundle_Engine_Design.md Section 5
  */
@@ -44,19 +49,27 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
     protected ServiceRateRepository $rateRepository;
     protected ?ServiceIntensityResolver $intensityResolver;
     protected ?CAPTriggerEngine $capEngine;
+    protected ?CategoryIntensityResolver $categoryResolver;
+    protected ?ScenarioCompositionEngine $compositionEngine;
 
     public function __construct(
         ?ScenarioAxisSelector $axisSelector = null,
         ?CostAnnotationServiceInterface $costService = null,
         ?ServiceRateRepository $rateRepository = null,
         ?ServiceIntensityResolver $intensityResolver = null,
-        ?CAPTriggerEngine $capEngine = null
+        ?CAPTriggerEngine $capEngine = null,
+        ?CategoryIntensityResolver $categoryResolver = null,
+        ?ScenarioCompositionEngine $compositionEngine = null
     ) {
         $this->axisSelector = $axisSelector ?? new ScenarioAxisSelector();
         $this->costService = $costService ?? new CostAnnotationService();
         $this->rateRepository = $rateRepository ?? new ServiceRateRepository();
         $this->intensityResolver = $intensityResolver;
         $this->capEngine = $capEngine;
+        
+        // v2.3: Initialize new category-based composition engines
+        $this->categoryResolver = $categoryResolver;
+        $this->compositionEngine = $compositionEngine;
     }
 
     /**
@@ -157,6 +170,10 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
     /**
      * Generate a single scenario for a specific axis.
      *
+     * v2.3: Uses category-based composition pipeline:
+     * 1. Extract algorithm scores → 2. Evaluate CAPs → 3. Resolve category floors
+     * 4. Compose service mix per axis template + CAPs + substitution rules
+     *
      * @inheritDoc
      */
     public function generateSingleScenario(
@@ -168,6 +185,118 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
         $baseTemplate = $options['base_template'] ?? $this->findBaseTemplate($profile);
         $referenceCap = $options['reference_cap'] ?? 5000.0;
 
+        // v2.3: Try the new category-based composition pipeline first
+        if ($this->categoryResolver && $this->compositionEngine) {
+            \Log::info('ScenarioGenerator: Using v2.3 Category-Based Composition', [
+                'patient_id' => $profile->patientId,
+                'axis' => $axis->value,
+            ]);
+            return $this->generateWithCategoryComposition(
+                $profile, $axis, $secondaryAxes, $baseTemplate, $referenceCap
+            );
+        }
+
+        // Fallback to legacy pipeline if new engines not available
+        \Log::warning('ScenarioGenerator: Falling back to legacy pipeline', [
+            'patient_id' => $profile->patientId,
+            'categoryResolver_null' => $this->categoryResolver === null,
+            'compositionEngine_null' => $this->compositionEngine === null,
+        ]);
+        return $this->generateWithLegacyPipeline(
+            $profile, $axis, $secondaryAxes, $baseTemplate, $referenceCap
+        );
+    }
+
+    /**
+     * v2.3: Generate scenario using category-based composition.
+     *
+     * This creates genuinely differentiated bundles by:
+     * - Using algorithms for category FLOORS (minimums)
+     * - Using axis templates for TARGET MIX allocation
+     * - Using CAPs to drive SERVICE INCLUSION
+     * - Using substitution rules for COMPOSITIONAL variety
+     */
+    protected function generateWithCategoryComposition(
+        PatientNeedsProfile $profile,
+        ScenarioAxis $axis,
+        array $secondaryAxes,
+        ?CareBundleTemplate $baseTemplate,
+        float $referenceCap
+    ): ScenarioBundleDTO {
+        // 1. Extract algorithm scores from profile
+        $algorithmScores = [
+            'personal_support' => $profile->personalSupportScore,
+            'rehabilitation' => $profile->rehabilitationScore,
+            'chess_ca' => $profile->chessCAScore,
+            'pain' => $profile->painScore,
+            'distressed_mood' => $profile->distressedMoodScore,
+            'service_urgency' => $profile->serviceUrgencyScore,
+        ];
+
+        // 2. Evaluate CAP triggers
+        $triggeredCAPs = $this->evaluateCAPs($profile);
+
+        // 3. Resolve algorithm scores + CAPs to category floors
+        $categoryFloors = $this->categoryResolver->resolveToCategories(
+            $algorithmScores,
+            $triggeredCAPs,
+            $profile
+        );
+
+        // 4. Compose service mix for this axis using category floors + templates + substitution
+        $composedServices = $this->compositionEngine->composeForAxis(
+            $axis,
+            $categoryFloors,
+            $triggeredCAPs,
+            $profile
+        );
+
+        // 5. Build service lines from composed services
+        $serviceLines = $this->buildServiceLinesFromComposition($composedServices, $axis, $profile);
+
+        // 6. Generate metadata
+        $title = $this->generateTitle($axis, $secondaryAxes);
+        $description = $this->generateDescriptionWithCAPs($axis, $profile, $triggeredCAPs);
+
+        // Get benefits and goals
+        $keyBenefits = $this->getKeyBenefits($axis, $profile);
+        $patientGoals = $axis->getEmphasizedGoals();
+        $risksAddressed = $this->getRisksAddressedWithCAPs($serviceLines, $profile, $triggeredCAPs);
+
+        // Determine confidence
+        $confidence = $this->determineConfidence($profile, $baseTemplate);
+
+        return new ScenarioBundleDTO(
+            scenarioId: (string) Str::uuid(),
+            patientId: $profile->patientId,
+            primaryAxis: $axis,
+            title: $title,
+            description: $description,
+            serviceLines: $serviceLines,
+            secondaryAxes: $secondaryAxes,
+            subtitle: $axis->getLabel(),
+            icon: $axis->getEmoji(),
+            tradeOffs: $this->getAxisTradeOffsWithContext($axis, $triggeredCAPs),
+            keyBenefits: $keyBenefits,
+            patientGoalsSupported: $patientGoals,
+            risksAddressed: $risksAddressed,
+            source: 'category_composition_v2.3',
+            confidenceLevel: $confidence,
+            confidenceNotes: $this->getConfidenceNotesWithAlgorithms($profile, $categoryFloors),
+            generatedAt: now()->toIso8601String(),
+        );
+    }
+
+    /**
+     * Legacy pipeline for backward compatibility.
+     */
+    protected function generateWithLegacyPipeline(
+        PatientNeedsProfile $profile,
+        ScenarioAxis $axis,
+        array $secondaryAxes,
+        ?CareBundleTemplate $baseTemplate,
+        float $referenceCap
+    ): ScenarioBundleDTO {
         // Get base services from template
         $baseServices = $this->getBaseServicesFromTemplate($baseTemplate, $profile);
 
@@ -213,6 +342,238 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
             confidenceNotes: $this->getConfidenceNotes($profile, $baseTemplate),
             generatedAt: now()->toIso8601String(),
         );
+    }
+
+    /**
+     * Evaluate all CAP triggers for a profile.
+     */
+    protected function evaluateCAPs(PatientNeedsProfile $profile): array
+    {
+        if (!$this->capEngine) {
+            return [];
+        }
+
+        try {
+            $capInput = $profile->toCAPInput();
+            return $this->capEngine->evaluateAll($capInput);
+        } catch (\Exception $e) {
+            \Log::warning('Failed to evaluate CAPs: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Build service lines from category-composed services.
+     */
+    protected function buildServiceLinesFromComposition(
+        array $composedServices,
+        ScenarioAxis $axis,
+        PatientNeedsProfile $profile
+    ): array {
+        $serviceLines = [];
+
+        foreach ($composedServices as $service) {
+            $serviceType = $service['service_type'] ?? null;
+            if (!$serviceType) {
+                continue;
+            }
+
+            // Build enhanced rationale showing composition source
+            $rationale = $service['rationale'] ?? '';
+            if ($service['source'] === 'floor') {
+                $rationale = "[Clinical Floor] " . $rationale;
+            } elseif ($service['source'] === 'substitution') {
+                $rationale = "[Axis Substitution] " . $rationale;
+            } elseif ($service['source'] === 'cap_package') {
+                $rationale = "[CAP-Driven] " . $rationale;
+            }
+
+            $serviceLine = new ScenarioServiceLine(
+                serviceCategory: $service['category'] ?? ($serviceType->category ?? 'general'),
+                serviceName: $serviceType->name,
+                frequencyCount: $service['frequency'],
+                frequencyPeriod: $service['frequency_period'] ?? 'week',
+                durationMinutes: $service['duration'],
+                discipline: $this->getDisciplineForServiceType($serviceType),
+                serviceModuleId: $serviceType->id,
+                serviceCode: $serviceType->code ?? $service['service_code'],
+                requiresSpecialization: (bool) ($serviceType->requires_specialization ?? false),
+                deliveryMode: $serviceType->delivery_mode ?? 'in_person',
+                costPerVisit: $service['cost_per_visit'] ?? $this->getEffectiveRate($serviceType),
+                weeklyEstimatedCost: $this->calculateWeeklyCostFromComposed($service),
+                priorityLevel: $this->determinePriorityLevel($service),
+                isSafetyCritical: $service['source'] === 'floor',
+                clinicalRationale: $rationale,
+                patientGoalSupported: $this->getGoalForService($serviceType, $axis),
+                axisContribution: $this->getAxisContributionFromComposition($service, $axis),
+            );
+
+            $serviceLines[] = $serviceLine;
+        }
+
+        return $serviceLines;
+    }
+
+    /**
+     * Calculate weekly cost from composed service.
+     */
+    protected function calculateWeeklyCostFromComposed(array $service): float
+    {
+        $frequency = $service['frequency'] ?? 1;
+        $period = $service['frequency_period'] ?? 'week';
+        $costPerVisit = $service['cost_per_visit'] ?? 100.0;
+
+        $weeklyVisits = match ($period) {
+            'day' => $frequency * 7,
+            'week' => $frequency,
+            'month' => $frequency / 4.33,
+            default => $frequency,
+        };
+
+        return $weeklyVisits * $costPerVisit;
+    }
+
+    /**
+     * Determine priority level from service composition source.
+     */
+    protected function determinePriorityLevel(array $service): string
+    {
+        if ($service['source'] === 'floor') {
+            return 'core';
+        }
+        if ($service['source'] === 'cap_package') {
+            return 'core';
+        }
+        if ($service['source'] === 'primary') {
+            return 'recommended';
+        }
+        return $service['priority_level'] ?? 'optional';
+    }
+
+    /**
+     * Get axis contribution from composition context.
+     */
+    protected function getAxisContributionFromComposition(array $service, ScenarioAxis $axis): string
+    {
+        $source = $service['source'] ?? 'unknown';
+
+        return match ($source) {
+            'floor' => 'Clinical requirement (algorithm-driven)',
+            'substitution' => "Axis preference: {$axis->getLabel()}",
+            'cap_package' => 'CAP-triggered intervention',
+            'primary' => "Primary for {$service['category']}",
+            default => 'Supporting service',
+        };
+    }
+
+    /**
+     * Generate description including CAP context.
+     */
+    protected function generateDescriptionWithCAPs(
+        ScenarioAxis $axis,
+        PatientNeedsProfile $profile,
+        array $triggeredCAPs
+    ): string {
+        $description = $axis->getDescription();
+
+        // Add CAP context if relevant
+        $activeCaps = array_filter($triggeredCAPs, fn($cap) => 
+            ($cap['level'] ?? 'NOT_TRIGGERED') !== 'NOT_TRIGGERED'
+        );
+
+        if (!empty($activeCaps)) {
+            $capNames = array_map(fn($cap) => $cap['name'] ?? 'Unknown', array_values($activeCaps));
+            $capList = implode(', ', array_slice($capNames, 0, 3));
+            $description .= " This bundle addresses active clinical protocols: {$capList}.";
+        }
+
+        return $description;
+    }
+
+    /**
+     * Get risks addressed including CAP context.
+     */
+    protected function getRisksAddressedWithCAPs(
+        array $serviceLines,
+        PatientNeedsProfile $profile,
+        array $triggeredCAPs
+    ): array {
+        $risks = $this->getRisksAddressed($serviceLines, $profile);
+
+        // Add CAP-driven risks
+        foreach ($triggeredCAPs as $capName => $capResult) {
+            if (($capResult['level'] ?? 'NOT_TRIGGERED') === 'NOT_TRIGGERED') {
+                continue;
+            }
+
+            $capRisk = match ($capName) {
+                'falls' => 'Falls prevention (CAP triggered)',
+                'pain' => 'Pain management (CAP triggered)',
+                'pressure_ulcer' => 'Pressure injury prevention (CAP triggered)',
+                'medications' => 'Medication safety (CAP triggered)',
+                'cardiorespiratory' => 'Cardiorespiratory monitoring (CAP triggered)',
+                'mood' => 'Mood and wellbeing support (CAP triggered)',
+                'cognitive_loss' => 'Cognitive support (CAP triggered)',
+                'informal_support' => 'Caregiver sustainability (CAP triggered)',
+                'undernutrition' => 'Nutritional support (CAP triggered)',
+                default => null,
+            };
+
+            if ($capRisk && !in_array($capRisk, $risks)) {
+                $risks[] = $capRisk;
+            }
+        }
+
+        return $risks;
+    }
+
+    /**
+     * Get axis trade-offs with CAP context.
+     */
+    protected function getAxisTradeOffsWithContext(ScenarioAxis $axis, array $triggeredCAPs): array
+    {
+        $tradeOffs = $axis->getTradeOffs();
+
+        // Adjust trade-offs based on CAPs
+        $activeCaps = array_filter($triggeredCAPs, fn($cap) => 
+            ($cap['level'] ?? 'NOT_TRIGGERED') !== 'NOT_TRIGGERED'
+        );
+
+        if (!empty($activeCaps)) {
+            $tradeOffs[] = 'CAP-driven services are non-negotiable';
+        }
+
+        return $tradeOffs;
+    }
+
+    /**
+     * Get confidence notes including algorithm scores.
+     */
+    protected function getConfidenceNotesWithAlgorithms(
+        PatientNeedsProfile $profile,
+        array $categoryFloors
+    ): string {
+        $parts = [];
+
+        if ($profile->rugGroup) {
+            $parts[] = "RUG-III/HC: {$profile->rugGroup}";
+        }
+
+        // Add algorithm-derived floor info
+        $significantFloors = array_filter($categoryFloors, fn($cat) => ($cat['floor'] ?? 0) > 0);
+        if (!empty($significantFloors)) {
+            $floorSummary = [];
+            foreach ($significantFloors as $catName => $cat) {
+                $floorSummary[] = "{$catName}: {$cat['floor']} {$cat['unit']} floor";
+            }
+            $parts[] = "Floors: " . implode(', ', array_slice($floorSummary, 0, 3));
+        }
+
+        if ($profile->confidenceLevel) {
+            $parts[] = "Profile confidence: {$profile->confidenceLevel}";
+        }
+
+        return empty($parts) ? 'Category-based composition v2.3' : implode(' | ', $parts);
     }
 
     /**

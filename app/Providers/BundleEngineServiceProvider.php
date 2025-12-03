@@ -20,8 +20,12 @@ use App\Services\BundleEngine\Derivers\RehabPotentialDeriver;
 use App\Services\BundleEngine\Engines\DecisionTreeEngine;
 use App\Services\BundleEngine\Engines\CAPTriggerEngine;
 use App\Services\BundleEngine\Engines\ServiceIntensityResolver;
+// v2.3 Engines for category-based composition
+use App\Services\BundleEngine\Engines\CategoryIntensityResolver;
+use App\Services\BundleEngine\Engines\ScenarioCompositionEngine;
 use App\Services\BundleEngine\AlgorithmEvaluator;
 use App\Services\BundleEngine\BundleEventLogger;
+use App\Repositories\ServiceRateRepository;
 
 /**
  * BundleEngineServiceProvider
@@ -32,9 +36,10 @@ use App\Services\BundleEngine\BundleEventLogger;
  * - AssessmentIngestionServiceInterface
  * - CostAnnotationServiceInterface
  * - ScenarioAxisSelector
- * - Assessment Mappers (HC, CA)
+ * - Assessment Mappers (HC, CA, BMHS)
  * - Derivers (EpisodeType, RehabPotential)
  * - v2.2 Engines (DecisionTreeEngine, CAPTriggerEngine, ServiceIntensityResolver)
+ * - v2.3 Engines (CategoryIntensityResolver, ScenarioCompositionEngine)
  *
  * @see docs/CC21_AI_Bundle_Engine_Design.md
  * @see docs/ALGORITHM_DSL.md
@@ -103,24 +108,31 @@ class BundleEngineServiceProvider extends ServiceProvider
         );
 
         // Bind interface to implementation: ScenarioGenerator
-        // v2.2: Now includes ServiceIntensityResolver and CAPTriggerEngine for
-        // algorithm-driven service frequencies and CAP-based recommendations
+        // v2.3: Now includes CategoryIntensityResolver and ScenarioCompositionEngine
+        // for category-based bundle composition with genuine service mix differentiation
         $this->app->singleton(
             ScenarioGeneratorInterface::class,
             function ($app) {
                 return new ScenarioGenerator(
                     $app->make(ScenarioAxisSelector::class),
                     $app->make(CostAnnotationServiceInterface::class),
-                    null, // ServiceRateRepository - will use default
+                    $app->make(ServiceRateRepository::class),
                     $app->make(ServiceIntensityResolver::class),
-                    $app->make(CAPTriggerEngine::class)
+                    $app->make(CAPTriggerEngine::class),
+                    $app->make(CategoryIntensityResolver::class),
+                    $app->make(ScenarioCompositionEngine::class)
                 );
             }
         );
+
+        // ServiceRateRepository (can use default)
+        $this->app->singleton(ServiceRateRepository::class, function ($app) {
+            return new ServiceRateRepository();
+        });
     }
 
     /**
-     * Register v2.2 engines for data-driven algorithm and CAP evaluation.
+     * Register v2.2 and v2.3 engines for data-driven algorithm and CAP evaluation.
      */
     protected function registerEngines(): void
     {
@@ -138,10 +150,23 @@ class BundleEngineServiceProvider extends ServiceProvider
             );
         });
 
-        // ServiceIntensityResolver - Maps scores to service intensities
+        // ServiceIntensityResolver - Maps scores to service intensities (v2.2 legacy)
         $this->app->singleton(ServiceIntensityResolver::class, function ($app) {
             return new ServiceIntensityResolver(
                 config_path('bundle_engine/service_intensity_matrix.json')
+            );
+        });
+
+        // v2.3: CategoryIntensityResolver - Resolves algorithm scores to category floors
+        $this->app->singleton(CategoryIntensityResolver::class, function ($app) {
+            return new CategoryIntensityResolver();
+        });
+
+        // v2.3: ScenarioCompositionEngine - Composes service mixes from category floors
+        $this->app->singleton(ScenarioCompositionEngine::class, function ($app) {
+            return new ScenarioCompositionEngine(
+                $app->make(CategoryIntensityResolver::class),
+                $app->make(ServiceRateRepository::class)
             );
         });
 
@@ -192,6 +217,10 @@ class BundleEngineServiceProvider extends ServiceProvider
             CAPTriggerEngine::class,
             ServiceIntensityResolver::class,
             AlgorithmEvaluator::class,
+            // v2.3 Engines (Category-based composition)
+            CategoryIntensityResolver::class,
+            ScenarioCompositionEngine::class,
+            ServiceRateRepository::class,
             // v2.2 Learning Infrastructure
             BundleEventLogger::class,
         ];

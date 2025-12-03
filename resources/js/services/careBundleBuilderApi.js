@@ -69,19 +69,27 @@ const careBundleBuilderApi = {
      * Build a care plan from a RUG template configuration.
      *
      * Creates a draft care plan with service assignments using the CC2.1 architecture.
+     * v2.3: Optionally accepts AI scenario metadata for proper attribution.
      *
      * @param {number} patientId - Patient ID
      * @param {number} templateId - RUG template ID
      * @param {Array} services - Service configurations
      * @param {string} notes - Optional notes
+     * @param {Object} scenario - Optional v2.3 AI scenario metadata
+     * @param {string} scenario.scenario_id - The generated scenario ID
+     * @param {string} scenario.title - The scenario title
+     * @param {string} scenario.axis - The primary axis
+     * @param {string} scenario.source - The generation source
      * @returns {Promise} Created care plan
      */
-    async buildPlan(patientId, templateId, services, notes = null) {
+    async buildPlan(patientId, templateId, services, notes = null, scenario = null) {
         // Use RUG template-based plan creation (CC2.1 architecture)
         const response = await api.post(`/v2/care-builder/${patientId}/rug-plans`, {
             template_id: templateId,
             services,
             notes,
+            // v2.3: Include AI scenario metadata if provided
+            scenario: scenario || undefined,
         });
         return response.data;
     },

@@ -296,19 +296,23 @@ class CareBundleBuilderService
     /**
      * Build care plan from RUG template.
      *
+     * v2.3: Optionally accepts AI scenario metadata for proper attribution.
+     *
      * @param int $patientId
      * @param int $templateId
      * @param array $serviceConfigurations
      * @param int|null $userId
+     * @param array|null $scenarioMetadata v2.3 AI scenario info (scenario_id, title, axis, source)
      * @return CarePlan
      */
     public function buildCarePlanFromTemplate(
         int $patientId,
         int $templateId,
         array $serviceConfigurations,
-        ?int $userId = null
+        ?int $userId = null,
+        ?array $scenarioMetadata = null
     ): CarePlan {
-        return DB::transaction(function () use ($patientId, $templateId, $serviceConfigurations, $userId) {
+        return DB::transaction(function () use ($patientId, $templateId, $serviceConfigurations, $userId, $scenarioMetadata) {
             $patient = Patient::findOrFail($patientId);
             $template = CareBundleTemplate::findOrFail($templateId);
 
@@ -318,19 +322,29 @@ class CareBundleBuilderService
             // Get latest version for this patient
             $latestVersion = CarePlan::where('patient_id', $patientId)->max('version') ?? 0;
 
+            // v2.3: Extract scenario fields if provided
+            $scenarioTitle = $scenarioMetadata['title'] ?? null;
+            $scenarioAxis = $scenarioMetadata['axis'] ?? null;
+
             // Create the care plan with service requirements (NO ServiceAssignments yet)
             // ServiceAssignments are created during scheduling, not plan building
             $carePlan = CarePlan::create([
                 'patient_id' => $patientId,
                 'care_bundle_id' => $careBundle->id,
                 'care_bundle_template_id' => $template->id,
+                // v2.3: AI scenario metadata
+                'scenario_metadata' => $scenarioMetadata,
+                'scenario_title' => $scenarioTitle,
+                'scenario_axis' => $scenarioAxis,
                 'version' => $latestVersion + 1,
                 'status' => 'draft',
                 'goals' => $this->extractGoals($serviceConfigurations),
                 'risks' => $patient->risk_flags ?? [],
                 'interventions' => $this->extractInterventions($serviceConfigurations),
                 'service_requirements' => $this->extractServiceRequirements($serviceConfigurations),
-                'notes' => "Created from RUG template: {$template->name} ({$template->code})",
+                'notes' => $scenarioTitle
+                    ? "Created from AI scenario: {$scenarioTitle}"
+                    : "Created from RUG template: {$template->name} ({$template->code})",
             ]);
 
             // NOTE: ServiceAssignments are NOT created here anymore.
@@ -349,6 +363,10 @@ class CareBundleBuilderService
                 'patient_id' => $patientId,
                 'template_id' => $templateId,
                 'template_code' => $template->code,
+                // v2.3: Include scenario info in logs
+                'scenario_title' => $scenarioTitle,
+                'scenario_axis' => $scenarioAxis,
+                'scenario_source' => $scenarioMetadata['source'] ?? null,
             ]);
 
             return $carePlan;

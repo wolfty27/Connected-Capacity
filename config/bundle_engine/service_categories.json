@@ -1,0 +1,220 @@
+{
+  "$schema": "bundle_engine/schemas/service_categories.schema.json",
+  "version": "1.0.0",
+  "last_updated": "2025-12-03",
+  "description": "Maps ServiceTypes into clinical categories for floor-based allocation",
+  
+  "categories": {
+    "personal_support": {
+      "description": "ADL/IADL assistance, personal care, homemaking, supervision",
+      "unit": "hours",
+      "services": {
+        "PSW": {
+          "weight": 1.0,
+          "is_primary": true,
+          "description": "Personal Support Worker - core ADL/IADL assistance"
+        },
+        "HMK": {
+          "weight": 0.7,
+          "is_primary": false,
+          "description": "Homemaking - light housekeeping, meal prep"
+        },
+        "DEM": {
+          "weight": 1.2,
+          "is_primary": false,
+          "requires_cap": ["cognitive_loss", "mood"],
+          "description": "Specialized dementia care worker"
+        },
+        "DEL-ACTS": {
+          "weight": 1.0,
+          "is_primary": false,
+          "requires_clinical": true,
+          "description": "Delegated nursing acts performed by PSW"
+        }
+      },
+      "algorithm_drivers": ["personal_support"],
+      "cap_boosters": ["adl", "iadl", "falls", "cognitive_loss"]
+    },
+    
+    "clinical_monitoring": {
+      "description": "Nursing assessment, vital monitoring, wound care, lab work",
+      "unit": "visits",
+      "services": {
+        "NUR": {
+          "weight": 1.0,
+          "is_primary": true,
+          "min_ratio": 0.5,
+          "description": "RN/RPN nursing visits"
+        },
+        "NP": {
+          "weight": 1.5,
+          "is_primary": false,
+          "description": "Nurse Practitioner - advanced clinical"
+        },
+        "LAB": {
+          "weight": 0.5,
+          "is_primary": false,
+          "description": "In-home laboratory services"
+        },
+        "LAB-MOBILE": {
+          "weight": 0.5,
+          "is_primary": false,
+          "description": "Mobile lab services"
+        }
+      },
+      "algorithm_drivers": ["chess_ca"],
+      "cap_boosters": ["pain", "pressure_ulcer", "cardiorespiratory", "medications"]
+    },
+    
+    "rehab_support": {
+      "description": "Physical therapy, occupational therapy, speech therapy, respiratory",
+      "unit": "visits",
+      "services": {
+        "PT": {
+          "weight": 1.0,
+          "is_primary": true,
+          "description": "Physiotherapy"
+        },
+        "OT": {
+          "weight": 1.0,
+          "is_primary": true,
+          "description": "Occupational therapy"
+        },
+        "SLP": {
+          "weight": 1.0,
+          "is_primary": false,
+          "description": "Speech-language pathology"
+        },
+        "RT": {
+          "weight": 1.0,
+          "is_primary": false,
+          "requires_cap": ["cardiorespiratory"],
+          "description": "Respiratory therapy"
+        }
+      },
+      "algorithm_drivers": ["rehabilitation"],
+      "cap_boosters": ["adl", "iadl", "falls"]
+    },
+    
+    "risk_mgmt_and_complexity": {
+      "description": "Remote monitoring, safety systems, behavioural support, pharmacy",
+      "unit": "units",
+      "services": {
+        "RPM": {
+          "weight": 1.0,
+          "is_primary": false,
+          "requires_tech": true,
+          "description": "Remote patient monitoring"
+        },
+        "PERS": {
+          "weight": 0.5,
+          "is_primary": false,
+          "description": "Personal emergency response system"
+        },
+        "PERS-ADV": {
+          "weight": 0.7,
+          "is_primary": false,
+          "description": "Advanced PERS with pendant"
+        },
+        "SEC": {
+          "weight": 0.3,
+          "is_primary": false,
+          "description": "Security/wellness checks"
+        },
+        "FALL-MON": {
+          "weight": 0.5,
+          "is_primary": false,
+          "requires_cap": ["falls"],
+          "description": "Falls monitoring system"
+        },
+        "CDM": {
+          "weight": 0.8,
+          "is_primary": false,
+          "requires_cap": ["cardiorespiratory"],
+          "description": "Chronic disease monitoring"
+        },
+        "MED-DISP": {
+          "weight": 0.4,
+          "is_primary": false,
+          "requires_cap": ["medications"],
+          "description": "Medication dispensing support"
+        },
+        "BEH": {
+          "weight": 1.2,
+          "is_primary": false,
+          "requires_cap": ["mood", "cognitive_loss"],
+          "description": "Behavioural supports"
+        },
+        "PHAR": {
+          "weight": 0.6,
+          "is_primary": false,
+          "requires_cap": ["medications"],
+          "description": "Pharmacy support services"
+        }
+      },
+      "algorithm_drivers": [],
+      "cap_boosters": ["falls", "pain", "medications", "cardiorespiratory", "mood"]
+    },
+    
+    "nutrition_support": {
+      "description": "Meal delivery, dietitian, hydration monitoring",
+      "unit": "units",
+      "services": {
+        "MEAL": {
+          "weight": 1.0,
+          "is_primary": true,
+          "description": "Meal delivery service"
+        },
+        "MOW": {
+          "weight": 1.0,
+          "is_primary": true,
+          "description": "Meals on Wheels"
+        },
+        "RD": {
+          "weight": 1.5,
+          "is_primary": false,
+          "description": "Registered Dietitian consultation"
+        }
+      },
+      "algorithm_drivers": [],
+      "cap_boosters": ["undernutrition", "dehydration"]
+    },
+    
+    "social_support": {
+      "description": "Social work, day programs, respite, recreation, caregiver support",
+      "unit": "units",
+      "services": {
+        "SW": {
+          "weight": 1.0,
+          "is_primary": true,
+          "description": "Social work support"
+        },
+        "ADP": {
+          "weight": 2.0,
+          "is_primary": false,
+          "description": "Adult day program"
+        },
+        "REC": {
+          "weight": 0.5,
+          "is_primary": false,
+          "description": "Social/recreational activities"
+        },
+        "RES": {
+          "weight": 2.0,
+          "is_primary": false,
+          "requires_cap": ["informal_support"],
+          "description": "Respite care"
+        },
+        "CGC": {
+          "weight": 0.8,
+          "is_primary": false,
+          "requires_cap": ["informal_support"],
+          "description": "Caregiver coaching"
+        }
+      },
+      "algorithm_drivers": [],
+      "cap_boosters": ["mood", "informal_support", "cognitive_loss"]
+    }
+  }
+}
+

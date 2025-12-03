@@ -400,6 +400,8 @@ class CareBundleBuilderController extends Controller
     /**
      * Build a care plan from a RUG template configuration.
      *
+     * v2.3: Optionally accepts AI scenario metadata for proper attribution.
+     *
      * @param Request $request
      * @param int $patientId
      * @return JsonResponse
@@ -414,6 +416,12 @@ class CareBundleBuilderController extends Controller
             'services.*.currentDuration' => 'required|integer|min:0',
             'services.*.provider_id' => 'nullable|integer',
             'notes' => 'nullable|string|max:2000',
+            // v2.3: AI scenario metadata
+            'scenario' => 'nullable|array',
+            'scenario.scenario_id' => 'nullable|string',
+            'scenario.title' => 'nullable|string|max:100',
+            'scenario.axis' => 'nullable|string|max:50',
+            'scenario.source' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -449,11 +457,15 @@ class CareBundleBuilderController extends Controller
         }
 
         try {
+            // v2.3: Extract scenario metadata if provided
+            $scenarioMetadata = $request->input('scenario');
+
             $carePlan = $this->bundleBuilder->buildCarePlanFromTemplate(
                 $patientId,
                 $request->template_id,
                 $request->services,
-                Auth::id()
+                Auth::id(),
+                $scenarioMetadata
             );
 
             return response()->json([
@@ -465,6 +477,12 @@ class CareBundleBuilderController extends Controller
                     'name' => $template->name,
                     'rug_group' => $template->rug_group,
                 ],
+                // v2.3: Include scenario info in response
+                'scenario' => $scenarioMetadata ? [
+                    'title' => $carePlan->scenario_title,
+                    'axis' => $carePlan->scenario_axis,
+                    'source' => $scenarioMetadata['source'] ?? null,
+                ] : null,
                 'next_steps' => [
                     'review_url' => "/patients/{$patientId}/care-plan/{$carePlan->id}",
                     'publish_endpoint' => "/api/v2/care-builder/{$patientId}/plans/{$carePlan->id}/publish",

@@ -167,20 +167,18 @@ const PatientDetailPage = () => {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-start">
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-2 border-b border-slate-200">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">{patient.name}</h1>
-                    <p className="text-slate-500">Patient ID: {patient.id}</p>
+                    <p className="text-2xl font-bold text-slate-800">{patient.name}</p>
+                    <p className="text-slate-500 text-sm">Patient ID: {patient.id}</p>
                 </div>
-                <div className="flex gap-3">
-                    <Button
-                        className="bg-teal-600 hover:bg-teal-700 text-white"
-                        onClick={() => navigate(`/care-bundles/create/${id}`)}
-                    >
-                        {hasActivePlan ? 'Modify Care Plan' : 'Create Care Bundle'}
-                    </Button>
-                </div>
+                <Button
+                    className="bg-teal-600 hover:bg-teal-700 text-white self-start sm:self-auto"
+                    onClick={() => navigate(`/care-bundles/create/${id}`)}
+                >
+                    {hasActivePlan ? 'Modify Care Plan' : 'Create Care Bundle'}
+                </Button>
             </div>
 
             {/* Tab Navigation */}
@@ -295,10 +293,10 @@ const PatientDetailPage = () => {
                                     <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
-                                                <h4 className="font-semibold text-slate-900">
-                                                    {currentPlan.bundle?.name || currentPlan.bundle_name || 'Care Plan'}
+                                                <h4 className="font-semibold text-slate-900 text-lg">
+                                                    {currentPlan.scenario_title || currentPlan.bundle || 'Care Plan'}
                                                 </h4>
-                                                <p className="text-sm text-slate-500">
+                                                <p className="text-sm text-slate-500 mt-1">
                                                     Started: {currentPlan.start_date?.split('T')[0] || 'N/A'}
                                                 </p>
                                             </div>
@@ -848,7 +846,8 @@ const PatientDetailPage = () => {
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900">Care Plan Details</h2>
                                 <p className="text-sm text-slate-500">
-                                    {currentPlan?.bundle?.name || 'Custom Bundle'} • Started {currentPlan?.start_date?.split('T')[0]}
+                                    {/* v2.3: Prefer scenario_title, then bundle (API now returns string), then fallback */}
+                                    {currentPlan?.scenario_title || currentPlan?.bundle || 'Custom Bundle'} • Started {currentPlan?.start_date?.split('T')[0]}
                                 </p>
                             </div>
                             <button
@@ -859,9 +858,10 @@ const PatientDetailPage = () => {
                             </button>
                         </div>
                         <div className="p-6">
+                            {/* v2.3: Use scenario_title if available, otherwise fall back to RUG classification */}
                             <BundleSummary
                                 services={summaryServices}
-                                bundleName={currentPlan?.bundle || currentPlan?.bundle_name}
+                                bundleName={currentPlan?.scenario_title || currentPlan?.bundle || currentPlan?.bundle_name}
                                 totalCost={calculatedWeeklyCost || currentPlan?.total_cost || 0}
                             />
                         </div>
