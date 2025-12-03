@@ -686,6 +686,59 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
     }
 
     /**
+     * Map service codes to modifier category keys.
+     * This allows axis modifiers to use generic categories while
+     * matching actual service type codes.
+     */
+    protected const SERVICE_CODE_TO_MODIFIER_MAP = [
+        // Therapy services
+        'PT' => 'therapy',
+        'OT' => 'therapy',
+        'SLP' => 'therapy',
+        'RT' => 'respiratory',
+        
+        // Nursing services
+        'NUR' => 'nursing',
+        'NP' => 'nursing',
+        
+        // Personal support
+        'PSW' => 'psw',
+        'DEM' => 'behavioural_psw',
+        'BEH' => 'behavioural_psw',
+        
+        // Remote monitoring & tech
+        'RPM' => 'remote_monitoring',
+        'PERS' => 'remote_monitoring',
+        'PERS-ADV' => 'remote_monitoring',
+        'FALL-MON' => 'remote_monitoring',
+        'CDM' => 'remote_monitoring',
+        'MED-DISP' => 'remote_monitoring',
+        
+        // Telehealth
+        'TELE' => 'telehealth',
+        'VPC' => 'telehealth',
+        
+        // Respite & caregiver
+        'RES' => 'respite',
+        'CGC' => 'caregiver_education',
+        
+        // Homemaking & meals
+        'HMK' => 'homemaking',
+        'MEAL' => 'meals',
+        'MOW' => 'meals',
+        
+        // Day programs & activation
+        'ADP' => 'day_program',
+        'REC' => 'activation',
+        
+        // Transportation
+        'TRANS' => 'transportation',
+        
+        // Wound care
+        'DEL-ACTS' => 'wound_care',
+    ];
+
+    /**
      * Apply axis modifiers to services.
      */
     protected function applyAxisModifiers(array $services, ScenarioAxis $axis, PatientNeedsProfile $profile, float $weight = 1.0): array
@@ -698,10 +751,13 @@ class ScenarioGenerator implements ScenarioGeneratorInterface
 
         foreach ($services as &$service) {
             $serviceType = $service['service_type'];
-            $category = $serviceType->category ?? 'unknown';
+            $code = $serviceType->code ?? '';
+            
+            // Map service code to modifier category
+            $modifierKey = self::SERVICE_CODE_TO_MODIFIER_MAP[$code] ?? null;
 
-            if (isset($modifiers[$category])) {
-                $modifier = $modifiers[$category];
+            if ($modifierKey && isset($modifiers[$modifierKey])) {
+                $modifier = $modifiers[$modifierKey];
                 $multiplier = 1 + (($modifier['multiplier'] - 1) * $weight);
 
                 // Apply frequency multiplier
