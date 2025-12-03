@@ -1551,3 +1551,82 @@ None - planning only. Implementation begins with Phase 0.
 ### Next Immediate Step
 
 **Phase 0: Data Exploration** - Query `interrai_assessments` to document what CA/HC data is actually available before implementing algorithm calculators.
+
+---
+
+## AI-Assisted Bundle Engine - Phase 0: Data Exploration (2025-12-03)
+
+### Status: COMPLETE ✅
+
+### Objective
+Audit actual InterRAI assessment data in the database to validate implementation assumptions before building CA algorithm calculators.
+
+### Database Queries Executed
+
+| Query | Result |
+|-------|--------|
+| Assessment Types | HC: 13, CA: 0, Contact: 0 |
+| Workflow Statuses | Completed: 13 (100%) |
+| raw_items Key Count | 103 keys per assessment |
+| iCODE Keys | 46 keys (ADL, IADL, cognition, behaviour, clinical) |
+| RUG Classifications | 13 (diverse: BB0, IB0, CC0, SE1, RA2, etc.) |
+
+### Key Findings
+
+1. **HC-Only Data**
+   - All 13 assessments are Home Care (HC) type
+   - No Contact Assessment (CA) data exists
+   - No BMHS data present
+
+2. **raw_items Structure**
+   - 46 iCODE keys (e.g., `iG1ha`, `iG1ia`, `iB3a`)
+   - 9 ADL UI keys (e.g., `adl_bathing`)
+   - 5 Mood UI keys (e.g., `mood_crying`)
+   - 43 Clinical/Other keys (e.g., `chess`, `cps`)
+
+3. **CA Algorithm Item Availability**
+   - 19/21 required items mappable from HC data
+   - Missing: D3d (Stair use), D4 (ADL decline)
+   - Most CA algorithms implementable with HC→CA item mapping
+
+4. **Algorithm Feasibility**
+   | Algorithm | Feasibility |
+   |-----------|-------------|
+   | Self-Reliance Index (SRI) | ✅ Full |
+   | Assessment Urgency (AUA) | ⚠️ High (with approx.) |
+   | Service Urgency (SUA) | ⚠️ High (with approx.) |
+   | Rehabilitation | ⚠️ Medium |
+   | Personal Support (PSA) | ✅ Full |
+   | Distressed Mood (DMS) | ⚠️ Medium |
+   | Pain Scale | ✅ Full |
+   | CHESS-CA | ✅ Full |
+
+### Implications for Implementation
+
+1. **Use HC Data Mapping Strategy**
+   - CA algorithms will use HC iCODE mappings
+   - Document approximations in algorithm JSON files
+   - Add `data_source: "hc_mapped"` metadata
+
+2. **Conditional CAP Execution** (as designed)
+   - CAPs will only trigger when `hasFullHcAssessment = true`
+   - This is correct since all data is HC-sourced
+
+3. **Algorithm Verification Gates**
+   - Need InterRAI CA Appendix for official flowcharts
+   - Current implementation will be `verification_status: "hc_mapped"`
+   - Production deployment requires clinical review
+
+### Documents Created
+
+- `docs/DATA_AVAILABILITY_AUDIT.md` - Comprehensive data audit with:
+  - Assessment type analysis
+  - Complete raw_items key inventory
+  - CA algorithm item mapping table
+  - BMHS data gap analysis
+  - Algorithm verification checklist
+  - Item code cross-reference
+
+### Next Step
+
+**Phase 1: Engine Infrastructure** - Create `DecisionTreeEngine`, `CAPTriggerEngine`, and algorithm JSON schema.
