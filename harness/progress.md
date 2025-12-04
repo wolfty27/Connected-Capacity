@@ -2662,3 +2662,25 @@ The `AppLayout.jsx` navigation bar was using `fixed left-0 right-0 top-0` positi
 
 ### Commit
 - `253c9e4` - fix(ui): Fix patient header layout and add Back to Patient Hub button
+
+---
+
+## 2025-12-04: Care Bundle Wizard UI Refinements
+
+### Changes Made
+
+1. **Removed "(AI)" Label from Bundle Names**
+   - Bundle Summary now shows "COMMUNITY INTEGRATED" instead of "COMMUNITY INTEGRATED (AI)"
+   - Location: `CareBundleWizard.jsx` line 1282
+
+2. **Fixed Profile Summary Styling**
+   - Classification, Episode Type, and Rehab Potential values no longer have individual white backgrounds
+   - Values display as clean text with `font-semibold` styling
+   - Container uses subtle `bg-slate-100` background for visual grouping
+   - Rehab Potential uses green text when "Yes" for positive indication
+
+### Files Modified
+- `resources/js/pages/CarePlanning/CareBundleWizard.jsx`
+
+### Commit
+- `83889ac` - fix: UI/UX refinements for Care Bundle Wizard

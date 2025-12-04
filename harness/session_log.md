@@ -1520,3 +1520,41 @@ Frontend route in `resources/js/components/App.jsx`:
 ✓ 1825 modules transformed
 ✓ built in 1.72s
 ```
+
+---
+
+## 2025-12-04 - Session: Care Bundle Wizard UI Refinements
+
+### Objectives
+1. Remove "(AI)" suffix from bundle names in Bundle Summary
+2. Fix Profile Summary section styling consistency
+
+### Work Performed
+
+#### 1. Removed "(AI)" Label from Bundle Names
+- Updated `CareBundleWizard.jsx` line 1282
+- Changed from: `${selectedAiScenario.label?.title || ...} (AI)`
+- Changed to: `${selectedAiScenario.label?.title || ...}`
+- Bundle Summary now displays just "COMMUNITY INTEGRATED" instead of "COMMUNITY INTEGRATED (AI)"
+
+#### 2. Fixed Profile Summary Styling
+- User noted that Classification, Episode Type, and Rehab Potential values had inconsistent backgrounds
+- Previously: Values had individual white backgrounds (`bg-white`) contrasting with container
+- Fixed: Values now display as clean text with `font-semibold` styling
+- Container uses subtle `bg-slate-100` background for visual grouping
+- Rehab Potential still uses green text (`text-emerald-600`) when "Yes" for positive indication
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `resources/js/pages/CarePlanning/CareBundleWizard.jsx` | Removed "(AI)" suffix, simplified Profile Summary styling |
+
+### Commits
+- `fix: UI/UX refinements for Care Bundle Wizard`
+
+### Build Status
+```
+✓ Frontend build successful
+✓ 1828 modules transformed
+✓ built in 1.62s
+```
