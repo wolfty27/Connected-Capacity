@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../../../../services/api';
 import Button from '../../../../components/UI/Button';
@@ -9,6 +9,7 @@ import SuggestionRow from '../../../../components/scheduling/SuggestionRow';
 import { useAutoAssign } from '../../../../hooks/useAutoAssign';
 import { useSchedulerContext, SCHEDULE_SUB_MODES } from '../SchedulerContext';
 import { useSchedulerData } from '../hooks/useSchedulerData';
+import TeamLaneGrid from '../components/TeamLaneGrid';
 
 /**
  * ScheduleTab
@@ -535,167 +536,26 @@ const ScheduleTab = () => {
             onEditAssignment={openEditModal}
           />
         ) : scheduleSubMode === SCHEDULE_SUB_MODES.LIST ? (
-          // List View Mode
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-700">Appointments List</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="text-left px-4 py-2 text-slate-600 font-medium">Date</th>
-                    <th className="text-left px-4 py-2 text-slate-600 font-medium">Time</th>
-                    <th className="text-left px-4 py-2 text-slate-600 font-medium">Patient</th>
-                    <th className="text-left px-4 py-2 text-slate-600 font-medium">Service</th>
-                    <th className="text-left px-4 py-2 text-slate-600 font-medium">Staff</th>
-                    <th className="text-left px-4 py-2 text-slate-600 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {gridData.assignments?.length > 0 ? (
-                    gridData.assignments.map((assignment) => (
-                      <tr
-                        key={assignment.id}
-                        className="hover:bg-slate-50 cursor-pointer"
-                        onClick={() => openEditModal(assignment)}
-                      >
-                        <td className="px-4 py-2">{assignment.date}</td>
-                        <td className="px-4 py-2">{assignment.start_time} - {assignment.end_time}</td>
-                        <td className="px-4 py-2">{assignment.patient_name}</td>
-                        <td className="px-4 py-2">{assignment.service_type_name}</td>
-                        <td className="px-4 py-2">
-                          {gridData.staff?.find(s => s.id === assignment.staff_id)?.name || 'Unknown'}
-                        </td>
-                        <td className="px-4 py-2">
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${
-                            assignment.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                            assignment.status === 'planned' ? 'bg-blue-100 text-blue-700' :
-                            assignment.status === 'cancelled' ? 'bg-slate-100 text-slate-500' :
-                            'bg-amber-100 text-amber-700'
-                          }`}>
-                            {assignment.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                        No appointments for this week
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          // List View Mode with sorting
+          <EnhancedListView
+            assignments={gridData.assignments || []}
+            staff={gridData.staff || []}
+            onEditAssignment={openEditModal}
+          />
         ) : (
-          // Staff Lanes Mode (default grid)
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              {/* Header Row */}
-              <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-10 min-w-[1000px]">
-                <div className="px-4 py-3 border-r border-slate-200">
-                  <div className="text-xs font-bold text-slate-600">Staff Member</div>
-                </div>
-                {weekDays.map((date, idx) => (
-                  <div key={idx} className="px-4 py-3 border-r border-slate-200 text-center">
-                    <div className="text-xs font-bold text-slate-600">{formatDate(date)}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Staff Rows */}
-              {gridData.staff?.map((staff) => {
-                const isHighlighted = staffIdParam && parseInt(staffIdParam) === staff.id;
-                return (
-                  <div
-                    key={staff.id}
-                    className={`grid grid-cols-8 border-b border-slate-100 min-w-[1000px] ${
-                      isHighlighted ? 'bg-blue-50' : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    {/* Staff Info */}
-                    <div className="px-4 py-3 border-r border-slate-200">
-                      <div className="text-sm font-medium">{staff.name}</div>
-                      <div className="text-xs text-slate-500">
-                        {staff.role?.code || '-'}, {staff.employment_type?.code || '-'}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-slate-200 rounded-full">
-                          <div
-                            className={`h-full rounded-full ${
-                              staff.utilization?.utilization > 90 ? 'bg-red-500' :
-                              staff.utilization?.utilization > 75 ? 'bg-amber-500' :
-                              'bg-emerald-500'
-                            }`}
-                            style={{ width: `${Math.min(100, staff.utilization?.utilization || 0)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-slate-400">
-                          {staff.utilization?.scheduled || 0}h/{staff.weekly_capacity_hours || 40}h
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Day Columns */}
-                    {weekDays.map((date, dayIdx) => {
-                      const dateString = date.toISOString().split('T')[0];
-                      const dayAssignments = getAssignmentsForCell(staff.id, dateString);
-                      const isAvailable = isStaffAvailable(staff, date.getDay());
-
-                      return (
-                        <div
-                          key={dayIdx}
-                          className={`px-2 py-2 border-r border-slate-200 min-h-[80px] ${
-                            !isAvailable ? 'bg-slate-100' : ''
-                          }`}
-                          onClick={() => {
-                            if (isAvailable && dayAssignments.length === 0) {
-                              openAssignModal(null, null, staff, dateString);
-                            }
-                          }}
-                        >
-                          {isAvailable && (
-                            <div className="space-y-1">
-                              {dayAssignments.map((assignment) => (
-                                <button
-                                  key={assignment.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditModal(assignment);
-                                  }}
-                                  className="w-full text-left px-2 py-1 rounded text-xs hover:opacity-80"
-                                  style={{ backgroundColor: assignment.color || getCategoryColor(assignment.category) }}
-                                >
-                                  <div className="font-medium truncate">
-                                    {assignment.service_type_name}
-                                  </div>
-                                  <div className="text-xs opacity-75">
-                                    {assignment.patient_name}
-                                  </div>
-                                  <div className="text-xs opacity-75">
-                                    {assignment.start_time}-{assignment.end_time}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-
-              {(!gridData.staff || gridData.staff.length === 0) && (
-                <div className="text-center py-12 text-slate-400">
-                  <div className="text-sm">No staff match the current filters</div>
-                </div>
-              )}
-            </div>
-          </div>
+          // Team Lanes Mode (grouped by role category)
+          <TeamLaneGrid
+            staff={gridData.staff || []}
+            assignments={gridData.assignments || []}
+            weekDays={weekDays}
+            onCellClick={openAssignModal}
+            onEditAssignment={openEditModal}
+            formatDate={formatDate}
+            getCategoryColor={getCategoryColor}
+            getAssignmentsForCell={getAssignmentsForCell}
+            isStaffAvailable={isStaffAvailable}
+            highlightedStaffId={staffIdParam ? parseInt(staffIdParam) : null}
+          />
         )}
       </div>
 
@@ -1041,6 +901,195 @@ const EditAssignmentModal = ({ isOpen, onClose, assignment, onUpdate, onCancel }
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Enhanced List View Component with sorting
+ */
+const EnhancedListView = ({ assignments, staff, onEditAssignment }) => {
+  const [sortField, setSortField] = useState('date');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Sort and filter assignments
+  const processedAssignments = useMemo(() => {
+    let result = [...(assignments || [])];
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      result = result.filter(a => a.status === statusFilter);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let aVal, bVal;
+      switch (sortField) {
+        case 'date':
+          aVal = `${a.date} ${a.start_time}`;
+          bVal = `${b.date} ${b.start_time}`;
+          break;
+        case 'patient':
+          aVal = a.patient_name || '';
+          bVal = b.patient_name || '';
+          break;
+        case 'service':
+          aVal = a.service_type_name || '';
+          bVal = b.service_type_name || '';
+          break;
+        case 'staff':
+          aVal = staff?.find(s => s.id === a.staff_id)?.name || '';
+          bVal = staff?.find(s => s.id === b.staff_id)?.name || '';
+          break;
+        case 'status':
+          aVal = a.status || '';
+          bVal = b.status || '';
+          break;
+        default:
+          aVal = '';
+          bVal = '';
+      }
+      const cmp = aVal.localeCompare(bVal);
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+
+    return result;
+  }, [assignments, staff, sortField, sortDirection, statusFilter]);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortField !== field) return null;
+    return (
+      <span className="ml-1">
+        {sortDirection === 'asc' ? '↑' : '↓'}
+      </span>
+    );
+  };
+
+  const statusCounts = useMemo(() => {
+    const counts = { all: assignments?.length || 0 };
+    (assignments || []).forEach(a => {
+      counts[a.status] = (counts[a.status] || 0) + 1;
+    });
+    return counts;
+  }, [assignments]);
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      {/* Header with filters */}
+      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-slate-700">
+          Appointments List ({processedAssignments.length})
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Status:</span>
+          {['all', 'planned', 'completed', 'cancelled'].map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                statusFilter === status
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+              {statusCounts[status] > 0 && ` (${statusCounts[status]})`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th 
+                onClick={() => toggleSort('date')}
+                className="text-left px-4 py-2 text-slate-600 font-medium cursor-pointer hover:bg-slate-100"
+              >
+                Date/Time <SortIcon field="date" />
+              </th>
+              <th 
+                onClick={() => toggleSort('patient')}
+                className="text-left px-4 py-2 text-slate-600 font-medium cursor-pointer hover:bg-slate-100"
+              >
+                Patient <SortIcon field="patient" />
+              </th>
+              <th 
+                onClick={() => toggleSort('service')}
+                className="text-left px-4 py-2 text-slate-600 font-medium cursor-pointer hover:bg-slate-100"
+              >
+                Service <SortIcon field="service" />
+              </th>
+              <th 
+                onClick={() => toggleSort('staff')}
+                className="text-left px-4 py-2 text-slate-600 font-medium cursor-pointer hover:bg-slate-100"
+              >
+                Staff <SortIcon field="staff" />
+              </th>
+              <th 
+                onClick={() => toggleSort('status')}
+                className="text-left px-4 py-2 text-slate-600 font-medium cursor-pointer hover:bg-slate-100"
+              >
+                Status <SortIcon field="status" />
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {processedAssignments.length > 0 ? (
+              processedAssignments.map((assignment) => (
+                <tr
+                  key={assignment.id}
+                  className="hover:bg-slate-50 cursor-pointer"
+                  onClick={() => onEditAssignment?.(assignment)}
+                >
+                  <td className="px-4 py-2">
+                    <div>{assignment.date}</div>
+                    <div className="text-xs text-slate-500">
+                      {assignment.start_time} - {assignment.end_time}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2">{assignment.patient_name}</td>
+                  <td className="px-4 py-2">{assignment.service_type_name}</td>
+                  <td className="px-4 py-2">
+                    {staff?.find(s => s.id === assignment.staff_id)?.name || 'Unknown'}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      assignment.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                      assignment.status === 'planned' ? 'bg-blue-100 text-blue-700' :
+                      assignment.status === 'cancelled' ? 'bg-slate-100 text-slate-500' :
+                      'bg-amber-100 text-amber-700'
+                    }`}>
+                      {assignment.status}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                  {assignments?.length === 0 
+                    ? 'No appointments for this week' 
+                    : 'No appointments match the current filter'
+                  }
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
