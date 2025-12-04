@@ -1558,3 +1558,60 @@ Frontend route in `resources/js/components/App.jsx`:
 ✓ 1828 modules transformed
 ✓ built in 1.62s
 ```
+
+---
+
+## 2025-12-04 - Session: SPO Scheduling Functional Spec for Figma
+
+### Objective
+Create comprehensive functional specification for the SPO Scheduling page to support Figma redesign.
+
+### Work Performed
+
+#### Reverse-Engineered SPO Scheduling Page
+Analyzed the following files to extract all functionality:
+- `resources/js/pages/CareOps/SchedulingPage.jsx` (main component, 1148 lines)
+- `resources/js/components/scheduling/PatientTimeline.jsx`
+- `resources/js/components/scheduling/SuggestionRow.jsx`
+- `resources/js/components/scheduling/ExplanationModal.jsx`
+- `resources/js/hooks/useAutoAssign.js`
+- `app/Http/Controllers/Api/V2/SchedulingController.php`
+- `routes/api.php` (scheduling routes)
+
+#### Created Functional Spec Document
+`docs/SPO_Scheduling_Functional_Spec.md` covering:
+
+**1. UI States (Visual Variations)**
+- Page-level states (Loading, SPO Mode, SSPO Mode)
+- Week navigation button states
+- Filter bar states and badges
+- Quick Navigation card (collapsible) states
+- Unscheduled Care panel states
+- AI Suggestion Row states (strong/moderate/weak/none)
+- Schedule Grid states (staff view)
+- Patient Timeline states (patient view)
+- All 3 modal states (Assign, Edit, Explanation)
+
+**2. User Interactions & Logic**
+- Complete click map (30+ interactions)
+- Immediate vs async effects
+- Hidden gestures (none)
+
+**3. Data Flow & Constraints**
+- 11 API endpoints documented
+- URL parameters for deep linking
+- Data constraints (limits, truncation rules)
+
+**4. Critical Business Logic**
+- SPO vs SSPO mode differences
+- Server-side validation rules
+- State persistence behavior
+- Error handling patterns
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `docs/SPO_Scheduling_Functional_Spec.md` | Complete functional spec for Figma redesign |
+
+### Commits
+- `680aefb` - docs: add SPO Scheduling functional spec for Figma redesign

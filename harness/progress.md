@@ -2684,3 +2684,32 @@ The `AppLayout.jsx` navigation bar was using `fixed left-0 right-0 top-0` positi
 
 ### Commit
 - `83889ac` - fix: UI/UX refinements for Care Bundle Wizard
+
+---
+
+## 2025-12-04: SPO Scheduling Functional Spec for Figma
+
+### Purpose
+Created comprehensive functional specification document to support Figma redesign of the SPO Scheduling page.
+
+### Document Created
+`docs/SPO_Scheduling_Functional_Spec.md`
+
+### Coverage
+- **Section 1:** All UI states and visual variations (page states, buttons, filters, panels, modals)
+- **Section 2:** User interactions and click map (30+ interactions documented)
+- **Section 3:** Data flow, API endpoints, and constraints
+- **Section 4:** Critical business logic (SPO vs SSPO modes, validation rules, error handling)
+
+### Key Stats Documented
+- 5 API endpoints for main data
+- 6 API endpoints for AI auto-assign
+- 3 modals (Assign, Edit, Explanation)
+- 2 collapsible sections
+- 2 main views (Staff Grid, Patient Timeline)
+- 4 filter mechanisms
+- 7 service categories with distinct colors
+- 4 AI match status levels
+
+### Commit
+- `680aefb` - docs: add SPO Scheduling functional spec for Figma redesign
