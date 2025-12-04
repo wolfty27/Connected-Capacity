@@ -1,0 +1,483 @@
+Got it — thanks for the detailed answers, that’s exactly what I needed.
+
+Below is Part 1: New Scheduler Design Spec — a self-contained design / architecture document for /scheduler that:
+	•	Reconciles:
+	•	Your original functional spec + harness features  
+	•	What Stitch produced (AI Overview, Scenario Planning, Dynamic Board, Conflict Hub, AI Console)
+	•	Adapts those Stitch pages into a single, internal multi-flow surface (no extra routes)
+	•	Respects your existing backend (SchedulingEngine, AutoAssignEngine, Unscheduled Care API, calendar grid, etc.)
+	•	Introduces only the necessary new metadata (e.g. Team Lanes grouping) in a way that fits your meta-data driven, OO architecture
+	•	Sets Cursor/Claude up to implement and critique the build
+
+⸻
+
+CC21 Scheduler 2.0 – Design & Implementation Spec (AI-First Control Center)
+
+0. Executive Summary
+
+Vision
+
+/scheduler becomes a self-contained AI-first control room for SPO coordinators:
+	•	They open /scheduler and immediately see:
+	•	A weekly situation summary (“what’s on fire, what’s missing, where the system is strained”)
+	•	A calendar of this week (familiar, non-threatening anchor)
+	•	A set of concrete AI actions (“I can safely schedule X visits”, “I can relieve this overload”).
+	•	The UI is structured into internal “rooms” (tabs / modes) inside a single route:
+	•	AI Overview
+	•	Schedule (Calendar + List)
+	•	AI Proposals / Review
+	•	Conflicts & No-Match
+	•	The AI scheduling engine and LLM explanation layer are not bolt-ons:
+They’re the default way the scheduler proposes options, with the human in full control.
+	•	The existing backend primitives are reused:
+	•	SchedulingEngine, spacing / non-concurrency rules, travel rules  
+	•	CareBundleAssignmentPlanner + /v2/scheduling/requirements for unscheduled care  
+	•	AutoAssignEngine, AssignmentSuggestionDTO, AutoAssignController and /v2/scheduling/suggestions/*  
+	•	Calendar grid + PatientTimeline components
+	•	ServiceType provider metadata, SSPO marketplace where relevant  
+
+Major Additions
+	1.	Scheduler Shell & Navigation
+	•	/scheduler → internal tabbed layout, not multiple routes.
+	•	Tabs/modes: AI Overview, Schedule, Review, Conflicts.
+	2.	AI-Overview Tab
+	•	Uses AI scheduling engine + existing metrics to present “week-at-a-glance” and “what I can do for you right now”.
+	3.	Schedule Tab
+	•	Reuses existing calendar grid as the primary view.
+	•	Adds:
+	•	Team Lane grouping for staff lanes.
+	•	Staff filters & search.
+	•	Toggle: Calendar vs List view (for historical + upcoming appointments).
+	•	Inline AI suggestions (like current SuggestionRow) and “Accept all visible” controls.
+	4.	Review Tab
+	•	Houses batch proposals and scenario-like grouped suggestions (e.g., “all wound care tomorrow”, “all high-risk unscheduled today”).
+	•	Accept-group-with-confirmation flows.
+	5.	Conflicts Tab
+	•	Aggregates conflicts and “no match” items with reason codes and guidance.
+	6.	New Metadata
+	•	Team Lanes / Staff Display Groups:
+Config-driven mapping from StaffRole (and/or ServiceType category) → lanes, with rules to avoid 1-person lanes.
+
+⸻
+
+1. Scheduler Shell & Internal Navigation
+
+1.1 Route & Layout
+	•	Single external route:
+	•	/spo/scheduling (SPA route already exists)
+	•	Internally, we treat it as a mini-app with its own nav:
+
+// resources/js/pages/CareOps/SchedulingShell.jsx
+<SchedulingShell>
+  <SchedulerTabNav />     // AI Overview | Schedule | Review | Conflicts
+  <SchedulerTabContent /> // one of the internal “rooms”
+</SchedulingShell>
+
+	•	SchedulingShell provides shared context (SchedulerState) via React context or a useSchedulerState() hook:
+	•	Selected week
+	•	Staff filters / Team Lane selection
+	•	Unscheduled care snapshot for the week
+	•	AI suggestions (by id, status: pending/accepted/rejected)
+	•	Conflicts & “no match” info
+	•	Loading/error states for AI calls
+
+Cursor/Claude should not create new top-level routes; everything is nested under the existing SchedulingPage.jsx mount point.
+
+1.2 Internal Tabs / Modes
+
+Tabs across the top of the scheduler body:
+	1.	AI Overview
+	2.	Schedule
+	3.	Review
+	4.	Conflicts
+
+Each tab is just a view over the same underlying SchedulerState.
+
+⸻
+
+2. SchedulerState & Data Model
+
+2.1 SchedulerState Concept
+
+Introduce a frontend state model representing the scheduler:
+
+type SchedulerState = {
+  timeframe: { start: Date; end: Date; granularity: 'week' | 'day' };
+  viewMode: 'ai-overview' | 'schedule' | 'review' | 'conflicts';
+
+  // Core domain snapshots
+  unscheduledServices: UnscheduledServiceDTO[]; // from /v2/scheduling/requirements
+  assignments: ServiceAssignmentDTO[];          // current week’s schedule
+  staff: StaffSummaryDTO[];                     // role, region, capacity, lanes
+  patients: PatientSummaryDTO[];                // risk, geography
+
+  // AI suggestions from AutoAssignEngine
+  suggestions: AssignmentSuggestionViewModel[]; // normalized from /suggestions
+
+  // AI explanation cache (optional)
+  explanations: Record<string, ExplanationDTO>;
+
+  // Conflicts
+  conflicts: ConflictDTO[];                     // overlaps, travel, no-match, etc.
+
+  filters: {
+    staffIds?: number[];
+    teamLaneIds?: string[];
+    patientIds?: number[];
+    regionCodes?: string[];
+  };
+
+  ui: {
+    isLoadingSuggestions: boolean;
+    isAutoAssignRunning: boolean;
+    lastAutoAssignRunAt?: Date;
+  };
+};
+
+Underlying DTOs reuse existing backend structures:
+	•	UnscheduledServiceDTO, RequiredAssignmentDTO from CareBundleAssignmentPlanner  
+	•	AssignmentSuggestionDTO, ExplanationResponseDTO from AutoAssignEngine and LlmExplanationService  
+	•	ServiceAssignment as already exposed via scheduling APIs.
+
+Cursor’s job in implementation will be to:
+	•	Create a useSchedulerState() hook that:
+	•	Fetches unscheduled care & scheduled assignments for the chosen week
+	•	Calls the AI suggestions endpoints when requested
+	•	Maintains suggestion / conflict state
+
+⸻
+
+3. New Metadata: Team Lanes
+
+3.1 Concept
+
+We want logical grouping of staff lanes in the calendar:
+	•	Frequent roles with lots of staff (e.g., PSW) each have their own lane per staff.
+	•	Low-volume roles (PT, OT, maybe SW) are grouped into Team Lanes (e.g. “Therapy Team”, “Rehab & OT”) – but not a lane with only one person.
+
+Design requirement:
+	•	Grouping must be data-driven, not hard-coded.
+
+3.2 Proposed Model
+
+Keep this lightweight and metadata-based:
+	1.	Extend StaffRole (or equivalent):
+
+// app/Models/StaffRole.php
+class StaffRole extends Model {
+    // existing fields...
+
+    // e.g. 'psw', 'rn', 'pt', 'ot', 'sw'
+    public string $code;
+
+    // New: grouping hint
+    public ?string $team_lane_group; // e.g. 'psw_individual', 'therapy_team'
+}
+
+Seed examples:
+	•	PSW → team_lane_group = 'psw_individual'
+	•	RN, RPN → team_lane_group = 'nursing_team'
+	•	PT, OT → team_lane_group = 'therapy_team'
+	•	SW, Behavioural → team_lane_group = 'behavioural_team'
+
+	2.	Team Lane Aggregation Logic
+
+On the frontend (or a small backend helper), compute:
+
+type TeamLane = {
+  id: string;            // 'psw_individual', 'therapy_team', etc.
+  label: string;         // 'PSW', 'Therapy Team', etc.
+  roleCodes: string[];   // ['pt','ot'] for therapy
+  staffIds: number[];    // union of staff with those roles
+};
+
+Rules:
+	•	If a group has >= N staff (configurable threshold, e.g., 4), show each staff in its own lane (e.g., PSWs).
+	•	If a group has only 1 staff, fall back to joining with a related group (or show as an individual lane but marked as “Solo”).
+	•	These are purely display groupings; they do not change underlying business logic.
+
+Cursor should implement this in a reusable TeamLaneService (backend or FE helper) and expose TeamLaneDTO[] as part of scheduler API.
+
+⸻
+
+4. AI-First Internal Views
+
+4.1 AI Overview Tab
+
+Purpose
+“Monday morning view”: AI summarizes the week and surfaces what to do first.
+
+Layout
+	•	Top bar:
+	•	Week picker (start/end)
+	•	Quick buttons: “Today”, “This Week”, “Next Week”
+	•	AI Situation Card (full-width)
+	•	Headline: “This week at a glance”
+	•	Sub-bullets (driven by metrics / unscheduled care):
+	•	“X unscheduled services, Y high-risk patients”
+	•	“Avg TFS: 18.2h (Band A)” (reuse TFS metrics service  )
+	•	“2 staff over 90% capacity, 3 under 40%”
+	•	AI Action Strip (prominent buttons/cards)
+	•	Card examples:
+	•	“Schedule all high-risk patients needing first visits (12 services)”
+	•	“Reduce long travel sequences for PSWs in Toronto Central”
+	•	“Rebalance nursing load for two over-capacity staff”
+	•	Each card shows:
+	•	Short description
+	•	Estimated impact (e.g., “-22% drive time”, “+12% continuity consistency”)
+	•	CTA: Review plan (navigates to Review tab with pre-filtered scenario)
+	•	Priority Queues
+	•	Unscheduled High-Risk Patients list:
+	•	Sorted by risk flags and TFS.
+	•	Staff Under / Over Capacity mini-cards:
+	•	Direct links into Schedule tab filtered to those staff.
+
+Interactions
+	•	Clicking an AI Action:
+	•	Calls a specialized AutoAssign/Scenario endpoint (or uses existing /suggestions with filters).
+	•	Stores a ScenarioProposal in state and routes to Review tab with that scenario selected.
+
+4.2 Schedule Tab
+
+This is the primary working surface and must reuse existing calendar.
+
+4.2.1 Modes
+	•	Sub-tabs or toggles inside Schedule:
+	•	Staff Lanes (default)
+	•	List View
+
+Staff Lanes Mode
+	•	Reuses existing calendar grid (weekly view) showing:
+	•	Staff lanes grouped via TeamLane:
+	•	Each lane labelled with staff name (for high-volume roles) or group label (e.g. “Therapy Team”).
+	•	Time columns for the selected week.
+	•	Above the calendar:
+	•	Filters:
+	•	Staff search (autocomplete)
+	•	Team Lane filter (multiselect)
+	•	ServiceType filter (optional)
+	•	Inline AI suggestions:
+	•	Unscheduled care panel can remain above the grid (satisfies ui.scheduler_layout feature).  
+	•	For each unscheduled card:
+	•	Show per-service AI suggestion row as already implemented (SuggestionRow.jsx).
+	•	Each one has Accept / Manual / Explain.
+	•	New: “Accept all visible suggestions” button:
+	•	For the current filter context (selected team lane / week), aggregates all suggestions and calls acceptBatch endpoint.
+	•	Presents a confirmation modal summarizing:
+	•	“You are about to schedule 17 appointments across 5 staff.”
+	•	High-level impact: staff nearing capacity, etc.
+	•	On confirm → call /suggestions/accept-batch.
+
+List View Mode
+	•	Same filter header.
+	•	Replaces calendar with a table/list:
+
+Columns:
+	•	Date
+	•	Time
+	•	Patient
+	•	ServiceType
+	•	Staff
+	•	ProviderType (SPO/SSPO)
+	•	Status (Scheduled / Completed / Cancelled)
+	•	Travel (optional label)
+	•	Verification / Jeopardy status (if relevant)
+
+Use cases:
+	•	Historical view: toggle to see past weeks (previous N weeks).
+	•	Upcoming view: future weeks beyond current timeframe.
+
+Cursor should back this with an extended scheduling API that can return assignment list views paginated by date range.
+
+4.2.2 Click Flows
+	•	Click on a cell in calendar:
+	•	Opens assignment detail drawer:
+	•	Summary
+	•	Actions: Edit time, change staff (manual), view explanation if AI-assigned.
+	•	Click on staff lane header:
+	•	Filters view to that staff only.
+	•	Option: “Open Staff Schedule Page” (existing staff detail) if implemented.
+	•	Click on patient label:
+	•	Option to open Patient Timeline (already exists) in side drawer or new tab.
+
+⸻
+
+4.3 Review Tab (AI Proposals & Scenarios)
+
+Purpose
+Central place to review grouped AI proposals, not just one-off suggestions:
+	•	Group suggestions into “reviewable units”:
+	•	By AI Action from Overview (“High-risk first visits”, “PSW travel optimization”)
+	•	By patient (“All of Mrs. X’s services”)
+	•	By staff (“Rebalancing Nurse A’s week”)
+
+Layout
+	•	Left: List of Proposal Groups (scenario summaries)
+	•	Title: “High-risk TFS patients (12 visits)”
+	•	Tags: “Created 10:24am”, “AI Action”
+	•	Status: “Not reviewed / Partially accepted / Completed”
+	•	Right: Detail for selected group
+	•	Table of proposed assignments:
+	•	Patient / Service / Time / Proposed Staff / Confidence / Explanation icon
+	•	Metrics sidebar:
+	•	For this proposal group only: impact on:
+	•	Travel time
+	•	Capacity for affected staff
+	•	Continuity indicators
+	•	Actions:
+	•	Accept all in this group → confirmation modal: “You’ll schedule 12 visits across 4 staff. X staff exceed 0.9 FTE – ok?”
+	•	Accept selected, Reject selected
+	•	Send back to AI / “Propose alternatives” (future)
+
+⸻
+
+4.4 Conflicts Tab
+
+Purpose
+Provide a focused workspace for:
+	•	Hard constraint violations (from SchedulingEngine)
+	•	“No match” outcomes from AutoAssignEngine
+
+Layout
+Two sections:
+	1.	Conflicts
+	•	List of conflicts:
+	•	Overlaps (staff or patient)
+	•	Travel infeasibility
+	•	Spacing rule violations
+	•	Each row:
+	•	Summary: “Nurse A double-booked at 10:00”
+	•	Affected items
+	•	Suggested fixes (AI can propose 1-2 alternative schedules)
+	•	Buttons: Apply suggestion, Open in Schedule
+	2.	No Match
+	•	Rows from AI suggestions where match_status = 'none'.
+	•	Each row:
+	•	“No match: Wound care for Patient X on Tuesday 2–4pm”
+	•	Reason(s) (from AutoAssignEngine’s reason codes):
+	•	“No RN with hours available in this region/time window”
+	•	CTAs:
+	•	Assign manually
+	•	Future: Relax constraints (time, region, SSPO)
+
+⸻
+
+5. AI Engine Integration (High-Level)
+
+A separate AI-Scheduler design doc (like the Bundle Engine one) will go deeper, but we should anchor how the UI expects AI to behave.
+
+5.1 Reuse Existing AI Auto Assign
+	•	AutoAssignEngine.generateSuggestions(weekStart, weekEnd, orgId) already exists and returns AssignmentSuggestionDTO[] with scoring and breakdowns  
+	•	AutoAssignController exposes:
+	•	GET /v2/scheduling/suggestions
+	•	GET /v2/scheduling/suggestions/{patient_id}/{service_type_id}/explain
+	•	POST /v2/scheduling/suggestions/accept
+	•	POST /v2/scheduling/suggestions/accept-batch
+
+UI responsibilities:
+	•	AI Overview:
+	•	Calls suggestions endpoint with filters (e.g. high-risk unscheduled).
+	•	Schedule Tab:
+	•	Uses useAutoAssign() hook (already implemented) to wire suggestion rows.
+	•	Expands to support “Accept all visible”.
+	•	Review Tab:
+	•	Aggregates suggestions into groups by scenario tag (we can add a proposal_group_id or grouping key in FE state).
+
+5.2 LLM Explanation (Vertex AI)
+
+Already implemented:
+	•	LlmExplanationService + VertexAiClient + PromptBuilder + RulesBased fallback  
+
+UI responsibilities:
+	•	Each suggestion and conflict row:
+	•	Explanation icon that calls getExplanation(patientId, serviceTypeId, staffId) and opens the explanation modal.
+	•	For grouped proposals:
+	•	Optionally show a high-level explanation summary (e.g. “This group focuses on minimizing travel while respecting continuity”).
+
+⸻
+
+6. Gap Analysis vs Existing Spec & Stitch Screens
+
+6.1 vs Harness / Functional Spec
+
+The new design:
+	•	Satisfies and extends:
+	•	scheduling.unscheduled_panel_ui – panel remains, becomes core of AI Overview & Schedule tabs  
+	•	scheduling.quick_navigation – reinterpreted as:
+	•	Filters & selection on Schedule tab (staff, patient, team lane) rather than separate routes.
+	•	ui.scheduler_layout – Unscheduled panel remains above grid, with full-width calendar.
+	•	scheduling.ai_auto_assign – Suggestion rows & Explanation modal reused, but elevated into AI-first flows  
+	•	sspo.assignment_prioritization – will inform AI suggestion ranking; UI can surface provider type chips next to suggestions.
+	•	New fields / concepts needed:
+	•	StaffRole.team_lane_group (or similar), plus optional config to override grouping.
+	•	TeamLaneDTO (id, label, roleCodes, staffIds).
+	•	Possibly AssignmentSuggestion.proposal_group_id (for grouping proposals in Review tab). Could also be FE-only.
+
+6.2 vs Stitch Screens
+
+The Stitch zips provided:
+	•	AI Overview / Scheduler Engine Dashboard – good inspiration for AI at top, metrics cards.
+	•	Scenario Planning – nice metrics framing; we’ll reuse the idea, but implement as Review tab built on existing AutoAssign suggestions.
+	•	Schedule / Calendar – we use these as visual examples but implement them directly on top of existing calendar grid and data.
+	•	Unscheduled Care / Conflict Resolution – align well with Unscheduled panel & Conflicts tab.
+
+Where Stitch fell short:
+	•	Navigation: created separate “pages” instead of internal views.
+	•	Data assumptions: some new constructs (e.g. Day Program) that don’t exist in ServiceType set.
+	•	Lack of explicit wiring to existing AutoAssign API & hooks.
+
+Our spec fixes this by:
+	•	Grounding everything in existing models and APIs.
+	•	Treating Stitch layouts as “inspiration only”.
+	•	Describing precise click flows and data contracts.
+
+⸻
+
+7. Implementation Roadmap for Cursor/Claude
+
+Phase 1 – Shell & State
+	1.	Create SchedulingShell.jsx with tabs and shared useSchedulerState hook.
+	2.	Move existing SchedulingPage.jsx calendar & Unscheduled panel into Schedule tab.
+
+Phase 2 – AI Overview Tab
+	3.	Build AI Overview tab using:
+	•	/v2/scheduling/requirements
+	•	workforce / TFS / missed care metrics
+	•	/v2/scheduling/suggestions with appropriate filters.
+	4.	Show action cards that set a currentProposalGroup and navigate to Review tab.
+
+Phase 3 – Schedule Tab Enhancements
+	5.	Implement Team Lane grouping:
+	•	Add team_lane_group metadata to roles (or separate config).
+	•	Build TeamLaneService to compute lanes.
+	•	Update calendar grid to display lanes + filters.
+	6.	Add List View mode:
+	•	Extend scheduling API to return assignment lists for arbitrary ranges.
+	•	Render historical & future appointments.
+	7.	Add “Accept all visible suggestions”:
+	•	Enhance useAutoAssign to accept an array of suggestions.
+	•	Implement confirmation modal summarizing changes.
+
+Phase 4 – Review Tab
+	8.	Implement proposal grouping state (local FE grouping or grouping id).
+	9.	Build Review UI with group list + detail view and group acceptance flows.
+
+Phase 5 – Conflicts Tab
+	10.	Define ConflictDTO (either new endpoint or built in FE from suggestion & scheduling results).
+	11.	Build Conflicts tab with resolution actions and “Explain why no match” integration.
+
+Phase 6 – Iteration & Critique
+	12.	Ask Cursor/Claude to:
+	•	Critique the implementation vs this spec.
+	•	Perform gap analysis on object fields:
+	•	Check StaffRole, ServiceType, ServiceAssignment, AI suggestion DTOs against what UI expects.
+	•	Propose improvements / refactors while keeping architecture OO + metadata-driven.
+
+⸻
+
+If you like this direction, the next step would be:
+	•	I’ll convert this spec into a Cursor master prompt (similar to the Bundle Engine prompt) that:
+	•	Loads the docs in /docs/UI/scheduler/* + the harness
+	•	Asks Claude 4.5 to:
+	•	Generate an implementation plan
+	•	Then implement Phase 1 in SchedulingShell.jsx + refactor SchedulingPage.jsx accordingly.
