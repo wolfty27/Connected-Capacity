@@ -18,12 +18,14 @@ const AiOverviewTab = () => {
   const {
     loading,
     suggestionsLoading,
+    weeklySummaryLoading,
     suggestionCounts,
     quickWin,
     highPriorityUnscheduled,
     patientsRequiringAttention,
     staffCapacity,
     metricsSummary,
+    weeklySummary,
     regenerateSuggestions,
   } = useAiOverviewData();
 
@@ -118,6 +120,58 @@ const AiOverviewTab = () => {
                   : `${suggestionCounts.weak} weak matches and ${suggestionCounts.none} no-match items require manual review.`
                 }
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Weekly Summary */}
+      {weeklySummary && (
+        <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 rounded-lg border border-violet-200 p-6">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 text-lg flex-shrink-0">
+              🤖
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="font-bold text-violet-900">AI Weekly Summary</h3>
+                {weeklySummary.source === 'vertex_ai' && (
+                  <span className="px-2 py-0.5 text-xs bg-violet-200 text-violet-700 rounded-full">
+                    Powered by Gemini
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-slate-700 mb-4">{weeklySummary.summary}</p>
+              
+              {/* Highlights */}
+              {weeklySummary.highlights?.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-violet-800 mb-2">HIGHLIGHTS</h4>
+                  <ul className="space-y-1">
+                    {weeklySummary.highlights.map((highlight, idx) => (
+                      <li key={idx} className="text-sm text-slate-600 flex items-start gap-2">
+                        <span className="text-violet-500 mt-0.5">•</span>
+                        <span>{highlight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Priorities */}
+              {weeklySummary.priorities?.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-violet-800 mb-2">RECOMMENDED ACTIONS</h4>
+                  <ol className="space-y-1">
+                    {weeklySummary.priorities.map((priority, idx) => (
+                      <li key={idx} className="text-sm text-slate-600 flex items-start gap-2">
+                        <span className="text-violet-600 font-bold">{idx + 1}.</span>
+                        <span>{priority}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </div>
           </div>
         </div>

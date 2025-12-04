@@ -420,6 +420,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Get summary statistics
         Route::get('/suggestions/summary', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'summary']);
         
+        // Get AI-powered weekly summary for scheduler overview
+        Route::get('/suggestions/weekly-summary', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'weeklySummary']);
+        
         // Get explanation for a specific suggestion
         Route::get('/suggestions/{patient_id}/{service_type_id}/explain', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'explain'])
             ->where(['patient_id' => '[0-9]+', 'service_type_id' => '[0-9]+']);

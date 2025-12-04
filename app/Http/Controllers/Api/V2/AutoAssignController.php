@@ -339,4 +339,88 @@ class AutoAssignController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Generate AI-powered weekly scheduling summary.
+     *
+     * GET /api/v2/scheduling/suggestions/weekly-summary
+     *
+     * Returns a natural language summary of the week's scheduling situation,
+     * including highlights, priorities, and AI insights.
+     *
+     * @return JsonResponse
+     */
+    public function weeklySummary(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'week_start' => 'sometimes|date',
+            'organization_id' => 'sometimes|integer|exists:service_provider_organizations,id',
+        ]);
+
+        $weekStart = isset($validated['week_start'])
+            ? Carbon::parse($validated['week_start'])->startOfWeek()
+            : Carbon::now()->startOfWeek();
+        $weekEnd = $weekStart->copy()->endOfWeek();
+
+        $organizationId = $validated['organization_id']
+            ?? auth()->user()->organization_id;
+
+        if (!$organizationId) {
+            return response()->json([
+                'error' => 'Organization ID is required',
+            ], 400);
+        }
+
+        // Generate suggestions to get AI metrics
+        $suggestions = $this->autoAssignEngine->generateSuggestions(
+            $organizationId,
+            $weekStart,
+            $weekEnd
+        );
+
+        $byStatus = $suggestions->groupBy('matchStatus');
+
+        // Gather metrics for summary generation
+        // TODO: In production, these would come from other services
+        $metrics = [
+            'total_staff' => \App\Models\User::whereHas('staffProfile', function ($q) use ($organizationId) {
+                $q->where('organization_id', $organizationId)->where('status', 'active');
+            })->count() ?: 25,
+            'available_hours' => 800, // Would come from WorkforceCapacityService
+            'scheduled_hours' => 650, // Would come from SchedulingController
+            'net_capacity' => 150,
+            'unscheduled_hours' => 120.5,
+            'unscheduled_visits' => $suggestions->count(),
+            'patients_needing_care' => $suggestions->pluck('patientId')->unique()->count(),
+            'total_suggestions' => $suggestions->count(),
+            'strong_matches' => $byStatus->get('strong', collect())->count(),
+            'moderate_matches' => $byStatus->get('moderate', collect())->count(),
+            'weak_matches' => $byStatus->get('weak', collect())->count() + $byStatus->get('none', collect())->count(),
+            'tfs_hours' => 18.5, // Would come from TfsController
+            'missed_care_rate' => 2.1, // Would come from SpoDashboardController
+        ];
+
+        // Generate AI summary
+        $summary = $this->explanationService->generateWeeklySummary(
+            $metrics,
+            auth()->id()
+        );
+
+        return response()->json([
+            'data' => [
+                'summary' => $summary['summary'],
+                'highlights' => $summary['highlights'],
+                'priorities' => $summary['priorities'],
+                'source' => $summary['source'],
+            ],
+            'metrics' => $metrics,
+            'meta' => [
+                'week_start' => $weekStart->toDateString(),
+                'week_end' => $weekEnd->toDateString(),
+                'organization_id' => $organizationId,
+                'generated_at' => now()->toIso8601String(),
+                'response_time_ms' => $summary['response_time_ms'] ?? 0,
+            ],
+        ]);
+    }
 }

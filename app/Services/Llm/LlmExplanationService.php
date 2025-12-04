@@ -247,4 +247,242 @@ class LlmExplanationService
             Log::channel($this->config->logChannel)->error("[LlmExplanationService] {$message}", $context);
         }
     }
+
+    // ==========================================
+    // Weekly Summary (Scheduler 2.0)
+    // ==========================================
+
+    /**
+     * Generate a weekly AI summary for the scheduler overview.
+     * 
+     * Provides a natural language summary of:
+     * - Staffing situation (capacity vs demand)
+     * - Key risks and attention areas
+     * - Suggested priorities for the week
+     * 
+     * @param array $weeklyMetrics Aggregated metrics for the week
+     * @param int|null $requestedBy User ID requesting the summary
+     * @return array{summary: string, highlights: array, priorities: array, source: string}
+     */
+    public function generateWeeklySummary(array $weeklyMetrics, ?int $requestedBy = null): array
+    {
+        $startTime = microtime(true);
+
+        // Build the summary prompt
+        $summaryPrompt = $this->buildWeeklySummaryPrompt($weeklyMetrics);
+
+        // If Vertex AI is disabled or unavailable, use rules-based fallback
+        if (!$this->config->isEnabled() || !$this->vertexAiClient) {
+            return $this->generateRulesBasedWeeklySummary($weeklyMetrics);
+        }
+
+        // Try Vertex AI
+        try {
+            $response = $this->vertexAiClient->generateContent($summaryPrompt);
+            
+            $result = [
+                'summary' => $response['summary'] ?? $this->buildFallbackSummaryText($weeklyMetrics),
+                'highlights' => $response['highlights'] ?? [],
+                'priorities' => $response['priorities'] ?? [],
+                'source' => 'vertex_ai',
+                'response_time_ms' => (int) round((microtime(true) - $startTime) * 1000),
+            ];
+
+            $this->logWeeklySummaryAttempt('vertex_ai', 'success', $requestedBy, $result);
+            return $result;
+
+        } catch (\Exception $e) {
+            $this->logWarning('Vertex AI weekly summary failed, using fallback', [
+                'error' => $e->getMessage(),
+            ]);
+
+            $result = $this->generateRulesBasedWeeklySummary($weeklyMetrics);
+            $this->logWeeklySummaryAttempt('rules_based', 'vertex_ai_error', $requestedBy, $result);
+            return $result;
+        }
+    }
+
+    /**
+     * Build the prompt for weekly summary generation.
+     */
+    private function buildWeeklySummaryPrompt(array $metrics): array
+    {
+        $prompt = "You are an AI scheduling assistant for a home healthcare organization. 
+Generate a brief, actionable weekly scheduling summary based on these metrics:
+
+STAFFING:
+- Total Staff: {$metrics['total_staff']}
+- Available Capacity: {$metrics['available_hours']}h
+- Scheduled Hours: {$metrics['scheduled_hours']}h
+- Net Capacity: {$metrics['net_capacity']}h
+
+CARE DEMAND:
+- Unscheduled Care: {$metrics['unscheduled_hours']}h ({$metrics['unscheduled_visits']} visits)
+- Patients Needing Care: {$metrics['patients_needing_care']}
+
+AI SUGGESTIONS:
+- Total Suggestions: {$metrics['total_suggestions']}
+- Strong Matches: {$metrics['strong_matches']}
+- Moderate Matches: {$metrics['moderate_matches']}
+- Weak/No Match: {$metrics['weak_matches']}
+
+METRICS:
+- Time-to-First-Service: {$metrics['tfs_hours']}h (target: <24h)
+- Missed Care Rate: {$metrics['missed_care_rate']}% (target: 0%)
+
+Provide a response in this JSON format:
+{
+  \"summary\": \"A 2-3 sentence overview of the week's scheduling situation\",
+  \"highlights\": [\"Key insight 1\", \"Key insight 2\", \"Key insight 3\"],
+  \"priorities\": [\"Priority action 1\", \"Priority action 2\", \"Priority action 3\"]
+}";
+
+        return [
+            'contents' => [
+                ['role' => 'user', 'parts' => [['text' => $prompt]]]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.3,
+                'maxOutputTokens' => 500,
+            ],
+        ];
+    }
+
+    /**
+     * Generate rules-based weekly summary (fallback).
+     */
+    private function generateRulesBasedWeeklySummary(array $metrics): array
+    {
+        $summary = $this->buildFallbackSummaryText($metrics);
+        $highlights = $this->buildFallbackHighlights($metrics);
+        $priorities = $this->buildFallbackPriorities($metrics);
+
+        return [
+            'summary' => $summary,
+            'highlights' => $highlights,
+            'priorities' => $priorities,
+            'source' => 'rules_based',
+            'response_time_ms' => 0,
+        ];
+    }
+
+    /**
+     * Build fallback summary text based on metrics.
+     */
+    private function buildFallbackSummaryText(array $metrics): string
+    {
+        $netCapacity = $metrics['net_capacity'] ?? 0;
+        $unscheduledHours = $metrics['unscheduled_hours'] ?? 0;
+        $strongMatches = $metrics['strong_matches'] ?? 0;
+        $totalSuggestions = $metrics['total_suggestions'] ?? 0;
+
+        $capacityStatus = $netCapacity > $unscheduledHours 
+            ? 'sufficient capacity' 
+            : ($netCapacity < 0 ? 'over capacity' : 'tight capacity');
+
+        $aiStatus = $totalSuggestions > 0
+            ? "{$strongMatches} of {$totalSuggestions} AI suggestions are high-confidence"
+            : 'No AI suggestions available';
+
+        return "This week shows {$capacityStatus} with {$unscheduledHours}h of care still to schedule. {$aiStatus}.";
+    }
+
+    /**
+     * Build fallback highlights based on metrics.
+     */
+    private function buildFallbackHighlights(array $metrics): array
+    {
+        $highlights = [];
+
+        // Capacity highlight
+        $netCapacity = $metrics['net_capacity'] ?? 0;
+        if ($netCapacity < 0) {
+            $highlights[] = "⚠️ Team is {$netCapacity}h over capacity - consider overtime or SSPO support";
+        } elseif ($netCapacity < 20) {
+            $highlights[] = "Capacity is tight with only {$netCapacity}h available";
+        } else {
+            $highlights[] = "✓ Good capacity buffer of {$netCapacity}h available";
+        }
+
+        // AI suggestions highlight
+        $strongMatches = $metrics['strong_matches'] ?? 0;
+        if ($strongMatches > 0) {
+            $highlights[] = "{$strongMatches} visits can be auto-assigned with high confidence";
+        }
+
+        // TFS highlight
+        $tfsHours = $metrics['tfs_hours'] ?? 0;
+        if ($tfsHours > 24) {
+            $highlights[] = "⚠️ TFS at {$tfsHours}h exceeds 24h target";
+        } elseif ($tfsHours > 0) {
+            $highlights[] = "✓ TFS on track at {$tfsHours}h";
+        }
+
+        return array_slice($highlights, 0, 3);
+    }
+
+    /**
+     * Build fallback priorities based on metrics.
+     */
+    private function buildFallbackPriorities(array $metrics): array
+    {
+        $priorities = [];
+
+        // Priority 1: Handle high-confidence suggestions
+        $strongMatches = $metrics['strong_matches'] ?? 0;
+        $moderateMatches = $metrics['moderate_matches'] ?? 0;
+        if ($strongMatches + $moderateMatches > 0) {
+            $priorities[] = "Review and approve " . ($strongMatches + $moderateMatches) . " AI-suggested assignments";
+        }
+
+        // Priority 2: Address weak/no matches
+        $weakMatches = $metrics['weak_matches'] ?? 0;
+        if ($weakMatches > 0) {
+            $priorities[] = "Manually resolve {$weakMatches} visits with no strong staff match";
+        }
+
+        // Priority 3: Capacity management
+        $netCapacity = $metrics['net_capacity'] ?? 0;
+        if ($netCapacity < 0) {
+            $priorities[] = "Redistribute workload or request SSPO support";
+        } elseif (($metrics['unscheduled_hours'] ?? 0) > 50) {
+            $priorities[] = "Schedule remaining " . ($metrics['unscheduled_hours'] ?? 0) . "h of unscheduled care";
+        }
+
+        // Priority 4: TFS improvement if needed
+        if (($metrics['tfs_hours'] ?? 0) > 24) {
+            $priorities[] = "Prioritize first visits to improve TFS metric";
+        }
+
+        return array_slice($priorities, 0, 3);
+    }
+
+    /**
+     * Log weekly summary attempt.
+     */
+    private function logWeeklySummaryAttempt(string $source, string $status, ?int $requestedBy, array $result): void
+    {
+        try {
+            DB::table('llm_explanation_logs')->insert([
+                'patient_id' => null,
+                'staff_id' => null,
+                'service_type_id' => null,
+                'organization_id' => null,
+                'requested_by' => $requestedBy,
+                'source' => $source,
+                'status' => 'weekly_summary_' . $status,
+                'confidence_score' => null,
+                'match_status' => null,
+                'candidates_evaluated' => null,
+                'candidates_passed' => null,
+                'response_time_ms' => $result['response_time_ms'] ?? 0,
+                'created_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            // Don't let logging failures break the main flow
+            $this->logError('Failed to log weekly summary attempt', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 }

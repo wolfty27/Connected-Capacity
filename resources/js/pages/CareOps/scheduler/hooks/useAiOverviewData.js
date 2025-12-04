@@ -37,6 +37,10 @@ export function useAiOverviewData() {
   
   // Staff at capacity
   const [staffCapacity, setStaffCapacity] = useState([]);
+  
+  // AI Weekly Summary (from Vertex AI / rules-based)
+  const [weeklySummary, setWeeklySummary] = useState(null);
+  const [weeklySummaryLoading, setWeeklySummaryLoading] = useState(false);
 
   // ============================================
   // Fetch Functions
@@ -133,6 +137,22 @@ export function useAiOverviewData() {
     }
   }, [weekRange.start, weekRange.end]);
 
+  const fetchWeeklySummary = useCallback(async () => {
+    setWeeklySummaryLoading(true);
+    try {
+      const params = new URLSearchParams({
+        week_start: weekRange.start,
+      });
+      const response = await api.get(`/v2/scheduling/suggestions/weekly-summary?${params}`);
+      setWeeklySummary(response.data.data);
+    } catch (err) {
+      console.error('Failed to fetch weekly summary:', err);
+      // Don't throw - weekly summary is nice-to-have, not critical
+    } finally {
+      setWeeklySummaryLoading(false);
+    }
+  }, [weekRange.start]);
+
   // ============================================
   // Load All Data
   // ============================================
@@ -149,6 +169,7 @@ export function useAiOverviewData() {
         fetchUnscheduledRequirements(),
         fetchSuggestions(),
         fetchStaffCapacity(),
+        fetchWeeklySummary(), // AI-generated summary
       ]);
     } catch (err) {
       setError('Failed to load AI Overview data');
@@ -163,6 +184,7 @@ export function useAiOverviewData() {
     fetchUnscheduledRequirements,
     fetchSuggestions,
     fetchStaffCapacity,
+    fetchWeeklySummary,
   ]);
 
   // Initial load
@@ -292,6 +314,7 @@ export function useAiOverviewData() {
     // Loading states
     loading,
     suggestionsLoading,
+    weeklySummaryLoading,
     error,
     
     // Raw data
@@ -302,6 +325,7 @@ export function useAiOverviewData() {
     unscheduledRequirements,
     suggestions,
     staffCapacity,
+    weeklySummary, // AI-generated summary text
     
     // Computed data
     suggestionCounts,
