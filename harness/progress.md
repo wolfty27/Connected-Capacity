@@ -2737,3 +2737,129 @@ Increased base mappings ~40% and CAP floor adjustments ~25% in `config/bundle_en
 
 ### Commit
 - `d3b3032` - feat: increase service intensity matrix mappings
+
+---
+
+## 2025-12-04: Scheduler 2.0 - AI-First Control Center (COMPLETE)
+
+### Overview
+Complete implementation of the Scheduler 2.0 AI-First Control Center, replacing the existing scheduler page with a multi-view, tabbed interface featuring deep AI integration.
+
+### Architecture
+
+```
+SchedulingShell
+├── SchedulerContext (shared state)
+├── Tabs
+│   ├── AI Overview (landing tab)
+│   ├── Schedule (calendar + list view)
+│   ├── Review (batch proposals)
+│   └── Conflicts (issues + resolution)
+└── Hooks
+    ├── useSchedulerData (grid data)
+    ├── useAiOverviewData (metrics + AI summary)
+    ├── useReviewData (proposal groups)
+    └── useConflictsData (conflict detection)
+```
+
+### Phase Summary
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Shell, tabs, state management | ✅ Done |
+| 2 | AI Overview with live metrics | ✅ Done |
+| 3 | Team Lanes + List View enhancements | ✅ Done |
+| 4 | Review tab with proposal groups | ✅ Done |
+| 5 | Conflicts tab with detection | ✅ Done |
+| 6 | Model extensions (team lanes, AI logging) | ✅ Done |
+| 7 | Vertex AI weekly summary | ✅ Done |
+| 8 | Learning Loop integration | ✅ Done |
+
+### New API Endpoints
+
+```
+GET  /api/v2/workforce/metadata/team-lanes         # Team lane config
+GET  /api/v2/scheduling/suggestions/weekly-summary # AI weekly brief
+GET  /api/v2/scheduling/suggestions/analytics      # Learning loop stats
+```
+
+### Database Migrations
+
+1. `add_team_lane_fields_to_staff_roles_table`
+   - `team_lane_group`: Lane grouping identifier
+   - `team_lane_label`: Display label
+   - `team_lane_sort_order`: Display order
+   - `individual_lanes`: Whether staff get individual lanes
+
+2. `create_ai_suggestion_logs_table`
+   - Full suggestion tracking with outcome states
+   - Scoring factors, modifications, time-to-decision
+   - Supports acceptance rate analytics
+
+### Key Features
+
+**AI Overview Tab:**
+- Quick Win card (auto-assignable suggestions)
+- AI Weekly Summary (Vertex AI generated)
+- Metrics cards (TFS, unscheduled, missed care, capacity)
+- Key Insights (patients needing attention, staff at capacity)
+
+**Schedule Tab:**
+- Team Lane Grid (role-based grouping)
+- Enhanced List View (sortable, filterable)
+- Integrated unscheduled care panel
+- Quick Navigation preserved
+
+**Review Tab:**
+- Proposal groups (by quality, category, patient)
+- Impact metrics per group
+- Batch accept/reject flows
+
+**Conflicts Tab:**
+- Auto-detection (double-booking, travel, capacity)
+- No-match items from AI
+- Suggested resolutions
+
+**Learning Loop:**
+- Suggestions logged on generation
+- Outcomes tracked on accept/modify/reject
+- Analytics endpoint with insights
+
+### Files Created (23)
+
+**Frontend:**
+- `resources/js/pages/CareOps/scheduler/SchedulerContext.jsx`
+- `resources/js/pages/CareOps/scheduler/SchedulingShell.jsx`
+- `resources/js/pages/CareOps/scheduler/index.js`
+- `resources/js/pages/CareOps/scheduler/components/TeamLaneGrid.jsx`
+- `resources/js/pages/CareOps/scheduler/hooks/useSchedulerData.js`
+- `resources/js/pages/CareOps/scheduler/hooks/useAiOverviewData.js`
+- `resources/js/pages/CareOps/scheduler/hooks/useReviewData.js`
+- `resources/js/pages/CareOps/scheduler/hooks/useConflictsData.js`
+- `resources/js/pages/CareOps/scheduler/tabs/AiOverviewTab.jsx`
+- `resources/js/pages/CareOps/scheduler/tabs/ScheduleTab.jsx`
+- `resources/js/pages/CareOps/scheduler/tabs/ReviewTab.jsx`
+- `resources/js/pages/CareOps/scheduler/tabs/ConflictsTab.jsx`
+
+**Backend:**
+- `app/Models/AiSuggestionLog.php`
+- `database/migrations/2025_12_04_164735_add_team_lane_fields_to_staff_roles_table.php`
+- `database/migrations/2025_12_04_164810_create_ai_suggestion_logs_table.php`
+
+**Modified:**
+- `app/Models/StaffRole.php` (team lane methods)
+- `app/Services/Scheduling/AutoAssignEngine.php` (learning loop)
+- `app/Services/Llm/LlmExplanationService.php` (weekly summary)
+- `app/Http/Controllers/Api/V2/AutoAssignController.php` (new endpoints)
+- `app/Http/Controllers/Api/V2/WorkforceController.php` (team lanes)
+- `routes/api.php` (new routes)
+- `resources/js/components/App.jsx` (routing)
+
+### Commits
+- Phase 1: `feat(scheduler): Phase 1 - SchedulingShell with tabs and state management`
+- Phase 2: `feat(scheduler): Phase 2 - AI Overview tab with live metrics`
+- Phase 3: `feat(scheduler): Phase 3 - Team Lane grouping and enhanced List View`
+- Phase 4+5: `feat(scheduler): Phase 4 & 5 - Review tab and Conflicts tab with live data`
+- Phase 6: `feat(scheduler): Phase 6 - Model extensions for Team Lanes and AI logging`
+- Phase 7: `feat(scheduler): Phase 7 - AI Weekly Summary with Vertex AI integration`
+- Phase 8: `feat(scheduler): Phase 8 - Learning Loop Integration`
