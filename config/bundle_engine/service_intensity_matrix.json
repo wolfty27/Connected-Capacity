@@ -1,17 +1,18 @@
 {
   "$schema": "bundle_engine/schemas/service_intensity_matrix.schema.json",
-  "version": "1.0.0",
-  "last_updated": "2025-12-03",
-  "updated_by": "Bundle Engine Initial Configuration",
+  "version": "1.1.0",
+  "last_updated": "2025-12-04",
+  "updated_by": "Intensity Adjustment - Base +40%, CAP floors +25%",
   "review_status": "draft",
-  "next_review_date": "2026-03-03",
+  "next_review_date": "2026-03-04",
+  "cost_threshold_note": "Maximum weekly cost at highest acuity with CAPs: ~$4,500. Multipliers kept conservative to stay under $5,000/week.",
 
   "psa_to_psw_hours": {
     "description": "Personal Support Algorithm score → PSW hours/week",
     "source": {
       "primary": "Ontario Home Care PSA Implementation Guidelines",
       "secondary": "Clinical judgment based on typical utilization patterns",
-      "notes": "Ranges are starting points; actual allocation depends on individual assessment"
+      "notes": "Ranges adjusted upward to reflect realistic community care intensity"
     },
     "mappings": {
       "1": {
@@ -21,34 +22,34 @@
         "rationale": "SRI indicates self-reliance in all ADL and cognition areas"
       },
       "2": {
-        "hours": 3,
+        "hours": 5,
         "label": "Minimal support",
         "confidence": "high",
-        "rationale": "Light assistance needed; typically supervision or setup help only"
+        "rationale": "Light assistance needed; supervision or setup help for select ADLs"
       },
       "3": {
-        "hours": 7,
+        "hours": 10,
         "label": "Moderate support",
         "confidence": "high",
-        "rationale": "ADL assistance required but not daily; approximately 1 hour/day average"
+        "rationale": "ADL assistance required daily; approximately 1.5 hours/day average"
       },
       "4": {
-        "hours": 14,
+        "hours": 18,
         "label": "Moderate-high support",
         "confidence": "medium",
-        "rationale": "Daily ADL support needed; approximately 2 hours/day"
+        "rationale": "Daily ADL support needed; approximately 2.5 hours/day with split visits"
       },
       "5": {
-        "hours": 21,
+        "hours": 28,
         "label": "High support",
         "confidence": "medium",
-        "rationale": "Extensive daily support; approximately 3 hours/day, may require split visits"
+        "rationale": "Extensive daily support; approximately 4 hours/day, requires split visits"
       },
       "6": {
-        "hours": 35,
+        "hours": 45,
         "label": "Very high support",
         "confidence": "exploratory",
-        "rationale": "Approaching 24-hour care threshold; 5 hours/day baseline. Consider facility referral assessment."
+        "rationale": "Near 24-hour care threshold; 6+ hours/day baseline. Facility referral assessment recommended."
       }
     },
     "modifiers": {
@@ -88,25 +89,25 @@
         "rationale": "Self-reliant or palliative focus; no rehabilitation potential indicators"
       },
       "2": {
-        "visits": 1,
+        "visits": 2,
         "label": "Maintenance therapy",
         "confidence": "high",
-        "rationale": "Preserve current function; prevent decline. Weekly monitoring visit."
+        "rationale": "Preserve current function; prevent decline. Twice weekly monitoring."
       },
       "3": {
-        "visits": 2,
+        "visits": 3,
         "label": "Moderate rehabilitation",
         "confidence": "high",
         "rationale": "Active improvement potential identified; standard community rehab protocol"
       },
       "4": {
-        "visits": 3,
+        "visits": 5,
         "label": "Intensive rehabilitation",
         "confidence": "medium",
-        "rationale": "High improvement potential; may require coordinated PT+OT intervention"
+        "rationale": "High improvement potential; coordinated PT+OT intervention"
       },
       "5": {
-        "visits": 5,
+        "visits": 7,
         "label": "Very intensive rehabilitation",
         "confidence": "exploratory",
         "rationale": "Maximum community-based intensity; consider inpatient rehab referral if available"
@@ -165,31 +166,31 @@
         "rationale": "No health instability indicators; nursing as needed basis"
       },
       "1": {
-        "visits": 0.5,
+        "visits": 1,
         "label": "Low instability",
         "confidence": "high",
-        "rationale": "Minor health fluctuation; monitoring visit every 2 weeks"
+        "rationale": "Minor health fluctuation; weekly monitoring visit"
       },
       "2": {
-        "visits": 1,
+        "visits": 2,
         "label": "Moderate instability",
         "confidence": "high",
-        "rationale": "Weekly monitoring recommended; watch for deterioration signs"
+        "rationale": "Twice weekly monitoring recommended; watch for deterioration signs"
       },
       "3": {
-        "visits": 2,
+        "visits": 3,
         "label": "High instability",
         "confidence": "medium",
-        "rationale": "Twice weekly visits; active symptom management needed"
+        "rationale": "Three visits weekly; active symptom management needed"
       },
       "4": {
-        "visits": 3,
+        "visits": 5,
         "label": "Very high instability",
         "confidence": "medium",
-        "rationale": "Every other day visits; high hospitalization risk - close monitoring"
+        "rationale": "Near-daily visits; high hospitalization risk - close monitoring"
       },
       "5": {
-        "visits": 5,
+        "visits": 7,
         "label": "Critical - daily nursing",
         "confidence": "exploratory",
         "rationale": "Daily visits required; consider palliative care or facility referral"
@@ -231,28 +232,28 @@
         "rationale": "Occasional mild symptoms; monitor but no intervention needed"
       },
       "2": {
-        "visits": 0,
+        "visits": 0.5,
         "label": "Mild distress",
         "confidence": "high",
-        "rationale": "Some mood symptoms; supportive care during existing visits"
+        "rationale": "Some mood symptoms; supportive care check-in biweekly"
       },
       "3": {
-        "visits": 0.5,
+        "visits": 1,
         "label": "Moderate distress",
         "confidence": "medium",
-        "rationale": "Consider SW or MH referral; biweekly check-in"
+        "rationale": "SW or MH referral indicated; weekly check-in"
       },
       "4": {
-        "visits": 1,
+        "visits": 1.5,
         "label": "Significant distress",
         "confidence": "medium",
-        "rationale": "SW involvement recommended; weekly monitoring"
+        "rationale": "SW involvement required; 1-2 visits weekly"
       },
       "5": {
-        "visits": 1,
+        "visits": 2,
         "label": "High distress",
         "confidence": "medium",
-        "rationale": "Mental health consultation needed; potential MH specialist referral"
+        "rationale": "Mental health consultation needed; twice weekly support"
       }
     },
     "service_type": "SW",
@@ -261,56 +262,56 @@
   },
 
   "cap_floor_adjustments": {
-    "_comment": "CAP triggers add to category floors beyond algorithm-derived minimums",
+    "_comment": "CAP triggers add to category floors beyond algorithm-derived minimums. Increased 25% from v1.0.",
     "falls": {
-      "personal_support": { "floor_add": 2, "recommended_add": 3 },
-      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 4 }
-    },
-    "pain": {
-      "clinical_monitoring": { "floor_add": 1, "recommended_add": 1 },
-      "risk_mgmt_and_complexity": { "floor_add": 1, "recommended_add": 2 }
-    },
-    "pressure_ulcer": {
-      "clinical_monitoring": { "floor_add": 2, "recommended_add": 3 },
-      "personal_support": { "floor_add": 2, "recommended_add": 3 }
-    },
-    "undernutrition": {
-      "nutrition_support": { "floor_add": 5, "recommended_add": 7 },
-      "clinical_monitoring": { "floor_add": 1, "recommended_add": 1 }
-    },
-    "dehydration": {
-      "nutrition_support": { "floor_add": 3, "recommended_add": 5 },
-      "clinical_monitoring": { "floor_add": 1, "recommended_add": 2 }
-    },
-    "medications": {
-      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 3 },
-      "clinical_monitoring": { "floor_add": 1, "recommended_add": 1 }
-    },
-    "mood": {
-      "social_support": { "floor_add": 1, "recommended_add": 2 },
-      "risk_mgmt_and_complexity": { "floor_add": 1, "recommended_add": 2 }
-    },
-    "informal_support": {
-      "social_support": { "floor_add": 2, "recommended_add": 4 },
-      "personal_support": { "floor_add": 1, "recommended_add": 2 }
-    },
-    "cognitive_loss": {
-      "personal_support": { "floor_add": 3, "recommended_add": 5 },
-      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 3 },
-      "social_support": { "floor_add": 1, "recommended_add": 2 }
-    },
-    "cardiorespiratory": {
-      "clinical_monitoring": { "floor_add": 2, "recommended_add": 3 },
-      "risk_mgmt_and_complexity": { "floor_add": 2, "recommended_add": 3 }
-    },
-    "adl": {
-      "personal_support": { "floor_add": 2, "recommended_add": 4 },
+      "personal_support": { "floor_add": 3, "recommended_add": 4 },
+      "risk_mgmt_and_complexity": { "floor_add": 3, "recommended_add": 5 },
       "rehab_support": { "floor_add": 1, "recommended_add": 2 }
     },
+    "pain": {
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 2 },
+      "risk_mgmt_and_complexity": { "floor_add": 1, "recommended_add": 3 }
+    },
+    "pressure_ulcer": {
+      "clinical_monitoring": { "floor_add": 3, "recommended_add": 4 },
+      "personal_support": { "floor_add": 3, "recommended_add": 4 }
+    },
+    "undernutrition": {
+      "nutrition_support": { "floor_add": 6, "recommended_add": 9 },
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "dehydration": {
+      "nutrition_support": { "floor_add": 4, "recommended_add": 6 },
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 3 }
+    },
+    "medications": {
+      "risk_mgmt_and_complexity": { "floor_add": 3, "recommended_add": 4 },
+      "clinical_monitoring": { "floor_add": 1, "recommended_add": 2 }
+    },
+    "mood": {
+      "social_support": { "floor_add": 1, "recommended_add": 3 },
+      "risk_mgmt_and_complexity": { "floor_add": 1, "recommended_add": 3 }
+    },
+    "informal_support": {
+      "social_support": { "floor_add": 3, "recommended_add": 5 },
+      "personal_support": { "floor_add": 1, "recommended_add": 3 }
+    },
+    "cognitive_loss": {
+      "personal_support": { "floor_add": 4, "recommended_add": 6 },
+      "risk_mgmt_and_complexity": { "floor_add": 3, "recommended_add": 4 },
+      "social_support": { "floor_add": 1, "recommended_add": 3 }
+    },
+    "cardiorespiratory": {
+      "clinical_monitoring": { "floor_add": 3, "recommended_add": 4 },
+      "risk_mgmt_and_complexity": { "floor_add": 3, "recommended_add": 4 }
+    },
+    "adl": {
+      "personal_support": { "floor_add": 3, "recommended_add": 5 },
+      "rehab_support": { "floor_add": 1, "recommended_add": 3 }
+    },
     "iadl": {
-      "personal_support": { "floor_add": 1, "recommended_add": 2 },
-      "rehab_support": { "floor_add": 1, "recommended_add": 1 }
+      "personal_support": { "floor_add": 1, "recommended_add": 3 },
+      "rehab_support": { "floor_add": 1, "recommended_add": 2 }
     }
   }
 }
-
