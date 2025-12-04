@@ -1615,3 +1615,48 @@ Analyzed the following files to extract all functionality:
 
 ### Commits
 - `680aefb` - docs: add SPO Scheduling functional spec for Figma redesign
+
+---
+
+## 2025-12-04 - Session: Service Intensity Matrix Adjustment
+
+### Objective
+Increase service intensity levels in care bundles which appeared too light.
+
+### Root Cause Analysis
+1. Algorithm scores in seeded data clustered toward middle values (2-4)
+2. Intensity matrix mappings were conservative:
+   - PSA score 3 → only 7h PSW/week
+   - Rehab score 2 → only 1 therapy visit/week
+   - CHESS score 2 → only 1 nursing visit/week
+
+### Changes Made
+
+#### Base Mappings (~40% Increase)
+| Service | Score 3 Old | Score 3 New | Score 5 Old | Score 5 New |
+|---------|-------------|-------------|-------------|-------------|
+| PSW | 7h | 10h | 21h | 28h |
+| Nursing | 2 visits | 3 visits | 5 visits | 7 visits |
+| Therapy | 2 visits | 3 visits | 5 visits | 7 visits |
+| Mental Health | 0.5 visits | 1 visit | 1 visit | 2 visits |
+
+#### CAP Floor Adjustments (~25% Increase)
+- falls → personal_support: 2 → 3
+- falls → rehab_support: 0 → 1 (new)
+- pressure_ulcer → clinical: 2 → 3
+- cognitive_loss → personal: 3 → 4
+- cardiorespiratory → clinical: 2 → 3
+
+### Cost Analysis
+- **Typical mid-acuity**: ~$930/week
+- **High acuity no CAPs**: ~$2,130/week
+- **Maximum with heavy CAPs**: ~$4,260/week ✅
+- **Threshold**: $5,000/week (not exceeded)
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `config/bundle_engine/service_intensity_matrix.json` | v1.0.0 → v1.1.0 |
+
+### Commits
+- `d3b3032` - feat: increase service intensity matrix mappings

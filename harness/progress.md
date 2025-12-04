@@ -2713,3 +2713,27 @@ Created comprehensive functional specification document to support Figma redesig
 
 ### Commit
 - `680aefb` - docs: add SPO Scheduling functional spec for Figma redesign
+
+---
+
+## 2025-12-04: Service Intensity Matrix v1.1.0
+
+### Problem
+Care bundles appeared too light - typical patients receiving only 7-9 hours of care per week.
+
+### Solution
+Increased base mappings ~40% and CAP floor adjustments ~25% in `config/bundle_engine/service_intensity_matrix.json`.
+
+### Key Changes
+- **PSW**: Score 3 now yields 10h (was 7h), Score 5 yields 28h (was 21h)
+- **Nursing**: Score 2 now yields 2 visits (was 1), Score 5 yields 7 visits (was 5)
+- **Therapy**: Score 3 now yields 3 visits (was 2), Score 5 yields 7 visits (was 5)
+- **CAP floors**: All increased ~25%, added falls→rehab_support trigger
+
+### Cost Impact
+- Maximum weekly cost at highest acuity with heavy CAPs: ~$4,260
+- Threshold ($5,000/week) not exceeded
+- Axis modifiers kept conservative to prevent threshold breach
+
+### Commit
+- `d3b3032` - feat: increase service intensity matrix mappings
