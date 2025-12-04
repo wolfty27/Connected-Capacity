@@ -40,6 +40,7 @@ import SspoDashboardPage from '../pages/SSPO/SspoDashboardPage';
 import SspoWorkforcePage from '../pages/SSPO/SspoWorkforcePage';
 import SspoCapabilityPage from '../pages/CareOps/SspoCapabilityPage';
 import SchedulingPage from '../pages/CareOps/SchedulingPage';
+import { SchedulingShell } from '../pages/CareOps/scheduler';
 import InterraiCompletionWizard from '../pages/InterRAI/InterraiCompletionWizard';
 import InterraiDashboardPage from '../pages/InterRAI/InterraiDashboardPage';
 import InterraiAssessmentForm from '../pages/InterRAI/InterraiAssessmentForm';
@@ -109,9 +110,12 @@ const AppRoutes = () => {
                         <Route path="/sspo-marketplace/:id" element={<SspoProfilePage />} />
                         <Route path="/sspo-capabilities" element={<SspoCapabilityPage />} />
                         <Route path="/weekly-huddle" element={<WeeklyHuddlePage />} />
-                        <Route path="/spo/scheduling" element={<SchedulingPage isSspoMode={false} />} />
-                        {/* SSPO scheduling removed - unified in Scheduler */}
-                        <Route path="/scheduling" element={<SchedulingPage isSspoMode={false} />} />
+                        {/* Scheduler 2.0 - AI-First Control Center */}
+                        <Route path="/spo/scheduling" element={<SchedulingShell isSspoMode={false} />} />
+                        <Route path="/sspo/scheduling" element={<SchedulingShell isSspoMode={true} />} />
+                        <Route path="/scheduling" element={<SchedulingShell isSspoMode={false} />} />
+                        {/* Legacy route for backwards compatibility */}
+                        <Route path="/scheduling-legacy" element={<SchedulingPage isSspoMode={false} />} />
 
                         {/* Compliance & Reporting */}
                         <Route path="/qin" element={<QinManagerPage />} />
