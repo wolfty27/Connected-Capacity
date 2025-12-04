@@ -423,4 +423,129 @@ class AutoAssignController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Get AI suggestion acceptance analytics for the learning loop.
+     *
+     * GET /api/v2/scheduling/suggestions/analytics
+     *
+     * Returns acceptance rates, modification patterns, and trends
+     * to inform AI model improvements.
+     *
+     * @return JsonResponse
+     */
+    public function analytics(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'week_start' => 'sometimes|date',
+            'organization_id' => 'sometimes|integer|exists:service_provider_organizations,id',
+            'period' => 'sometimes|string|in:week,month,quarter',
+        ]);
+
+        $organizationId = $validated['organization_id']
+            ?? auth()->user()->organization_id;
+
+        if (!$organizationId) {
+            return response()->json([
+                'error' => 'Organization ID is required',
+            ], 400);
+        }
+
+        $weekStart = isset($validated['week_start'])
+            ? Carbon::parse($validated['week_start'])->startOfWeek()
+            : null;
+
+        // Get acceptance rate analytics
+        $analytics = \App\Models\AiSuggestionLog::getAcceptanceRate(
+            $organizationId,
+            $weekStart?->toDateString()
+        );
+
+        // Get breakdown by match status
+        $byMatchStatus = \App\Models\AiSuggestionLog::forOrganization($organizationId)
+            ->when($weekStart, fn ($q) => $q->forWeek($weekStart->toDateString()))
+            ->selectRaw('match_status, outcome, count(*) as count')
+            ->groupBy('match_status', 'outcome')
+            ->get()
+            ->groupBy('match_status')
+            ->map(function ($group) {
+                return $group->pluck('count', 'outcome')->toArray();
+            })
+            ->toArray();
+
+        // Get average time to decision
+        $avgDecisionTime = \App\Models\AiSuggestionLog::forOrganization($organizationId)
+            ->when($weekStart, fn ($q) => $q->forWeek($weekStart->toDateString()))
+            ->whereNotNull('time_to_decision_seconds')
+            ->avg('time_to_decision_seconds');
+
+        // Get modification patterns
+        $modificationPatterns = \App\Models\AiSuggestionLog::forOrganization($organizationId)
+            ->when($weekStart, fn ($q) => $q->forWeek($weekStart->toDateString()))
+            ->where('outcome', 'modified')
+            ->whereNotNull('modifications')
+            ->get()
+            ->pluck('modifications')
+            ->filter()
+            ->reduce(function ($carry, $mods) {
+                foreach (array_keys($mods) as $key) {
+                    $carry[$key] = ($carry[$key] ?? 0) + 1;
+                }
+                return $carry;
+            }, []);
+
+        return response()->json([
+            'data' => [
+                'acceptance_rate' => $analytics,
+                'by_match_status' => $byMatchStatus,
+                'avg_decision_time_seconds' => round($avgDecisionTime ?? 0),
+                'modification_patterns' => $modificationPatterns,
+            ],
+            'meta' => [
+                'organization_id' => $organizationId,
+                'week_start' => $weekStart?->toDateString(),
+                'generated_at' => now()->toIso8601String(),
+            ],
+            'insights' => $this->generateAnalyticsInsights($analytics, $byMatchStatus, $modificationPatterns),
+        ]);
+    }
+
+    /**
+     * Generate human-readable insights from analytics data.
+     */
+    private function generateAnalyticsInsights(array $analytics, array $byMatchStatus, array $modifications): array
+    {
+        $insights = [];
+
+        // Acceptance rate insight
+        if ($analytics['acceptance_rate'] > 80) {
+            $insights[] = "Excellent acceptance rate ({$analytics['acceptance_rate']}%) - AI suggestions are well-aligned with user preferences.";
+        } elseif ($analytics['acceptance_rate'] > 60) {
+            $insights[] = "Good acceptance rate ({$analytics['acceptance_rate']}%) - AI suggestions are generally useful.";
+        } elseif ($analytics['acceptance_rate'] > 0) {
+            $insights[] = "Low acceptance rate ({$analytics['acceptance_rate']}%) - Consider reviewing AI scoring factors.";
+        }
+
+        // Modification rate insight
+        if ($analytics['modification_rate'] > 30) {
+            $insights[] = "High modification rate ({$analytics['modification_rate']}%) - Users often adjust AI suggestions.";
+            
+            // What are they modifying?
+            if (isset($modifications['staff_changed']) && $modifications['staff_changed'] > 0) {
+                $insights[] = "Staff changes are the most common modification - consider refining staff matching criteria.";
+            }
+        }
+
+        // Strong match acceptance
+        $strongAccepted = ($byMatchStatus['strong']['accepted'] ?? 0) + ($byMatchStatus['strong']['modified'] ?? 0);
+        $strongTotal = array_sum($byMatchStatus['strong'] ?? [0]);
+        if ($strongTotal > 0) {
+            $strongRate = round(($strongAccepted / $strongTotal) * 100);
+            if ($strongRate < 70) {
+                $insights[] = "Strong match acceptance is only {$strongRate}% - review what makes a 'strong' match.";
+            }
+        }
+
+        return $insights;
+    }
 }

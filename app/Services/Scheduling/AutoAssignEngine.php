@@ -2,6 +2,7 @@
 
 namespace App\Services\Scheduling;
 
+use App\Models\AiSuggestionLog;
 use App\Models\Patient;
 use App\Models\ServiceAssignment;
 use App\Models\ServiceRoleMapping;
@@ -77,7 +78,7 @@ class AutoAssignEngine
         }
 
         // 3. Sort by match quality (strong matches first)
-        return $suggestions->sortByDesc(function ($s) {
+        $sortedSuggestions = $suggestions->sortByDesc(function ($s) {
             return match ($s->matchStatus) {
                 'strong' => 4,
                 'moderate' => 3,
@@ -85,6 +86,67 @@ class AutoAssignEngine
                 default => 1,
             } * 100 + $s->confidenceScore;
         })->values();
+
+        // 4. Log suggestions for learning loop (async-safe)
+        $this->logSuggestionsForLearning($sortedSuggestions, $organizationId, $weekStart);
+
+        return $sortedSuggestions;
+    }
+
+    /**
+     * Log suggestions to AI learning table for outcome tracking.
+     * 
+     * This enables the learning loop by tracking:
+     * - Which suggestions were generated
+     * - How users act on them (accept/modify/reject)
+     * - What modifications users make (learning signal)
+     */
+    private function logSuggestionsForLearning(
+        Collection $suggestions,
+        int $organizationId,
+        Carbon $weekStart
+    ): void {
+        try {
+            foreach ($suggestions as $suggestion) {
+                // Check if a pending log already exists for this patient-service-week
+                $existingLog = AiSuggestionLog::where([
+                    'organization_id' => $organizationId,
+                    'patient_id' => $suggestion->patientId,
+                    'service_type_id' => $suggestion->serviceTypeId,
+                    'week_start' => $weekStart->toDateString(),
+                    'outcome' => AiSuggestionLog::OUTCOME_PENDING,
+                ])->first();
+
+                if ($existingLog) {
+                    // Update existing log with new suggestion data
+                    $existingLog->update([
+                        'suggested_staff_id' => $suggestion->suggestedStaffId,
+                        'match_status' => $suggestion->matchStatus,
+                        'confidence_score' => $suggestion->confidenceScore,
+                        'scoring_factors' => $suggestion->scoringFactors ?? null,
+                    ]);
+                } else {
+                    // Create new log entry
+                    AiSuggestionLog::create([
+                        'organization_id' => $organizationId,
+                        'patient_id' => $suggestion->patientId,
+                        'service_type_id' => $suggestion->serviceTypeId,
+                        'week_start' => $weekStart->toDateString(),
+                        'suggested_staff_id' => $suggestion->suggestedStaffId,
+                        'match_status' => $suggestion->matchStatus,
+                        'confidence_score' => $suggestion->confidenceScore,
+                        'scoring_factors' => $suggestion->scoringFactors ?? null,
+                        'source' => AiSuggestionLog::SOURCE_AUTO_ASSIGN,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            // Don't let logging failures break the main flow
+            Log::warning('Failed to log AI suggestions', [
+                'error' => $e->getMessage(),
+                'organization_id' => $organizationId,
+            ]);
+        }
     }
 
     /**
@@ -489,6 +551,19 @@ class AutoAssignEngine
                 'accepted_by' => $acceptedBy,
             ]);
 
+            // Update learning loop log with acceptance
+            $this->markSuggestionAccepted(
+                patientId: $patientId,
+                serviceTypeId: $serviceTypeId,
+                organizationId: $organizationId,
+                assignmentId: $assignment->id,
+                acceptedBy: $acceptedBy,
+                suggestedStaffId: $staffId,
+                finalStaffId: $staffId, // Same as suggested = accepted as-is
+                scheduledStart: $scheduledStart,
+                scheduledEnd: $scheduledEnd
+            );
+
             return [
                 'success' => true,
                 'assignment_id' => $assignment->id,
@@ -504,6 +579,89 @@ class AutoAssignEngine
                 'success' => false,
                 'errors' => ['Failed to create assignment: ' . $e->getMessage()],
             ];
+        }
+    }
+
+    /**
+     * Mark a suggestion as accepted in the learning loop log.
+     * 
+     * Tracks whether the user accepted as-is or modified the suggestion,
+     * which provides learning signal for model improvement.
+     */
+    private function markSuggestionAccepted(
+        int $patientId,
+        int $serviceTypeId,
+        int $organizationId,
+        int $assignmentId,
+        int $acceptedBy,
+        ?int $suggestedStaffId,
+        int $finalStaffId,
+        Carbon $scheduledStart,
+        Carbon $scheduledEnd
+    ): void {
+        try {
+            // Find the pending log for this suggestion
+            $log = AiSuggestionLog::where([
+                'organization_id' => $organizationId,
+                'patient_id' => $patientId,
+                'service_type_id' => $serviceTypeId,
+                'outcome' => AiSuggestionLog::OUTCOME_PENDING,
+            ])->orderBy('created_at', 'desc')->first();
+
+            if (!$log) {
+                // No log found - create one with the acceptance info
+                AiSuggestionLog::create([
+                    'organization_id' => $organizationId,
+                    'patient_id' => $patientId,
+                    'service_type_id' => $serviceTypeId,
+                    'week_start' => $scheduledStart->copy()->startOfWeek()->toDateString(),
+                    'suggested_staff_id' => $suggestedStaffId,
+                    'match_status' => 'unknown', // We don't know without the original suggestion
+                    'outcome' => AiSuggestionLog::OUTCOME_ACCEPTED,
+                    'outcome_at' => now(),
+                    'outcome_user_id' => $acceptedBy,
+                    'final_staff_id' => $finalStaffId,
+                    'final_scheduled_start' => $scheduledStart,
+                    'final_scheduled_end' => $scheduledEnd,
+                    'created_assignment_id' => $assignmentId,
+                    'source' => AiSuggestionLog::SOURCE_AUTO_ASSIGN,
+                ]);
+                return;
+            }
+
+            // Determine if user accepted as-is or modified
+            $isModified = $log->suggested_staff_id !== $finalStaffId;
+            $modifications = [];
+
+            if ($isModified) {
+                $modifications['staff_changed'] = [
+                    'from' => $log->suggested_staff_id,
+                    'to' => $finalStaffId,
+                ];
+            }
+
+            if ($isModified) {
+                $log->markModified(
+                    userId: $acceptedBy,
+                    assignmentId: $assignmentId,
+                    modifications: $modifications,
+                    finalStaffId: $finalStaffId,
+                    finalStart: $scheduledStart,
+                    finalEnd: $scheduledEnd
+                );
+            } else {
+                $log->markAccepted(
+                    userId: $acceptedBy,
+                    assignmentId: $assignmentId
+                );
+            }
+        } catch (\Exception $e) {
+            // Don't let logging failures break the main flow
+            Log::warning('Failed to mark suggestion as accepted in learning log', [
+                'error' => $e->getMessage(),
+                'patient_id' => $patientId,
+                'service_type_id' => $serviceTypeId,
+            ]);
         }
     }
 

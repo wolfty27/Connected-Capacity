@@ -432,6 +432,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         
         // Accept multiple suggestions in batch
         Route::post('/suggestions/accept-batch', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'acceptBatch']);
+        
+        // AI learning loop analytics (acceptance rates, modification patterns)
+        Route::get('/suggestions/analytics', [\App\Http\Controllers\Api\V2\AutoAssignController::class, 'analytics']);
     });
 
     // ====================================================
