@@ -8,6 +8,7 @@
 export { default as SchedulingShell } from './SchedulingShell';
 export { SchedulerProvider, useSchedulerContext, VIEW_MODES, SCHEDULE_SUB_MODES } from './SchedulerContext';
 export { useSchedulerData } from './hooks/useSchedulerData';
+export { useAiOverviewData } from './hooks/useAiOverviewData';
 
 // Tab exports for testing/standalone use
 export { default as AiOverviewTab } from './tabs/AiOverviewTab';
