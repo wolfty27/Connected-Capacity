@@ -415,6 +415,23 @@ class WorkforceController extends Controller
     }
 
     /**
+     * GET /api/v2/workforce/metadata/team-lanes
+     *
+     * Returns team lane configuration for the Scheduler 2.0 TeamLaneGrid component.
+     * Groups staff roles by their lane configuration with display order.
+     * 
+     * @see docs/CC21 Scheduler 2.0 prelim – Design & Implementation Spec.txt
+     */
+    public function metadataTeamLanes(): JsonResponse
+    {
+        $lanes = StaffRole::getTeamLaneGroups();
+
+        return response()->json([
+            'data' => $lanes,
+        ]);
+    }
+
+    /**
      * GET /api/v2/workforce/assignment-summary
      *
      * Returns summary of service assignments for the week, split by source (internal/SSPO).

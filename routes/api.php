@@ -311,6 +311,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Metadata for forms/filters
         Route::get('/metadata/roles', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'metadataRoles']);
         Route::get('/metadata/employment-types', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'metadataEmploymentTypes']);
+        Route::get('/metadata/team-lanes', [\App\Http\Controllers\Api\V2\WorkforceController::class, 'metadataTeamLanes']);
     });
 
     // SSPO Marketplace API - Browse and view SSPO organizations

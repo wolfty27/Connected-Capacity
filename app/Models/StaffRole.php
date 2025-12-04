@@ -68,6 +68,11 @@ class StaffRole extends Model
         'counts_for_fte',
         'sort_order',
         'is_active',
+        // Team Lane fields (Scheduler 2.0)
+        'team_lane_group',
+        'team_lane_label',
+        'team_lane_sort_order',
+        'individual_lanes',
     ];
 
     protected $casts = [
@@ -78,6 +83,9 @@ class StaffRole extends Model
         'counts_for_fte' => 'boolean',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
+        // Team Lane fields
+        'team_lane_sort_order' => 'integer',
+        'individual_lanes' => 'boolean',
     ];
 
     // ==========================================
@@ -198,6 +206,35 @@ class StaffRole extends Model
         };
     }
 
+    /**
+     * Get the effective team lane group (uses category if not explicitly set)
+     */
+    public function getEffectiveTeamLaneGroupAttribute(): string
+    {
+        return $this->team_lane_group ?? $this->category ?? 'other';
+    }
+
+    /**
+     * Get the effective team lane label (uses category label if not set)
+     */
+    public function getEffectiveTeamLaneLabelAttribute(): string
+    {
+        return $this->team_lane_label ?? $this->category_label;
+    }
+
+    /**
+     * Get team lane configuration array for frontend
+     */
+    public function getTeamLaneConfigAttribute(): array
+    {
+        return [
+            'group' => $this->effective_team_lane_group,
+            'label' => $this->effective_team_lane_label,
+            'sort_order' => $this->team_lane_sort_order ?? 100,
+            'individual_lanes' => $this->individual_lanes ?? true,
+        ];
+    }
+
     // ==========================================
     // Static Helpers
     // ==========================================
@@ -237,5 +274,47 @@ class StaffRole extends Model
         }
 
         return in_array($serviceTypeCode, $this->service_type_codes, true);
+    }
+
+    /**
+     * Get team lane groups configuration for scheduler UI
+     * 
+     * Returns an array of lane groups with their roles, sorted by display order.
+     * Used by the TeamLaneGrid component in Scheduler 2.0.
+     */
+    public static function getTeamLaneGroups(): array
+    {
+        $roles = static::active()->ordered()->get();
+        $groups = [];
+
+        foreach ($roles as $role) {
+            $groupKey = $role->effective_team_lane_group;
+            
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = [
+                    'key' => $groupKey,
+                    'label' => $role->effective_team_lane_label,
+                    'sort_order' => $role->team_lane_sort_order ?? 100,
+                    'individual_lanes' => $role->individual_lanes ?? true,
+                    'roles' => [],
+                ];
+            }
+
+            $groups[$groupKey]['roles'][] = [
+                'id' => $role->id,
+                'code' => $role->code,
+                'name' => $role->name,
+            ];
+
+            // If any role in group has individual_lanes = false, group combines
+            if (!($role->individual_lanes ?? true)) {
+                $groups[$groupKey]['individual_lanes'] = false;
+            }
+        }
+
+        // Sort by sort_order
+        uasort($groups, fn ($a, $b) => $a['sort_order'] <=> $b['sort_order']);
+
+        return array_values($groups);
     }
 }
