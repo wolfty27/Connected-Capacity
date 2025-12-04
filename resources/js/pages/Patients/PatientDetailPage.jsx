@@ -174,7 +174,7 @@ const PatientDetailPage = () => {
                     <p className="text-slate-500 text-sm">Patient ID: {patient.id}</p>
                 </div>
                 <Button
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 self-start sm:self-auto flex items-center gap-2"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 self-start sm:self-auto flex items-center gap-2"
                     onClick={() => navigate('/patients')}
                 >
                     <ArrowLeft className="w-4 h-4" />

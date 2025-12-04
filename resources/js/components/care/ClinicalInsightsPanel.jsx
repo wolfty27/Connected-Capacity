@@ -134,34 +134,34 @@ const ClinicalInsightsPanel = ({ algorithmScores, triggeredCAPs, profileSummary 
         return (
             <div
                 key={key}
-                className="relative flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+                className="relative flex items-center gap-1.5 p-2 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-colors min-w-0"
                 onMouseEnter={() => setShowTooltip(key)}
                 onMouseLeave={() => setShowTooltip(null)}
             >
-                <div className={`p-1.5 rounded bg-${def.color}-50`}>
+                <div className={`p-1.5 rounded bg-${def.color}-50 shrink-0`}>
                     <Icon className={`w-3.5 h-3.5 text-${def.color}-600`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-xs font-semibold text-slate-700">{def.abbrev}</span>
-                        <span className="text-[10px] text-slate-400">({score}/{def.range[1]})</span>
+                    <div className="flex items-baseline gap-1 min-w-0">
+                        <span className="text-xs font-semibold text-slate-700 shrink-0">{def.abbrev}</span>
+                        <span className="text-[10px] text-slate-400 shrink-0">({score}/{def.range[1]})</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                        <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="flex items-center gap-1 min-w-0">
+                        <div className="flex-1 min-w-[20px] h-1 bg-slate-100 rounded-full overflow-hidden">
                             <div
                                 className={`h-full bg-${interpretation.color}-500 rounded-full transition-all`}
                                 style={{ width: `${(score / def.range[1]) * 100}%` }}
                             />
                         </div>
-                        <span className={`text-[9px] font-medium text-${interpretation.color}-600 whitespace-nowrap`}>
+                        <span className={`text-[8px] font-medium text-${interpretation.color}-600 shrink-0 whitespace-nowrap`}>
                             {interpretation.label}
                         </span>
                     </div>
                 </div>
 
-                {/* Tooltip */}
+                {/* Tooltip - positioned above the card */}
                 {showTooltip === key && (
-                    <div className="absolute z-50 bottom-full left-0 mb-1 w-48 p-2 bg-slate-900 text-white text-xs rounded-lg shadow-lg">
+                    <div className="absolute z-[100] bottom-full left-0 mb-2 w-48 p-2 bg-slate-900 text-white text-xs rounded-lg shadow-lg pointer-events-none">
                         <div className="font-semibold mb-1">{def.name}</div>
                         <div className="text-slate-300">{def.description}</div>
                         <div className="mt-1 pt-1 border-t border-slate-700">
@@ -181,18 +181,18 @@ const ClinicalInsightsPanel = ({ algorithmScores, triggeredCAPs, profileSummary 
         return (
             <div
                 key={cap.name}
-                className={`p-2 rounded-lg border bg-${colorClass}-50 border-${colorClass}-200`}
+                className={`p-2 rounded-lg border bg-${colorClass}-50 border-${colorClass}-200 overflow-hidden min-w-0`}
             >
-                <div className="flex items-center justify-between gap-2">
-                    <span className={`text-xs font-semibold text-${colorClass}-700`}>
+                <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className={`text-xs font-semibold text-${colorClass}-700 truncate min-w-0 flex-1`}>
                         {cap.name}
                     </span>
-                    <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded bg-${colorClass}-100 text-${colorClass}-700`}>
+                    <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded bg-${colorClass}-100 text-${colorClass}-700 shrink-0`}>
                         {level}
                     </span>
                 </div>
                 {cap.description && (
-                    <p className={`mt-1 text-[10px] text-${colorClass}-600 leading-tight`}>
+                    <p className={`mt-1 text-[10px] text-${colorClass}-600 leading-tight line-clamp-2`}>
                         {cap.description}
                     </p>
                 )}
@@ -208,7 +208,7 @@ const ClinicalInsightsPanel = ({ algorithmScores, triggeredCAPs, profileSummary 
     const activeCAPs = capsArray.filter(cap => cap.level !== 'NOT_TRIGGERED').length;
 
     return (
-        <div className="mt-4 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="mt-4 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200">
             {/* Header */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
@@ -253,7 +253,7 @@ const ClinicalInsightsPanel = ({ algorithmScores, triggeredCAPs, profileSummary 
                                     title="Derived from InterRAI Contact Assessment algorithms"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-1.5 min-w-0" style={{gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))'}}>
                                 {Object.entries(algorithmScores).map(([key, score]) =>
                                     renderAlgorithmScore(key, score)
                                 )}

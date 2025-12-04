@@ -30,21 +30,23 @@ const BundleSummary = ({ services = [], totalCost = 0, isGeneratingAi = false, a
     const addedServices = services.filter(s => s.currentFrequency > 0 && s.defaultFrequency === 0);
 
     const ServiceItem = ({ service }) => (
-        <div className="border border-slate-200 rounded-lg p-3">
-            <div className="flex items-start gap-3 mb-2">
-                <div className="flex-shrink-0 mt-0.5">
+        <div className="border border-slate-200 rounded-lg p-2.5 overflow-hidden min-w-0">
+            {/* Header: Icon + Name/Code */}
+            <div className="flex items-start gap-2 mb-2 min-w-0">
+                <div className="shrink-0 mt-0.5">
                     {getServiceIcon(service.name)}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="font-bold text-slate-900 text-xs leading-tight">{service.name}</div>
-                    <div className="text-[10px] text-slate-500">{service.code}</div>
+                    <div className="font-bold text-slate-900 text-[11px] leading-snug break-words">{service.name}</div>
+                    <div className="text-[9px] text-slate-500">{service.code}</div>
                 </div>
             </div>
-            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                <div className="font-medium text-slate-900 text-xs">
-                    {service.currentFrequency} {service.code === 'PSW' ? 'hours/week' : 'visits/week'}
+            {/* Footer: Frequency + Duration */}
+            <div className="flex flex-wrap items-center justify-between pt-2 border-t border-slate-100 gap-x-2 gap-y-1 min-w-0">
+                <div className="font-medium text-slate-900 text-[10px] whitespace-nowrap">
+                    {service.currentFrequency} {service.code === 'PSW' ? 'hrs/wk' : 'visits/wk'}
                 </div>
-                <div className="text-[10px] text-slate-500">{service.currentDuration} wks</div>
+                <div className="text-[9px] text-slate-500 whitespace-nowrap">{service.currentDuration} wks</div>
             </div>
         </div>
     );

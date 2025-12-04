@@ -21,6 +21,31 @@
   select::-ms-expand {
     display: none;
   }
+
+  /* Scrollbar styling - works on both light and dark backgrounds */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.5) transparent; /* semi-transparent slate */
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4); /* semi-transparent slate-400 */
+    border-radius: 10px;
+    border: 2px solid transparent;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.7); /* more opaque on hover */
+  }
 }
 
 @layer utilities {

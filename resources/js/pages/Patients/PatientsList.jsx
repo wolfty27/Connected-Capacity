@@ -54,18 +54,32 @@ const PatientsList = () => {
         return true;
     });
 
+    // Helper function to extract last name for sorting
+    const getLastName = (fullName) => {
+        if (!fullName) return '';
+        const parts = fullName.trim().split(/\s+/);
+        return parts[parts.length - 1]; // Get last word as last name
+    };
+
     // Sort patients based on selected option
     const sortedPatients = useMemo(() => {
         return [...filteredPatients].sort((a, b) => {
             switch (sortOption) {
                 case 'name':
+                    // Sort by last name, then first name
+                    const lastNameA = getLastName(a.name);
+                    const lastNameB = getLastName(b.name);
+                    const lastNameCompare = lastNameA.localeCompare(lastNameB);
+                    if (lastNameCompare !== 0) return lastNameCompare;
                     return (a.name || '').localeCompare(b.name || '');
                 case 'rug':
                     // Sort by RUG numeric rank (lower = higher acuity), then by name
                     const rankA = a.rug_numeric_rank ?? 999;
                     const rankB = b.rug_numeric_rank ?? 999;
                     if (rankA !== rankB) return rankA - rankB;
-                    return (a.name || '').localeCompare(b.name || '');
+                    const lastNameA_rug = getLastName(a.name);
+                    const lastNameB_rug = getLastName(b.name);
+                    return lastNameA_rug.localeCompare(lastNameB_rug);
                 case 'queue':
                     // Sort by queue status: Active first, then Ready for Bundle, then Pending
                     const getQueueOrder = (p) => {
@@ -76,7 +90,9 @@ const PatientsList = () => {
                     const orderA = getQueueOrder(a);
                     const orderB = getQueueOrder(b);
                     if (orderA !== orderB) return orderA - orderB;
-                    return (a.name || '').localeCompare(b.name || '');
+                    const lastNameA_queue = getLastName(a.name);
+                    const lastNameB_queue = getLastName(b.name);
+                    return lastNameA_queue.localeCompare(lastNameB_queue);
                 default:
                     return 0;
             }
@@ -192,7 +208,7 @@ const PatientsList = () => {
             {/* Grid - more compact cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {sortedPatients.map((patient) => (
-                    <div key={patient.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200">
+                    <div key={patient.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col">
                         <div className="flex items-start justify-between">
                             <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-lg font-bold flex-shrink-0">
@@ -210,7 +226,7 @@ const PatientsList = () => {
                             )}
                         </div>
 
-                        <div className="mt-3 space-y-1.5">
+                        <div className="mt-3 space-y-1.5 flex-grow">
                             <div className="flex justify-between text-xs">
                                 <span className="text-gray-500">Gender</span>
                                 <span className="text-gray-900 font-medium">{patient.gender || '-'}</span>

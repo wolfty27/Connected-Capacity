@@ -81,11 +81,11 @@ const PatientSummaryCard = ({ patient }) => {
             </div>
 
             {/* RUG Classification Card (replaces TNP) */}
-            <div className={`p-5 border-t ${getRugColor()}`}>
+            <div className={`p-4 border-t ${getRugColor()}`}>
                 <p className="font-semibold text-slate-900 mb-1 text-xs uppercase">InterRAI HC / RUG Classification</p>
                 {rugGroup ? (
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-baseline gap-1 flex-wrap">
                             <span className="text-2xl font-bold">{rugGroup}</span>
                             {rugCategory && (
                                 <span className="text-sm font-medium opacity-80">– {rugCategory}</span>
